@@ -1,0 +1,35 @@
+{
+    "name": "com.fuzzphyte.utility",
+    "version": "0.1.0",
+    "displayName": "FP Utility",
+    "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
+    "unity": "2022.3",
+    "unityRelease": "12f1",
+    "documentationUrl": "https://github.com/jshull/FP_Utility/README.md",
+    "changelogUrl": "https://github.com/jshull/FP_Utility/CHANGELOG.md",
+    "licensesUrl": "https://github.com/jshull/FP_Utility/LICENSE.md",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/jshull/FP_Utility.git"
+    },
+    "dependencies": {
+      "com.unity.mathematics": "1.2.6"
+    },
+    "samples": [
+      {
+        "displayName": "Utility Samples",
+        "description": "Includes some examples of the different scriptable object based use cases and other misc. scripts for how you can utilize some of these base classes",
+        "path": "Samples~/SamplesURP"
+      }
+    ],
+    "keywords": [
+      "ScriptableObject",
+      "FuzzPhyte"
+    ],
+    "author": {
+      "name": "John Shull",
+      "email": "the.john.shull@gmail.com",
+      "url": "https://github.com/jshull"
+    },
+    "type": "tool"
+  }
