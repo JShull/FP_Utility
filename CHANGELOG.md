@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - All of these are considered utility base classes. This package is a "core" package for a lot of future and existing FuzzPhyte packages.
   - SamplesURP
     - ScriptableObjects generated as examples for FP_Theme and other script files that utilize FP_Utilty.cs as well as FP_Timer.cs
+  - Adjusted and added in more classes and custom UnityEvents for the FP_UtilityData.cs file
 
 ### 0.1.0 Changed
 

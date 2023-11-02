@@ -4,10 +4,11 @@ using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
 using UnityEngine.Events;
 
-///script file to hold misc. utility structs, enums, etc.
 namespace FuzzPhyte.Utility
 {
-    
+    /// <summary>
+    /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
+    /// </summary>
     public static class FP_UtilityData
     {
         private readonly static char[] invalidFilenameChars;
@@ -75,7 +76,6 @@ namespace FuzzPhyte.Utility
                 return false;
             }
         }
-
     }
     public static class FP_SerilizeDeserialize
     {
@@ -155,6 +155,17 @@ namespace FuzzPhyte.Utility
     public struct FP_Camera
     {
         public float CameraFOV;
+        [Header("Damping based for Dolley and Zoom")]
+        public float PitchDamping;
+        public float RollDamping;
+        public float XDamping;
+        public float YDamping;
+        public float ZDamping;
+        [Header("Auto Dolly Parameters")]
+        public float PositionOffset;
+        public int SearchRadius;
+        public int SearchResolution;
+        public int StepsPerSegment;
     }
 
     [Serializable]
@@ -164,4 +175,24 @@ namespace FuzzPhyte.Utility
         TechnologyStrands,
         Career
     }
+    #region Custom UnityEvents
+    /// <summary>
+    /// Special UnityEvent with float parameter
+    /// https://docs.unity3d.com/ScriptReference/Events.UnityEvent_1.html
+    /// </summary>
+    [Serializable]
+    public class FPFloatEvent : UnityEvent<float>
+    {
+        public float Value;
+    }
+    /// <summary>
+    /// Special UnityEvent with int parameter
+    /// https://docs.unity3d.com/ScriptReference/Events.UnityEvent_1.html
+    /// </summary>
+    [Serializable]
+    public class FPIntEvent : UnityEvent<int>
+    {
+        public int Value;
+    }
+    #endregion
 }
