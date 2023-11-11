@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2023-11-11
+
+### 0.2.0 Changed
+
+- [@JShull](https://github.com/jshull).
+  - Moved the EDU core scripts to their own repository/package
+  - New base folders for future packages to be removed and made independent
+  - Cleaned up references and dependencies
+  - Added in other generic Utility classes by folder
+    - Meta
+    - Game
+    - Notification
+    - RandomFacts
+
+### 0.2.0 Fixed
+
+- None...
+
+### 0.2.0 Removed
+
+- EDU base is it's own package
+
 ## [0.1.0] - 2023-11-01
 
 ### 0.1.0 Added
