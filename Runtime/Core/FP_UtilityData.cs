@@ -24,6 +24,32 @@ namespace FuzzPhyte.Utility
             Array.Sort(invalidPathChars);
         }
         /// <summary>
+        /// Return color by status
+        /// Aligns with our editor script
+        /// Don't use this method if we are referencing editor scripts
+        /// </summary>
+        /// <param name="status">Sequence state/status</param>
+        /// <returns></returns>
+
+        public static Color ReturnColorByStatus(SequenceStatus status)
+        {
+            switch (status)
+            {
+                case SequenceStatus.None:
+                    return Color.white;
+                case SequenceStatus.Locked:
+                    return Color.red;
+                case SequenceStatus.Unlocked:
+                    return Color.yellow;
+                case SequenceStatus.Active:
+                    return Color.green;
+                case SequenceStatus.Finished:
+                    return Color.cyan;
+                default:
+                    return Color.white;
+            }
+        }
+        /// <summary>
         /// If we need to take a string function 
         /// </summary>
         /// <param name="target">The gameobject/component/item/class that has the function name</param>
