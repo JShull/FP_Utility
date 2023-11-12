@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2023-11-12
+
+### 0.3.0 Changed
+
+- [@JShull](https://github.com/jshull).
+  - FP_UtilityData.cs
+    - enum SequenceStatus has been moved from the FP_Chain repository to this script
+
+### 0.3.0 Added
+
+- [@JShull](https://github.com/jshull).
+  - Moved Chain Editor utility in to this repository
+  - FP_Utility_Editor.cs
+    - Nice Editor script for building Unity Editor boxes and other visual things
+    - Used mainly in the Chain Package but can be used in other editor tools
+
 ## [0.2.0] - 2023-11-11
 
 ### 0.2.0 Changed

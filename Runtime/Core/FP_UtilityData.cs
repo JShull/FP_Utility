@@ -109,6 +109,26 @@ namespace FuzzPhyte.Utility
             return obj;
         }
     }
+
+    /// <summary>
+    /// Core 'status' for all things sequence related
+    /// Will be used heavily across sequence logic
+    /// </summary>
+    [Serializable]
+    [SerializeField]
+    public enum SequenceStatus
+    {
+        None = 0,
+        Locked = 1,
+        Unlocked = 2,
+        Active = 3,
+        Finished = 4,
+    }
+    /// <summary>
+    /// Different 'types' of overlays we might have
+    /// </summary>
+    [Serializable]
+    [SerializeField]
     public enum OverlayType 
     { 
         TaskList, 
