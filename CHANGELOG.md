@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Moved Chain Editor utility in to this repository
   - FP_Utility_Editor.cs
     - Nice Editor script for building Unity Editor boxes and other visual things
-    - Used mainly in the Chain Package but can be used in other editor tools
+    - Used mainly in the Chain Package but can be used in other editor tool. 
+  - Added in FP_UtilityDraw.cs
+    - Helps with Debug.Draw tied to MonoBehaviour 
 
 ## [0.2.0] - 2023-11-11
 
@@ -36,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Game
     - Notification
     - RandomFacts
+  - FP_UtilityData.cs
+    - Modifications for data and static values tied to:
+      - Unit Square
+      - Unit Sphere
+      - Unit Circle
+
 
 ### 0.2.0 Fixed
 

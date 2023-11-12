@@ -17,8 +17,8 @@ namespace FuzzPhyte.Utility
         
         static FP_UtilityData()
         {
-            invalidFilenameChars = System.IO.Path.GetInvalidFileNameChars();
-            invalidPathChars = System.IO.Path.GetInvalidPathChars();
+            invalidFilenameChars = Path.GetInvalidFileNameChars();
+            invalidPathChars = Path.GetInvalidPathChars();
             parseTextImagefileChars = new char[1] { '~' };
             Array.Sort(invalidFilenameChars);
             Array.Sort(invalidPathChars);
@@ -102,6 +102,31 @@ namespace FuzzPhyte.Utility
                 return false;
             }
         }
+
+        public static readonly Vector4[] s_UnitSquare =
+        {
+            new Vector4(-0.5f, 0.5f, 0, 1),
+            new Vector4(0.5f, 0.5f, 0, 1),
+            new Vector4(0.5f, -0.5f, 0, 1),
+            new Vector4(-0.5f, -0.5f, 0, 1),
+        };
+        public static readonly Vector4[] s_UnitSphere = MakeUnitSphere(16);
+        public static Vector4[] MakeUnitSphere(int len)
+        {
+            Debug.Assert(len > 2);
+            var v = new Vector4[len * 3];
+            for (int i = 0; i < len; i++)
+            {
+                var f = i / (float)len;
+                float c = Mathf.Cos(f * (float)(Math.PI * 2.0));
+                float s = Mathf.Sin(f * (float)(Math.PI * 2.0));
+                v[0 * len + i] = new Vector4(c, s, 0, 1);
+                v[1 * len + i] = new Vector4(0, c, s, 1);
+                v[2 * len + i] = new Vector4(s, 0, c, 1);
+            }
+            return v;
+        }
+        
     }
     public static class FP_SerilizeDeserialize
     {
