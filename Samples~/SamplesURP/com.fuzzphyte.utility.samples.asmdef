@@ -2,7 +2,7 @@
     "name": "com.fuzzphyte.utility.samples",
     "rootNamespace": "FuzzPhyte.Utility.Samples",
     "references": [
-        "GUID:185f74c9436ecd445b189a7dad057064",
+        "GUID:b2274f1409ce26f40919f89f9d4f667c",
         "GUID:6055be8ebefd69e48b49212b09b47b2f"
     ],
     "includePlatforms": [],
