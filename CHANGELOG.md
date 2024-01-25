@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [@JShull](https://github.com/jshulll).
   - FP_SavWav.cs
     - added a SavWav class from another older project
+  - FP_AudioUtils.cs
+    - Way to grab audio from various sources and then utilizes the FP_SavWav to save it.
 
 ## [0.3.0] - 2023-11-12
 
