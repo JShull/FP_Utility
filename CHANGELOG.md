@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2024-1-25
+
+### 0.3.1 Added
+
+- [@JShull](https://github.com/jshulll).
+  - FP_SavWav.cs
+    - added a SavWav class from another older project
+
 ## [0.3.0] - 2023-11-12
 
 ### 0.3.0 Changed
@@ -43,7 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - Unit Square
       - Unit Sphere
       - Unit Circle
-
 
 ### 0.2.0 Fixed
 

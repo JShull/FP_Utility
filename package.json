@@ -1,6 +1,6 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "2022.3",
