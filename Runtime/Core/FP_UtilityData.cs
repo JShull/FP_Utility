@@ -176,6 +176,21 @@ namespace FuzzPhyte.Utility
         Finished = 4,
     }
     /// <summary>
+    /// Core 'transition' for all things sequence related
+    /// </summary>
+    [Serializable]
+    [SerializeField]
+    public enum SequenceTransition
+    {
+        NoneToLock = 0,
+        NoneToUnlock = 1,
+        UnlockToLock = 2,
+        LockToUnlock = 3,
+        UnlockToActive = 4,
+        ActiveToFinished = 5,
+        FinishedToLock = 6
+    }
+    /// <summary>
     /// Different 'types' of overlays we might have
     /// </summary>
     [Serializable]
