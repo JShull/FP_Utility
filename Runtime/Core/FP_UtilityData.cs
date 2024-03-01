@@ -11,6 +11,8 @@ namespace FuzzPhyte.Utility
     /// </summary>
     public static class FP_UtilityData
     {
+        //ScriptableObject Setup for other Utility Classes
+        public readonly static string MENU_COMPANY ="FuzzPhyte/";
         private readonly static char[] invalidFilenameChars;
         private readonly static char[] invalidPathChars;
         private readonly static char[] parseTextImagefileChars;
