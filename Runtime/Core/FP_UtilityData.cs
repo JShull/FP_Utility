@@ -12,13 +12,13 @@ namespace FuzzPhyte.Utility
     public static class FP_UtilityData
     {
         //ScriptableObject Setup for other Utility Classes
-        public readonly static string MENU_COMPANY ="FuzzPhyte/";
-        public readonly static int ORDER_MENU = 0;
-        public readonly static int ORDER_SUBMENU_LVL1 = 90;
-        public readonly static int ORDER_SUBMENU_LVL2 = 70;
-        public readonly static int ORDER_SUBMENU_LVL3 = 50;
-        public readonly static int ORDER_SUBMENU_LVL4 = 30;
-        public readonly static int ORDER_SUBMENU_LVL5 = 10;
+        public static string MENU_COMPANY ="FuzzPhyte/";
+        public static int ORDER_MENU = 0;
+        public static int ORDER_SUBMENU_LVL1 = 90;
+        public static int ORDER_SUBMENU_LVL2 = 70;
+        public static int ORDER_SUBMENU_LVL3 = 50;
+        public static int ORDER_SUBMENU_LVL4 = 30;
+        public static int ORDER_SUBMENU_LVL5 = 10;
         
         private readonly static char[] invalidFilenameChars;
         private readonly static char[] invalidPathChars;
