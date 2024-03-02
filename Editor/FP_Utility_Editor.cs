@@ -116,6 +116,25 @@ namespace FuzzPhyte.Utility.Editor
             newStyle.richText = true;
             return newStyle;
         }
+        /// <summary>
+        /// Create a Folder at a local Asset Directory
+        /// </summary>
+        /// <param name="localDir">shoulud start with Assets/...</param>
+        /// <param name="relativeFolder">the last destination folder</param>
+        /// <returns></returns>
+        public static (bool, string) CreateAssetFolder(string localDir, string relativeFolder)
+        {
+            var fullLocalPath = localDir + "/" + relativeFolder;
+            if (!AssetDatabase.IsValidFolder(fullLocalPath))
+            {
+                return (false, AssetDatabase.CreateFolder(localDir, relativeFolder));
+
+            }
+            else
+            {
+                return (true, fullLocalPath);
+            }
+        }
     }
     
 }
