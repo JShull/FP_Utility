@@ -143,5 +143,90 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
     }
+    [Serializable]
+    public static class FPGenerateTag
+    {
+        private static int maxTags = 10000;
+
+        //Add Tags
+        public static bool CreateTag(string tagName)
+        {
+            // Open tag manager
+            SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            // Tags Property
+            SerializedProperty tagsProp = tagManager.FindProperty("tags");
+            if (tagsProp.arraySize >= maxTags)
+            {
+                Debug.Log("No more tags can be added to the Tags property. You have " + tagsProp.arraySize + " tags");
+                return false;
+            }
+            // if not found, add it
+            if (!PropertyExists(tagsProp, 0, tagsProp.arraySize, tagName))
+            {
+                int index = tagsProp.arraySize;
+                // Insert new array element
+                tagsProp.InsertArrayElementAtIndex(index);
+                SerializedProperty sp = tagsProp.GetArrayElementAtIndex(index);
+                // Set array element to tagName
+                sp.stringValue = tagName;
+                Debug.Log("Tag: " + tagName + " has been added");
+                // Save settings
+                tagManager.ApplyModifiedProperties();
+
+                return true;
+            }
+            else
+            {
+                //Debug.Log ("Tag: " + tagName + " already exists");
+            }
+            return false;
+        }
+        //Remove Tags
+        public static bool RemoveTag(string tagName)
+        {
+
+            // Open tag manager
+            SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+
+            // Tags Property
+            SerializedProperty tagsProp = tagManager.FindProperty("tags");
+
+            if (PropertyExists(tagsProp, 0, tagsProp.arraySize, tagName))
+            {
+                SerializedProperty sp;
+
+                for (int i = 0, j = tagsProp.arraySize; i < j; i++)
+                {
+
+                    sp = tagsProp.GetArrayElementAtIndex(i);
+                    if (sp.stringValue == tagName)
+                    {
+                        tagsProp.DeleteArrayElementAtIndex(i);
+                        Debug.Log("Tag: " + tagName + " has been removed");
+                        // Save settings
+                        tagManager.ApplyModifiedProperties();
+                        return true;
+                    }
+
+                }
+            }
+
+            return false;
+
+        }
+        private static bool PropertyExists(SerializedProperty property, int start, int end, string value)
+        {
+            for (int i = start; i < end; i++)
+            {
+                SerializedProperty t = property.GetArrayElementAtIndex(i);
+                if (t.stringValue.Equals(value))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+    }
     
 }
