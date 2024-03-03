@@ -1,8 +1,15 @@
 using UnityEditor;
 using UnityEngine;
-
+using System;
 namespace FuzzPhyte.Utility.Editor
 {
+    //Every FP Utility Needs to be able to return the product name 
+    //The Asset Sample Path being used for any Scriptable Object / Assets
+    public interface IFPProductEditorUtility
+    {
+        public string ReturnProductName();
+        public string ReturnSamplePath();
+    }
     public static class FP_Utility_Editor
     {
         public static Color WarningColor = new Color(1f, 0.64f, 0);
