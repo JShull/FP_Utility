@@ -7,11 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2024-3-2
+
+### 0.3.2 Added
+
+- [@JShull](https://github.com/jshull)
+  - Static Class FPGenerateTag.cs
+    - Adds a way to add tags to the current project settings
+    - Adds a way to remove tags to the current project settings
+  - Interface IFPProductEditorUtility
+    - Return ProductName and Product Asset Samples Path 
+
+### 0.3.2 Changed
+
+- [@JShull](https://github.com/jshull)
+  - Added a function 'CreateAssetsFolder' in FP_Utility_Editor.cs 
+    - This will generate an assets folder anywhere under the .Assets folder
+    - Added to make it consistent on when a Menu system would generate Scriptable Objects from the editor-menu system
+
 ## [0.3.1] - 2024-1-25
 
 ### 0.3.1 Added
 
-- [@JShull](https://github.com/jshulll).
+- [@JShull](https://github.com/jshull).
   - FP_SavWav.cs
     - added a SavWav class from another older project
   - FP_AudioUtils.cs
