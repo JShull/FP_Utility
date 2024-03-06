@@ -14,11 +14,14 @@ namespace FuzzPhyte.Utility
         //ScriptableObject Setup for other Utility Classes
         public const string MENU_COMPANY ="FuzzPhyte/";
         public const int ORDER_MENU = 0;
-        public const int ORDER_SUBMENU_LVL1 = 90;
-        public const int ORDER_SUBMENU_LVL2 = 70;
-        public const int ORDER_SUBMENU_LVL3 = 50;
-        public const int ORDER_SUBMENU_LVL4 = 30;
-        public const int ORDER_SUBMENU_LVL5 = 10;
+        public const int ORDER_SUBMENU_LVL1 = 150;
+        public const int ORDER_SUBMENU_LVL2 = 130;
+        public const int ORDER_SUBMENU_LVL3 = 110;
+        public const int ORDER_SUBMENU_LVL4 = 90;
+        public const int ORDER_SUBMENU_LVL5 = 70;
+        public const int ORDER_SUBMENU_LVL6 = 50;
+        public const int ORDER_SUBMENU_LVL7 = 30;
+        public const int ORDER_SUBMENU_LVL8 = 10;
         
         private readonly static char[] invalidFilenameChars;
         private readonly static char[] invalidPathChars;
