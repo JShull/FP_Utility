@@ -264,6 +264,8 @@ namespace FuzzPhyte.Utility
         public int SearchRadius;
         public int SearchResolution;
         public int StepsPerSegment;
+        [Header("Camera Renderer Settings")]
+        public int RendererIndex;
     }
 
     [Serializable]
