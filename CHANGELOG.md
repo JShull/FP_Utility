@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Return ProductName and Product Asset Samples Path
   - Static Class FPUnityDefine.cs
     - Adds a way for me to alter and later on add/remove different #defines
+  - Added in IFPWebGL Interface for Javascript WebGL Needs
 
 ### 0.3.2 Changed
 
