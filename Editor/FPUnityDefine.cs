@@ -10,6 +10,7 @@ namespace FuzzPhyte.Utility.Editor
     /// Started to need a way to identify things like URP vs SRP
     /// Also might need to define my own later on 
     /// </summary>
+    [InitializeOnLoad]
     public class FPUnityDefine 
     {
         enum PipelineType
