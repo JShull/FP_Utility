@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Adds a way to add tags to the current project settings
     - Adds a way to remove tags to the current project settings
   - Interface IFPProductEditorUtility
-    - Return ProductName and Product Asset Samples Path 
+    - Return ProductName and Product Asset Samples Path
+  - Static Class FPUnityDefine.cs
+    - Adds a way for me to alter and later on add/remove different #defines
 
 ### 0.3.2 Changed
 
