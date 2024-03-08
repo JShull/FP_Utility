@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace FuzzPhyte.Utility
+namespace FuzzPhyte.Utility.Audio
 {
     public class FP_RampAudio : MonoBehaviour
     {
