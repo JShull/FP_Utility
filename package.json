@@ -1,6 +1,6 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "0.3.2",
+    "version": "0.4.0",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "2022.3",
@@ -18,13 +18,14 @@
     "samples": [
       {
         "displayName": "Utility Samples",
-        "description": "Includes some examples of the different scriptable object based use cases and other misc. scripts for how you can utilize some of these base classes",
+        "description": "Includes some examples of the different ScriptableObject based use cases and other misc. scripts for how you can utilize some of these base classes. Audio Example for ramping audio in and out as well.",
         "path": "Samples~/SamplesURP"
       }
     ],
     "keywords": [
       "ScriptableObject",
-      "FuzzPhyte"
+      "FuzzPhyte",
+      "Utility"
     ],
     "author": {
       "name": "John Shull",

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2024-3-8
+
+### 0.4.0 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP_RampAudio.cs
+    - Way to fade in and fade out
+    - Clamp audio with different start/end values
+    - Save time on Audio Editing by using this simple script
+  - Updated SamplesURP
+    - FP_AudioFadeInOut.unity sample scene for audio
+    - FP_Tester.cs: help initialize and start the audio processes using the FP_Timer script
+
 ## [0.3.2] - 2024-3-2
 
 ### 0.3.2 Added
@@ -24,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 0.3.2 Changed
 
 - [@JShull](https://github.com/jshull)
-  - Added a function 'CreateAssetsFolder' in FP_Utility_Editor.cs 
+  - Added a function 'CreateAssetsFolder' in FP_Utility_Editor.cs
     - This will generate an assets folder anywhere under the .Assets folder
     - Added to make it consistent on when a Menu system would generate Scriptable Objects from the editor-menu system
 

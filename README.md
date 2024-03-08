@@ -38,3 +38,7 @@ Please see the [package.json](./package.json) file for more information.
 ## Contact
 
 * [John Shull](mailto:JShull@fuzzphyte.com)
+
+### Additional Notes
+
+* Audio Files in the samples came from [FreeSound.org](https://freesound.org/)
