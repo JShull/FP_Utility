@@ -172,8 +172,13 @@ namespace FuzzPhyte.Utility.Editor
                 return (false, fullLocalPath);
             }
         }
-
-        public static (bool,string) CreatePackageSampleFolder(string productName,string version)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="productName"></param>
+        /// <param name="version"></param>
+        /// <returns>first string is the local path assuming you're at Assets, the second string is the full path</returns>
+        public static (string,string) CreatePackageSampleFolder(string productName,string version)
         {
             var localSamplePath = "Samples\\" + productName + "\\";
             var potentialFolder = Path.Combine(Application.dataPath, localSamplePath);
@@ -194,7 +199,8 @@ namespace FuzzPhyte.Utility.Editor
             {
                 Directory.CreateDirectory(fullDirectory);
             }
-            return (true, fullDirectory);
+            var assetLocalPath = localSamplePath + version+ "\\" + sampleWithinVersion;
+            return (assetLocalPath, fullDirectory);
         }
 
         /// <summary>
