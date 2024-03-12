@@ -1,6 +1,8 @@
 using UnityEditor;
 using UnityEngine;
 using System;
+using System.Threading.Tasks;
+using UnityEditor.PackageManager;
 namespace FuzzPhyte.Utility.Editor
 {
     //Every FP Utility Needs to be able to return the product name 
@@ -141,6 +143,33 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return (true, fullLocalPath);
             }
+        }
+
+        public static async Task<UnityEditor.PackageManager.PackageInfo[]> SearchPackageAsync(string packageIdOrName,bool offlineMode = false)
+        {
+            // Ensure the packageIdOrName is not null or empty.
+            if (string.IsNullOrEmpty(packageIdOrName))
+            {
+                throw new ArgumentException("packageIdOrName cannot be null or empty.", nameof(packageIdOrName));
+            }
+
+            // Start the search request.
+            var request = Client.Search(packageIdOrName, offlineMode);
+
+            // Wait for the request to complete.
+            while (!request.IsCompleted)
+            {
+                await Task.Delay(100); // Wait for 100 milliseconds before checking again.
+            }
+
+            // Check for errors.
+            if (request.Status == StatusCode.Failure)
+            {
+                throw new InvalidOperationException($"Search failed: {request.Error.message}");
+            }
+
+            // Return the search results.
+            return request.Result;
         }
     }
     [Serializable]
