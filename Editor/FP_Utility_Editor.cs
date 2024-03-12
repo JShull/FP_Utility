@@ -147,6 +147,13 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
+        /// <summary>
+        /// Generates an asset path within the editor
+        /// Works in tandem with the CreateAssetDatabaseFolder
+        /// </summary>
+        /// <param name="localDir"></param>
+        /// <param name="relativeFolder"></param>
+        /// <returns></returns>
         public static (bool, string) CreateAssetPath(string localDir,string relativeFolder)
         {
             var fullLocalPath = localDir + "/" + relativeFolder;
@@ -164,6 +171,30 @@ namespace FuzzPhyte.Utility.Editor
                 Directory.CreateDirectory(Application.dataPath + fullLocalPath);
                 return (false, fullLocalPath);
             }
+        }
+
+        public static (bool,string) CreatePackageSampleFolder(string productName,string version)
+        {
+            var localSamplePath = "Samples\\" + productName + "\\";
+            var potentialFolder = Path.Combine(Application.dataPath, localSamplePath);
+            if (!File.Exists(potentialFolder))
+            {
+                Directory.CreateDirectory(potentialFolder);
+            }
+            //var sampleLocalFolder = productName + " Samples";
+            var versionFolder = Path.Combine(potentialFolder, version);
+            if (!File.Exists(versionFolder))
+            {
+                Directory.CreateDirectory(versionFolder);
+            }
+            AssetDatabase.Refresh();
+            var sampleWithinVersion = productName + " Samples";
+            var fullDirectory = Path.Combine(versionFolder, sampleWithinVersion);
+            if (!File.Exists(fullDirectory))
+            {
+                Directory.CreateDirectory(fullDirectory);
+            }
+            return (true, fullDirectory);
         }
 
         /// <summary>
