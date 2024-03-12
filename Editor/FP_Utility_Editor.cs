@@ -3,6 +3,7 @@ using UnityEngine;
 using System;
 using System.Threading.Tasks;
 using UnityEditor.PackageManager;
+using System.IO;
 namespace FuzzPhyte.Utility.Editor
 {
     //Every FP Utility Needs to be able to return the product name 
@@ -132,7 +133,7 @@ namespace FuzzPhyte.Utility.Editor
         /// <param name="localDir">shoulud start with Assets/...</param>
         /// <param name="relativeFolder">the last destination folder</param>
         /// <returns></returns>
-        public static (bool, string) CreateAssetFolder(string localDir, string relativeFolder)
+        public static (bool, string) CreateAssetDatabaseFolder(string localDir, string relativeFolder)
         {
             var fullLocalPath = localDir + "/" + relativeFolder;
             if (!AssetDatabase.IsValidFolder(fullLocalPath))
@@ -146,6 +147,25 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
+        public static (bool, string) CreateAssetPath(string localDir,string relativeFolder)
+        {
+            var fullLocalPath = localDir + "/" + relativeFolder;
+            //remove assets from the path
+            if(fullLocalPath.Contains("Assets"))
+            {
+                fullLocalPath = localDir.Replace("Assets", "");
+            }
+            if(File.Exists(Application.dataPath+ fullLocalPath))
+            {
+                return (true, fullLocalPath);
+            }
+            else
+            {
+                Directory.CreateDirectory(Application.dataPath + fullLocalPath);
+                return (false, fullLocalPath);
+            }
+        }
+
         /// <summary>
         /// Create a simple Object asset at a path
         /// </summary>
@@ -153,7 +173,7 @@ namespace FuzzPhyte.Utility.Editor
         /// <param name="assetPath">Needs to start in the Assets/ folder</param>
         public static string CreateAssetAt(UnityEngine.Object asset, string assetPath)
         {
-            //var dataPath = FP_Utility_Editor.CreateAssetFolder(FPControlUtility.SAMPLESPATH, FPControlUtility.CAT0);
+            //var dataPath = FP_Utility_Editor.CreateAssetDatabaseFolder(FPControlUtility.SAMPLESPATH, FPControlUtility.CAT0);
             //string assetPath = AssetDatabase.GenerateUniqueAssetPath(dataPath + "/" + "ControlParameter.asset");
             try
             {
