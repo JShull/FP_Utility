@@ -11,6 +11,7 @@ namespace FuzzPhyte.Utility.Editor
     {
         public string ReturnProductName();
         public string ReturnSamplePath();
+
     }
     public static class FP_Utility_Editor
     {
@@ -145,6 +146,35 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
+        /// <summary>
+        /// Create a simple Object asset at a path
+        /// </summary>
+        /// <param name="asset"></param>
+        /// <param name="assetPath">Needs to start in the Assets/ folder</param>
+        public static string CreateAssetAt(UnityEngine.Object asset, string assetPath)
+        {
+            //var dataPath = FP_Utility_Editor.CreateAssetFolder(FPControlUtility.SAMPLESPATH, FPControlUtility.CAT0);
+            //string assetPath = AssetDatabase.GenerateUniqueAssetPath(dataPath + "/" + "ControlParameter.asset");
+            try
+            {
+                AssetDatabase.CreateAsset(asset, assetPath);
+                AssetDatabase.SaveAssets();
+
+                // Focus the asset in the Unity Editor
+                EditorUtility.FocusProjectWindow();
+                Selection.activeObject = asset;
+                // Register the creation in the undo system
+                Undo.RegisterCreatedObjectUndo(asset, "Create " + asset.name);
+            }
+            catch(Exception ex)
+            {
+                return ex.Message;
+            }
+            
+            // Optionally, log the creation
+            // Debug.Log("ExampleAsset created at " + assetPath);
+            return $"Asset Created at {assetPath}";
+        }
         public static async Task<UnityEditor.PackageManager.PackageInfo[]> SearchPackageAsync(string packageIdOrName,bool offlineMode = false)
         {
             // Ensure the packageIdOrName is not null or empty.
