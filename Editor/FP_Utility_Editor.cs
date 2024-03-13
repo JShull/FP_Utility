@@ -232,6 +232,47 @@ namespace FuzzPhyte.Utility.Editor
             // Debug.Log("ExampleAsset created at " + assetPath);
             return $"Asset Created at {assetPath}";
         }
+        /// <summary>
+        /// Pass a string and the Editor will attempt at creating a new layer 
+        /// </summary>
+        /// <param name="layerName"></param>
+        public static void CreateLayer(string layerName)
+        {
+            // Open the TagManager asset
+            SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+
+            // Layers Property
+            SerializedProperty layersProp = tagManager.FindProperty("layers");
+
+            // Check if layer is already present
+            bool found = false;
+            for (int i = 0; i < layersProp.arraySize; i++)
+            {
+                SerializedProperty layerProp = layersProp.GetArrayElementAtIndex(i);
+                if (layerProp.stringValue == layerName)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            // If not found, add it
+            if (!found)
+            {
+                // Find an empty slot
+                for (int i = 8; i < layersProp.arraySize; i++)
+                {
+                    SerializedProperty layerProp = layersProp.GetArrayElementAtIndex(i);
+                    if (string.IsNullOrEmpty(layerProp.stringValue))
+                    {
+                        // Assign the layer name
+                        layerProp.stringValue = layerName;
+                        tagManager.ApplyModifiedProperties();
+                        break;
+                    }
+                }
+            }
+        }
         public static async Task<UnityEditor.PackageManager.PackageInfo[]> SearchPackageAsync(string packageIdOrName,bool offlineMode = false)
         {
             // Ensure the packageIdOrName is not null or empty.
