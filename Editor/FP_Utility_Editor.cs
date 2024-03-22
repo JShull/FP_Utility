@@ -130,7 +130,7 @@ namespace FuzzPhyte.Utility.Editor
         /// <summary>
         /// Create a Folder at a local Asset Directory
         /// </summary>
-        /// <param name="localDir">shoulud start with Assets/...</param>
+        /// <param name="localDir">should start with Assets/...</param>
         /// <param name="relativeFolder">the last destination folder</param>
         /// <returns></returns>
         public static (bool, string) CreateAssetDatabaseFolder(string localDir, string relativeFolder)
