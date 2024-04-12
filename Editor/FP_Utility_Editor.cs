@@ -208,6 +208,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 Directory.CreateDirectory(fullDirectory);
             }
+            var localSamplePath = Path.Combine("Samples", productName);
             var localSampleVersion = localSamplePath+version;
             var assetLocalPath = Path.Combine(localSampleVersion,sampleWithinVersion);
             assetLocalPath.Replace("\\","/");
