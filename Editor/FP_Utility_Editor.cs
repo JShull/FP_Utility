@@ -180,7 +180,7 @@ namespace FuzzPhyte.Utility.Editor
         /// <returns>first string is the local path assuming you're at Assets, the second string is the full path</returns>
         public static (string,string) CreatePackageSampleFolder(string productName,string version)
         {
-            var localSamplePath = "Samples\\" + productName + "\\";
+            var localSamplePath = "Samples//" + productName + "//";
             var potentialFolder = Path.Combine(Application.dataPath, localSamplePath);
             if (!File.Exists(potentialFolder))
             {
@@ -199,7 +199,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 Directory.CreateDirectory(fullDirectory);
             }
-            var assetLocalPath = localSamplePath + version+ "\\" + sampleWithinVersion;
+            var assetLocalPath = localSamplePath + version+ "//" + sampleWithinVersion;
             return (assetLocalPath, fullDirectory);
         }
 
