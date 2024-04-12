@@ -186,15 +186,15 @@ namespace FuzzPhyte.Utility.Editor
         public static (string,string) CreatePackageSampleFolder(string productName,string version)
         {
             //var productSlashName = productName+"/";
-            var localSamplePath = Path.Combine("Samples", productName);
-            
-            var potentialFolder = Path.Combine(Application.dataPath, localSamplePath);
+            var potentialFolder = Path.Combine(Application.dataPath,"Samples", productName);
+            potentialFolder.Replace("\\","/");
             if (!File.Exists(potentialFolder))
             {
                 Directory.CreateDirectory(potentialFolder);
             }
             //var sampleLocalFolder = productName + " Samples";
             var versionFolder = Path.Combine(potentialFolder, version);
+            versionFolder.Replace("\\","/");
             if (!File.Exists(versionFolder))
             {
                 Directory.CreateDirectory(versionFolder);
@@ -202,13 +202,15 @@ namespace FuzzPhyte.Utility.Editor
             AssetDatabase.Refresh();
             var sampleWithinVersion = productName + " Samples";
             var fullDirectory = Path.Combine(versionFolder, sampleWithinVersion);
+            fullDirectory.Replace("\\","/");
+            Debug.Log($"Full Directory {fullDirectory}");
             if (!File.Exists(fullDirectory))
             {
                 Directory.CreateDirectory(fullDirectory);
             }
             var localSampleVersion = localSamplePath+version;
             var assetLocalPath = Path.Combine(localSampleVersion,sampleWithinVersion);
-            //var assetLocalPath = localSamplePath + version+ "//" + sampleWithinVersion;
+            assetLocalPath.Replace("\\","/");
             fullDirectory.Replace("\\","/");
             return (assetLocalPath, fullDirectory);
         }
