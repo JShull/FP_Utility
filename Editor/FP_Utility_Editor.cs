@@ -137,6 +137,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             //var fullLocalPath = localDir + "/" + relativeFolder;
             var fullLocalPath = Path.Combine(localDir,relativeFolder);
+            fullLocalPath.Replace("\\","/");
             if (!AssetDatabase.IsValidFolder(fullLocalPath))
             {
                 
