@@ -139,6 +139,7 @@ namespace FuzzPhyte.Utility.Editor
             var fullLocalPath = Path.Combine(localDir,relativeFolder);
             if (!AssetDatabase.IsValidFolder(fullLocalPath))
             {
+                
                 return (false, AssetDatabase.CreateFolder(localDir, relativeFolder));
 
             }
@@ -163,6 +164,7 @@ namespace FuzzPhyte.Utility.Editor
             if(fullLocalPath.Contains("Assets"))
             {
                 fullLocalPath = localDir.Replace("Assets", "");
+                fullLocalPath.Replace("\\","/");
             }
             if(File.Exists(Application.dataPath+ fullLocalPath))
             {
@@ -206,6 +208,7 @@ namespace FuzzPhyte.Utility.Editor
             var localSampleVersion = localSamplePath+version;
             var assetLocalPath = Path.Combine(localSampleVersion,sampleWithinVersion);
             //var assetLocalPath = localSamplePath + version+ "//" + sampleWithinVersion;
+            fullDirectory.Replace("\\","/");
             return (assetLocalPath, fullDirectory);
         }
 
