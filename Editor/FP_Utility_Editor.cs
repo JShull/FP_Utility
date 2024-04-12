@@ -135,7 +135,8 @@ namespace FuzzPhyte.Utility.Editor
         /// <returns></returns>
         public static (bool, string) CreateAssetDatabaseFolder(string localDir, string relativeFolder)
         {
-            var fullLocalPath = localDir + "/" + relativeFolder;
+            //var fullLocalPath = localDir + "/" + relativeFolder;
+            var fullLocalPath = Path.Combine(localDir,relativeFolder);
             if (!AssetDatabase.IsValidFolder(fullLocalPath))
             {
                 return (false, AssetDatabase.CreateFolder(localDir, relativeFolder));
@@ -156,7 +157,8 @@ namespace FuzzPhyte.Utility.Editor
         /// <returns></returns>
         public static (bool, string) CreateAssetPath(string localDir,string relativeFolder)
         {
-            var fullLocalPath = localDir + "/" + relativeFolder;
+            var fullLocalPath = Path.Combine(localDir,relativeFolder);
+            //var fullLocalPath = localDir + "/" + relativeFolder;
             //remove assets from the path
             if(fullLocalPath.Contains("Assets"))
             {
@@ -180,8 +182,8 @@ namespace FuzzPhyte.Utility.Editor
         /// <returns>first string is the local path assuming you're at Assets, the second string is the full path</returns>
         public static (string,string) CreatePackageSampleFolder(string productName,string version)
         {
-            var productSlashName = productName+"/";
-            var localSamplePath = Path.Combine("Samples", productSlashName);
+            //var productSlashName = productName+"/";
+            var localSamplePath = Path.Combine("Samples", productName);
             
             var potentialFolder = Path.Combine(Application.dataPath, localSamplePath);
             if (!File.Exists(potentialFolder))
