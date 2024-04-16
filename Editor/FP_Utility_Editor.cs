@@ -384,6 +384,22 @@ namespace FuzzPhyte.Utility.Editor
             return false;
 
         }
+        //Check if a Tag Exists
+        public static bool DoesTagExist(string tag)
+        {
+            SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            SerializedProperty tagsProp = tagManager.FindProperty("tags");
+
+            for (int i = 0; i < tagsProp.arraySize; i++)
+            {
+                SerializedProperty t = tagsProp.GetArrayElementAtIndex(i);
+                if (t.stringValue.Equals(tag))
+                {
+                    return true; // Tag exists
+                }
+            }
+            return false; // Tag does not exist        
+        }
         private static bool PropertyExists(SerializedProperty property, int start, int end, string value)
         {
             for (int i = start; i < end; i++)
