@@ -181,11 +181,12 @@ namespace FuzzPhyte.Utility
     [SerializeField]
     public enum SequenceStatus
     {
-        None = 0,
-        Locked = 1,
-        Unlocked = 2,
-        Active = 3,
-        Finished = 4,
+        NA = 0,
+        None = 1,
+        Locked = 2,
+        Unlocked = 3,
+        Active = 4,
+        Finished = 5,
     }
     /// <summary>
     /// Core 'transition' for all things sequence related
@@ -194,13 +195,14 @@ namespace FuzzPhyte.Utility
     [SerializeField]
     public enum SequenceTransition
     {
-        NoneToLock = 0,
-        NoneToUnlock = 1,
-        UnlockToLock = 2,
-        LockToUnlock = 3,
-        UnlockToActive = 4,
-        ActiveToFinished = 5,
-        FinishedToLock = 6
+        NA = 0,
+        NoneToLock = 1,
+        NoneToUnlock = 2,
+        UnlockToLock = 3,
+        LockToUnlock = 4,
+        UnlockToActive = 5,
+        ActiveToFinished = 6,
+        FinishedToLock = 7
     }
     /// <summary>
     /// Different 'types' of overlays we might have
