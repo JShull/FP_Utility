@@ -8,6 +8,10 @@ FP_Utility is designed and built to be a simple set of base classes to be used i
 
 FP_Utility is not much by itself and is designed to allow extensions and/or inheritance for other work. An example of this is the FP_Notification.cs file. This is a super simple class that a lot of other projects will be derived from.
 
+SamplesURP will require additional package imports.
+
+* com.unity.render-pipelines.universal
+
 ### Software Architecture
 
 ### Ways to Extend

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2024-5-28
+
+### 0.4.1 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP_DepthRenderFeature.cs
+    - Quick way for a Depth Mask in URP
+    - This is a scriptable render pipeline script so you will need the correct package imports
+    - Requires the use of the DepthMaskShader.shader/material
+  - Updated SamplesURP
+    - Includes a DepthMask sub folder with the above scripts/shaders etc
+
 ## [0.4.0] - 2024-3-8
 
 ### 0.4.0 Added
