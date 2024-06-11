@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Text;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -26,7 +27,7 @@ namespace FuzzPhyte.Utility
         private readonly static char[] invalidFilenameChars;
         private readonly static char[] invalidPathChars;
         private readonly static char[] parseTextImagefileChars;
-        
+
         static FP_UtilityData()
         {
             invalidFilenameChars = Path.GetInvalidFileNameChars();
@@ -42,7 +43,6 @@ namespace FuzzPhyte.Utility
         /// </summary>
         /// <param name="status">Sequence state/status</param>
         /// <returns></returns>
-
         public static Color ReturnColorByStatus(SequenceStatus status)
         {
             switch (status)
@@ -61,8 +61,42 @@ namespace FuzzPhyte.Utility
                     return Color.white;
             }
         }
+        #region GUIStyle Returns
         /// <summary>
-        /// If we need to take a string function 
+        /// Return a GUIStyle
+        /// </summary>
+        /// <param name="colorFont">Color of Font</param>
+        /// <param name="styleFont">Style of Font</param>
+        /// <param name="anchorFont">Anchor of Font</param>
+        /// <returns></returns>
+        public static GUIStyle ReturnStyle(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
+        {
+            GUIStyleState normalState = new GUIStyleState()
+            {
+                textColor = colorFont,
+            };
+            return new GUIStyle()
+            {
+                fontStyle = styleFont,
+                normal = normalState,
+                alignment = anchorFont
+            };
+        }
+        public static GUIStyle ReturnStyleWrap(Color colorFont, FontStyle styleFont, TextAnchor anchorFont, bool useWordWrap)
+        {
+            var newStyle = ReturnStyle(colorFont, styleFont, anchorFont);
+            newStyle.wordWrap = useWordWrap;
+            return newStyle;
+        }
+        public static GUIStyle ReturnStyleRichText(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
+        {
+            var newStyle = ReturnStyle(colorFont, styleFont, anchorFont);
+            newStyle.richText = true;
+            return newStyle;
+        }
+        #endregion
+        /// <summary>
+        /// If we need to take a string function and return a Unity Action on said target
         /// </summary>
         /// <param name="target">The gameobject/component/item/class that has the function name</param>
         /// <param name="functionName">name of the function</param>
@@ -115,6 +149,7 @@ namespace FuzzPhyte.Utility
             }
         }
 
+        #region UnitSquare and UnitSphere
         public static readonly Vector4[] s_UnitSquare =
         {
             new Vector4(-0.5f, 0.5f, 0, 1),
@@ -138,7 +173,7 @@ namespace FuzzPhyte.Utility
             }
             return v;
         }
-        
+        #endregion
     }
     public static class FP_SerilizeDeserialize
     {
@@ -173,6 +208,80 @@ namespace FuzzPhyte.Utility
         }
     }
 
+    #region Generic Enums for Players and NPCs
+    [Serializable]
+    [SerializeField]
+    /// <summary>
+    /// Enum representing generic roles in the context of the player and various projects.
+    /// </summary>
+    public enum FP_Role
+    {
+        NA,       // Default value, no specific role
+        Player,     // The main player character
+        NPC,        // Non-player character
+        Boss,       // Boss character, typically an antagonist
+        Helper,     // Helper character, assists the player
+        Enemy,      // Generic enemy character
+        Merchant,   // Character that sells items
+        QuestGiver, // Character that provides quests or tasks
+        Companion,  // Companion character, accompanies the player
+        Trainer,    // Character that provides training or skills
+        Guard,      // Character that guards areas or items
+        Healer,     // Character that provides healing
+        Guide,      // Character that provides guidance or navigation
+        Vendor,     // Character that buys/sells items
+        Civilian,   // General non-hostile character
+        Leader      // Character that leads a group or faction
+    }
+    /// <summary>
+    /// Enum representing generic character motion states.
+    /// </summary>
+    public enum MotionState
+    {
+        NA,         // Default value, no specific state
+        Idle,       // Character is not moving
+        Walking,    // Character is walking
+        Running,    // Character is running
+        Jumping,    // Character is jumping
+        Falling,    // Character is falling
+        Climbing,   // Character is climbing
+        Swimming,   // Character is swimming
+        Crawling,   // Character is crawling
+        Sitting,    // Character is sitting
+        LyingDown   // Character is lying down
+    }
+    /// <summary>
+    /// Enum representing generic dialogue/conversation states.
+    /// </summary>
+    /// <summary>
+    /// Enum representing generic dialogue/conversation states focusing on vocal strength.
+    /// </summary>
+    public enum DialogueState
+    {
+        NA,         // Default value, no specific state
+        Normal,     // Regular conversation
+        Whisper,    // Whispering
+        Shout,      // Shouting
+        Soft,       // Speaking softly
+        Loud        // Speaking loudly
+    }
+    /// <summary>
+    /// Enum representing generic emotional states of the character.
+    /// </summary>
+    public enum EmotionalState
+    {
+        Neutral,    // No strong emotions
+        Happy,      // Feeling happy
+        Sad,        // Feeling sad
+        Angry,      // Feeling angry
+        Excited,    // Feeling excited
+        Nervous,    // Feeling nervous
+        Confused,   // Feeling confused
+        Fearful,    // Feeling fearful
+        Surprised,  // Feeling surprised
+        Disgusted   // Feeling disgusted
+    }
+    #endregion
     /// <summary>
     /// Core 'status' for all things sequence related
     /// Will be used heavily across sequence logic
@@ -210,17 +319,19 @@ namespace FuzzPhyte.Utility
     [Serializable]
     [SerializeField]
     public enum OverlayType 
-    { 
+    {   
+        NA,
         TaskList, 
         Information, 
         Conversation, 
-        CardDetails, 
+        MiscDetails, 
         Vocabulary 
     };
     [Serializable]
     [SerializeField]
     public enum NPCHackState
     {
+        NA,
         Idle,
         Talking,
         Signalling
@@ -229,11 +340,61 @@ namespace FuzzPhyte.Utility
     [SerializeField]
     public enum NPCHackTalkingState
     {
-        None,
+        NA,
         Normal,
         Whisper,
         Argue,
         Excited
+    }
+    /// <summary>
+    /// this is used mainly for our characters so we can correctly match different services later as needed
+    /// some of these items came from this list "https://www.alba.network/GSDinclusiveforms"
+    /// </summary>
+    [Serializable]
+    [SerializeField]
+    public enum FP_Gender
+    {
+        NA,
+        Man,
+        Woman,
+        Agender,
+        Androgynous,
+        Bigender,
+        Genderfluid,
+        Genderqueer,
+        GenderNonConforming,
+        NonBinary,
+        Pangender,
+        TwoSpirit,
+        Other,
+        Robot // AI Buddies
+    }
+    [Serializable]
+    [SerializeField]
+    public enum FP_Ethnicity
+    {
+        Unknown,         // Default value, unknown ethnicity
+        Asian,           // Asian
+        Black,           // Black or African American
+        Hispanic,        // Hispanic or Latino
+        Indigenous,      // Indigenous or Native
+        MiddleEastern,   // Middle Eastern or North African
+        Mixed,           // Mixed or Multi-racial
+        PacificIslander, // Native Hawaiian or Other Pacific Islander
+        White,           // White or Caucasian
+    }
+    [Serializable]
+    [SerializeField]
+    public enum FontSettingLabel
+    {
+        HeaderOne,
+        HeaderTwo,
+        HeaderThree,
+        HeaderFour,
+        HeaderFive,
+        HeaderSix,
+        Paragraph,
+        Footer
     }
     [Serializable]
     public struct FP_Location 

@@ -14,6 +14,8 @@ SamplesURP will require additional package imports.
 
 ### Software Architecture
 
+FP_Utility has a core data class for ScriptableObjects called FP_Data. This is heavily used for all generic data classes and in other packages there could be further extension of this for generic ScriptableObjects that need a sort of UniqueID.
+
 ### Ways to Extend
 
 ## Dependencies

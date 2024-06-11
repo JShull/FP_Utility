@@ -102,6 +102,7 @@ namespace FuzzPhyte.Utility.Editor
         /// <param name="styleFont">Style of Font</param>
         /// <param name="anchorFont">Anchor of Font</param>
         /// <returns></returns>
+        [Obsolete("Use FP_Utility_Editor.ReturnStyle instead")]
         public static GUIStyle ReturnStyle(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
         {
             GUIStyleState normalState = new GUIStyleState()
@@ -115,12 +116,14 @@ namespace FuzzPhyte.Utility.Editor
                 alignment = anchorFont
             };
         }
+        [Obsolete("Use FP_Utility_Editor.ReturnStyleWrap instead")]
         public static GUIStyle ReturnStyleWrap(Color colorFont, FontStyle styleFont, TextAnchor anchorFont, bool useWordWrap)
         {
             var newStyle = ReturnStyle(colorFont, styleFont, anchorFont);
             newStyle.wordWrap = useWordWrap;
             return newStyle;
         }
+        [Obsolete("Use FP_Utility_Editor.ReturnStyleWrap instead")]
         public static GUIStyle ReturnStyleRichText(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
         {
             var newStyle = ReturnStyle(colorFont, styleFont, anchorFont);
@@ -313,6 +316,9 @@ namespace FuzzPhyte.Utility.Editor
             return request.Result;
         }
     }
+    /// <summary>
+    /// Static class to manage the addition and removal of tags via other editor tools e.g. FP_Recorder
+    /// </summary>
     [Serializable]
     public static class FPGenerateTag
     {

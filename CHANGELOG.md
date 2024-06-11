@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2024-6-11
+
+### 0.4.2 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP_Data.cs
+    - Base derived ScriptableObject class
+    - Setting up for the long haul tied to FP_Utility and now FP_Data
+  - FP_ItemFactoryEditor.cs
+    - Editor tool that lets you generate scriptable objects derived from FP_Data.cs
+    - Open it up via FuzzPhyte Window
+  - FP_UniqueGenerator.cs
+    - Generates an ascii based unique index based on two strings and a Unity Color
+    - Encoder and Decoder built into static class
+    - used in all FP_Data derived classes
+  - FontSettings.cs
+    - ScriptableObject derived from FP_Data that holds font related information
+
+### 0.4.2 Changed
+
+- [@JShull](https://github.com/jshull)
+  - FP_Theme.cs
+    - Reworking information contained within like references to FontSettings.cs
+    - Better headers/tooltips
+    - Derived from FP_Data.cs
+  - FP_Utility_Editor.cs
+    - Moved some GUIStyle functions to the FP_UtilityData class
+      - Obsolete method tags added - will burn them out over the next update or two
+  - FP_UtilityData.cs
+    - Added GUIStyles from FP_Utility_Editor.cs
+    - new Enums
+      - FP_Role
+      - MotionState
+      - DialogueState
+      - FP_Ethnicity
+      - FontSettingLabel
+      - EmotionalState
+    - modified Enums
+      - OverlayType
+      - NPCHackState
+      - NPCHackTalkingState
+      - FP_Gender got overhauled
+
 ## [0.4.1] - 2024-5-28
 
 ### 0.4.1 Added
