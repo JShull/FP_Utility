@@ -2,7 +2,7 @@
     "name": "com.fuzzphyte.utility.editor",
     "rootNamespace": "FuzzPhyte.Utility.Editor",
     "references": [
-        "GUID:b2274f1409ce26f40919f89f9d4f667c"
+        "com.fuzzphyte.utility"
     ],
     "includePlatforms": [
         "Editor"
