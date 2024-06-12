@@ -396,6 +396,24 @@ namespace FuzzPhyte.Utility
         Paragraph,
         Footer
     }
+    // placeholder for now, we might need to expand this later
+    [SerializeField]
+    public enum FP_Language
+    {
+        NA,
+        USEnglish,
+        Spanish,
+        French,
+    }
+    // Hold data associated with a specific audio clip
+    // might need to load this from the web for various reasons
+    [Serializable]
+    public struct FP_Audio
+    {
+        public AudioClip AudioClip;
+        public AudioType URLAudioType;
+        public string URLReference;
+    }
     [Serializable]
     public struct FP_Location 
     {
