@@ -21,6 +21,7 @@ namespace FuzzPhyte.Utility.Editor
         private List<Type> fpDataDerivedTypes;
         private GUIStyle buttonWarningStyle;
         private GUIStyle buttonActiveStyle;
+        private Vector2 scrollPosition;
 
         private Dictionary<string, object> dynamicFields = new Dictionary<string, object>();
 
@@ -82,23 +83,34 @@ namespace FuzzPhyte.Utility.Editor
             {
                 InitializeStyles();
             }
+            bool canCreate = script != null || (selectedClassIndex > 0);
+            Color lineColor = canCreate ? FP_Utility_Editor.OkayColor : FP_Utility_Editor.WarningColor;
+            FP_Utility_Editor.DrawUILine(lineColor);
             // Draw a Line
-            FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
+            
+            // Begin scroll view
+            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.ExpandHeight(true));
             // Draw dynamic fields based on selected class
             DrawDynamicFields();
-
-            bool canCreate = script != null || (selectedClassIndex > 0);
-
+            EditorGUILayout.EndScrollView(); // End scroll view
+            FP_Utility_Editor.DrawUILine(lineColor);
+            
+            EditorGUILayout.Space(); // Add some space between the scroll view and the button
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
             EditorGUI.BeginDisabledGroup(!canCreate);
             if (!canCreate)
             {
-                GUILayout.Button("Create ScriptableObject", buttonWarningStyle);
+                GUILayout.Button("Create ScriptableObject", buttonWarningStyle, GUILayout.Width(200));
             }
-            else if (GUILayout.Button("Create ScriptableObject", buttonActiveStyle))
+            else if (GUILayout.Button("Create ScriptableObject", buttonActiveStyle, GUILayout.Width(200)))
             {
                 CreateScriptableObject();
             }
             EditorGUI.EndDisabledGroup();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+            
         }
 
         private void DrawDynamicFields()
@@ -178,6 +190,29 @@ namespace FuzzPhyte.Utility.Editor
                 int listSize = EditorGUILayout.IntField("Size", list.Count);
 
                 while (listSize > list.Count)
+                {
+                    list.Add(itemType.IsSubclassOf(typeof(ScriptableObject)) ? null : Activator.CreateInstance(itemType));
+                }
+                while (listSize < list.Count)
+                {
+                    list.RemoveAt(list.Count - 1);
+                }
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    list[i] = DrawField(fieldName + " " + i, itemType, list[i]);
+                }
+                return list;
+            }
+            /*
+            if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                Type itemType = fieldType.GetGenericArguments()[0];
+                IList list = (IList)fieldValue ?? (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(itemType));
+                EditorGUILayout.LabelField(fieldName);
+                int listSize = EditorGUILayout.IntField("Size", list.Count);
+
+                while (listSize > list.Count)
                     list.Add(Activator.CreateInstance(itemType));
                 while (listSize < list.Count)
                     list.RemoveAt(list.Count - 1);
@@ -188,9 +223,66 @@ namespace FuzzPhyte.Utility.Editor
                 }
                 return list;
             }
-
+            */
+            if (fieldType == typeof(FP_Location))
+            {
+                return DrawFPLocationField(fieldName, (FP_Location)fieldValue);
+            }
+            if(fieldType == typeof(FP_Camera))
+            {
+                return DrawFPCameraField(fieldName, (FP_Camera)fieldValue);
+            }
             EditorGUILayout.LabelField(fieldName, $"Unsupported field type: {fieldType.Name}");
             return fieldValue;
+        }
+        private FP_Location DrawFPLocationField(string fieldName, FP_Location location)
+        {
+            EditorGUILayout.LabelField(fieldName);
+            location.WorldLocation = EditorGUILayout.Vector3Field("World Location", location.WorldLocation);
+            location.EulerRotation = EditorGUILayout.Vector3Field("Euler Rotation", location.EulerRotation);
+            location.LocalScale = EditorGUILayout.Vector3Field("Local Scale", location.LocalScale);
+            return location;
+        }
+        private FP_Camera DrawFPCameraField(string fieldName, FP_Camera camera)
+        {
+            EditorGUILayout.LabelField(fieldName);
+            //
+            EditorGUILayout.BeginHorizontal();
+            camera.CameraFOV = EditorGUILayout.Slider("Camera FOV",camera.CameraFOV, 5f, 178f); // Adjust range as needed
+            EditorGUILayout.EndHorizontal();
+            //
+            //camera.CameraFOV = EditorGUILayout.FloatField("Camera FOV", camera.CameraFOV);
+            camera.PitchDamping = EditorGUILayout.FloatField("Pitch Damping", camera.PitchDamping);
+            camera.RollDamping = EditorGUILayout.FloatField("Roll Damping", camera.RollDamping);
+            var v3 = EditorGUILayout.Vector3Field("Damping", new Vector3(camera.XDamping, camera.YDamping, camera.ZDamping));
+            camera.XDamping = v3.x;
+            camera.YDamping = v3.y;
+            camera.ZDamping = v3.z;
+            camera.PositionOffset = EditorGUILayout.FloatField("Position Offset", camera.PositionOffset);
+            camera.SearchRadius = EditorGUILayout.IntField("Search Radius", camera.SearchRadius);
+            camera.SearchResolution = EditorGUILayout.IntField("Search Resolution", camera.SearchResolution);
+            camera.StepsPerSegment = EditorGUILayout.IntField("Steps Per Segment", camera.StepsPerSegment);
+            camera.RendererIndex = EditorGUILayout.IntField("Renderer Index", camera.RendererIndex);
+            return camera;    
+            /*
+            public struct FP_Camera
+    {
+        public float CameraFOV;
+        [Header("Damping based for Dolley and Zoom")]
+        public float PitchDamping;
+        public float RollDamping;
+        public float XDamping;
+        public float YDamping;
+        public float ZDamping;
+        [Header("Auto Dolly Parameters")]
+        public float PositionOffset;
+        public int SearchRadius;
+        public int SearchResolution;
+        public int StepsPerSegment;
+        [Header("Camera Renderer Settings")]
+        public int RendererIndex;
+    }
+            */
         }
 
         private void CreateScriptableObject()
