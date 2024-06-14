@@ -405,6 +405,14 @@ namespace FuzzPhyte.Utility
         Spanish,
         French,
     }
+    //keep tabs on what languages we could be using for a given object
+    [Serializable]
+    public struct FP_Multilingual
+    {
+        public FP_Language Primary;
+        public FP_Language Secondary;
+        public FP_Language Tertiary;
+    }
     // Hold data associated with a specific audio clip
     // might need to load this from the web for various reasons
     [Serializable]
@@ -414,6 +422,7 @@ namespace FuzzPhyte.Utility
         public AudioType URLAudioType;
         public string URLReference;
     }
+    
     [Serializable]
     public struct FP_Location 
     {
