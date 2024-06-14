@@ -1,5 +1,6 @@
 namespace FuzzPhyte.Utility
 {
+    using TMPro;
     using UnityEngine;
 
     /// <summary>
@@ -9,9 +10,10 @@ namespace FuzzPhyte.Utility
     public class FontSetting : FP_Data
     {
         public FontSettingLabel Label; // e.g., Header1, Header2, Paragraph
-        public Font Font;
+        public TMP_FontAsset Font;
         public int MinSize;
         public int MaxSize;
+        public bool UseAutoSizing = false;
         public Color FontColor; // Specific color for this text type
     }
 }
