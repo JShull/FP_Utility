@@ -22,12 +22,22 @@ namespace FuzzPhyte.Utility.Editor
         private GUIStyle buttonWarningStyle;
         private GUIStyle buttonActiveStyle;
         private Vector2 scrollPosition;
+        private Vector2 secondScrollPosition;
         private Dictionary<string, object> dynamicFields = new Dictionary<string, object>();
 
         #region Color Tool Parameters
         private List<Color> primaryColors = new List<Color>();
         private Color newColor = Color.white;
         private Color[] generatedColors;
+        #endregion
+        #region Lower Window Color Resizing Handle Parameters
+        private float lowerPanelHeight = 200f; // Initial height of the lower panel
+        private bool isResizing = false;
+        private Rect resizeHandleRect;
+        private const float resizeHandleHeight = 5f; // Height of the resize handle
+        private Texture2D handleTexture;
+        private Color handleColor = Color.gray; // The color of the handle
+        private const float minUpperPanelHeight = 100f; // Minimum height for the top panel
         #endregion
         [MenuItem("FuzzPhyte/Utility/FP Data Factory")]
         public static void ShowWindow()
@@ -38,8 +48,15 @@ namespace FuzzPhyte.Utility.Editor
         private void OnEnable()
         {
             LoadDerivedTypes();
+            CreateHandleTexture();
         }
-
+        private void CreateHandleTexture()
+        {
+            handleTexture = new Texture2D(1, 1);
+            handleColor = FP_Utility_Editor.OkayColor;
+            handleTexture.SetPixel(0, 0, handleColor);
+            handleTexture.Apply();
+        }
         private void LoadDerivedTypes()
         {
             fpDataDerivedTypes = new List<Type> { null }; // Add null to represent "NA"
@@ -90,15 +107,13 @@ namespace FuzzPhyte.Utility.Editor
             bool canCreate = script != null || (selectedClassIndex > 0);
             Color lineColor = canCreate ? FP_Utility_Editor.OkayColor : FP_Utility_Editor.WarningColor;
             FP_Utility_Editor.DrawUILine(lineColor);
-            // Draw a Line
-            
+
             // Begin scroll view
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.ExpandHeight(true));
-            // Draw dynamic fields based on selected class
             DrawDynamicFields();
             EditorGUILayout.EndScrollView(); // End scroll view
             FP_Utility_Editor.DrawUILine(lineColor);
-            
+
             EditorGUILayout.Space(); // Add some space between the scroll view and the button
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
@@ -114,11 +129,45 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUI.EndDisabledGroup();
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
-            //EditorGUILayout.BeginHorizontal();
-            FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-            DrawColorSelectorTool();
-            //EditorGUILayout.EndHorizontal();
+
+            // Add some space between the upper and lower sections
+            EditorGUILayout.Space(); 
             
+            // Handle resizing logic
+            resizeHandleRect = new Rect(0, position.height - lowerPanelHeight - resizeHandleHeight, position.width, resizeHandleHeight);
+            //handle colored
+            // Handle resizing logic
+            if (handleTexture != null)
+            {
+                GUI.DrawTexture(resizeHandleRect, handleTexture);
+            }
+            else
+            {
+                GUI.DrawTexture(resizeHandleRect, EditorGUIUtility.whiteTexture);
+            }
+            //GUI.DrawTexture(resizeHandleRect, EditorGUIUtility.whiteTexture);
+            EditorGUIUtility.AddCursorRect(resizeHandleRect, MouseCursor.ResizeVertical);
+
+            if (Event.current.type == EventType.MouseDown && resizeHandleRect.Contains(Event.current.mousePosition))
+            {
+                isResizing = true;
+            }
+
+            if (isResizing)
+            {
+                lowerPanelHeight = position.height - Event.current.mousePosition.y - resizeHandleHeight / 2;
+                Repaint();
+            }
+
+            if (Event.current.type == EventType.MouseUp)
+            {
+                isResizing = false;
+            }
+
+            // Lower part: Color Theme Generator
+            secondScrollPosition = EditorGUILayout.BeginScrollView(secondScrollPosition, GUILayout.Height(lowerPanelHeight));
+            DrawColorSelectorTool();
+            EditorGUILayout.EndScrollView();
         }
         private void DrawColorSelectorTool()
         {
