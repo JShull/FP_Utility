@@ -22,9 +22,13 @@ namespace FuzzPhyte.Utility.Editor
         private GUIStyle buttonWarningStyle;
         private GUIStyle buttonActiveStyle;
         private Vector2 scrollPosition;
-
         private Dictionary<string, object> dynamicFields = new Dictionary<string, object>();
 
+        #region Color Tool Parameters
+        private List<Color> primaryColors = new List<Color>();
+        private Color newColor = Color.white;
+        private Color[] generatedColors;
+        #endregion
         [MenuItem("FuzzPhyte/Utility/FP Data Factory")]
         public static void ShowWindow()
         {
@@ -110,7 +114,91 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUI.EndDisabledGroup();
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+            //EditorGUILayout.BeginHorizontal();
+            FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
+            DrawColorSelectorTool();
+            //EditorGUILayout.EndHorizontal();
             
+        }
+        private void DrawColorSelectorTool()
+        {
+            // Primary color selector
+            EditorGUILayout.LabelField("Color Theme Generator", EditorStyles.boldLabel);
+            newColor = EditorGUILayout.ColorField("New Primary Color", newColor);
+
+            EditorGUILayout.Space();
+
+            if (GUILayout.Button("Add Primary Color"))
+            {
+                primaryColors.Add(newColor);
+            }
+            if (primaryColors.Count > 0)
+            {
+                EditorGUILayout.LabelField("Primary Colors:");
+                for (int i = 0; i < primaryColors.Count; i++)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    primaryColors[i] = EditorGUILayout.ColorField(primaryColors[i]);
+                    if (GUILayout.Button("Remove"))
+                    {
+                        primaryColors.RemoveAt(i);
+                        i--;
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
+            }
+
+            EditorGUILayout.Space();
+
+            // Disable the button if there's more than one color
+            if (primaryColors.Count == 1 && GUILayout.Button("Generate Single Complementary Colors"))
+            {
+                generatedColors = FP_ColorTheory.GenerateSingleComplementaryColors(primaryColors[0]);
+            }
+            else if (primaryColors.Count != 1)
+            {
+                GUI.enabled = false;
+                GUILayout.Button("Generate Single Complementary Colors");
+                GUI.enabled = true;
+            }
+
+            if (primaryColors.Count > 0 && GUILayout.Button("Generate Complementary Colors"))
+            {
+                generatedColors = FP_ColorTheory.GenerateComplementaryColors(primaryColors.ToArray(),FP_ColorTheory.BlendColorsHSV);
+            }
+
+            if (primaryColors.Count > 0 && GUILayout.Button("Generate Analogous Colors"))
+            {
+                generatedColors = FP_ColorTheory.GenerateAnalogousColors(primaryColors[0]);
+            }
+
+            if (primaryColors.Count > 0 && GUILayout.Button("Generate Triadic Colors"))
+            {
+                generatedColors = FP_ColorTheory.GenerateTriadicColors(primaryColors[0]);
+            }
+
+            if (GUILayout.Button("Clear Generated Colors"))
+            {
+                generatedColors = null;
+            }
+            if (generatedColors != null && generatedColors.Length > 0)
+            {
+                if (GUILayout.Button("Replace Primary Colors with Generated Colors"))
+                {
+                    primaryColors = new List<Color>(generatedColors);
+                    generatedColors = null;
+                }
+
+                EditorGUILayout.LabelField("Generated Colors:");
+                if(generatedColors != null)
+                {
+                    for (int i = 0; i < generatedColors.Length; i++)
+                    {
+                        EditorGUILayout.ColorField("Color " + (i + 1), generatedColors[i]);
+                    }
+                }
+                
+            }
         }
 
         private void DrawDynamicFields()
@@ -151,7 +239,6 @@ namespace FuzzPhyte.Utility.Editor
             }
             return null;
         }
-
         private object DrawField(string fieldName, Type fieldType, object fieldValue)
         {
             if (fieldType == typeof(int))
@@ -232,6 +319,10 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return DrawFPCameraField(fieldName, (FP_Camera)fieldValue);
             }
+            if(fieldType == typeof(FP_Multilingual))
+            {
+                return DrawFPMultiLingualField(fieldName, (FP_Multilingual)fieldValue);
+            }
             EditorGUILayout.LabelField(fieldName, $"Unsupported field type: {fieldType.Name}");
             return fieldValue;
         }
@@ -242,6 +333,14 @@ namespace FuzzPhyte.Utility.Editor
             location.EulerRotation = EditorGUILayout.Vector3Field("Euler Rotation", location.EulerRotation);
             location.LocalScale = EditorGUILayout.Vector3Field("Local Scale", location.LocalScale);
             return location;
+        }
+        private FP_Multilingual DrawFPMultiLingualField(string fieldName, FP_Multilingual data)
+        {
+            EditorGUILayout.LabelField(fieldName);
+            data.Primary = (FP_Language)EditorGUILayout.EnumPopup("Primary Language", data.Primary);
+            data.Secondary = (FP_Language)EditorGUILayout.EnumPopup("Secondary Language", data.Secondary);
+            data.Tertiary = (FP_Language)EditorGUILayout.EnumPopup("Tertiary Language", data.Tertiary);
+            return data;
         }
         private FP_Camera DrawFPCameraField(string fieldName, FP_Camera camera)
         {
