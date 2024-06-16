@@ -271,7 +271,7 @@ namespace FuzzPhyte.Utility.Editor
                     }
 
                     object fieldValue = dynamicFields[fieldName];
-                    dynamicFields[fieldName] = DrawField(fieldName, fieldType, fieldValue);
+                    dynamicFields[fieldName] = DrawField(fieldName, fieldType, fieldValue,field);
                 }
             }
         }
@@ -288,8 +288,13 @@ namespace FuzzPhyte.Utility.Editor
             }
             return null;
         }
-        private object DrawField(string fieldName, Type fieldType, object fieldValue)
+        private object DrawField(string fieldName, Type fieldType, object fieldValue, FieldInfo fieldInfo = null)
         {
+            // Handle TextArea attribute using the utility function
+            if (HandleTextAreaAttribute(fieldInfo, fieldType, ref fieldValue))
+            {
+                return fieldValue;
+            }
             if (fieldType == typeof(int))
             {
                 return EditorGUILayout.IntField(fieldName, (int)fieldValue);
@@ -340,26 +345,6 @@ namespace FuzzPhyte.Utility.Editor
                 }
                 return list;
             }
-            /*
-            if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
-            {
-                Type itemType = fieldType.GetGenericArguments()[0];
-                IList list = (IList)fieldValue ?? (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(itemType));
-                EditorGUILayout.LabelField(fieldName);
-                int listSize = EditorGUILayout.IntField("Size", list.Count);
-
-                while (listSize > list.Count)
-                    list.Add(Activator.CreateInstance(itemType));
-                while (listSize < list.Count)
-                    list.RemoveAt(list.Count - 1);
-
-                for (int i = 0; i < list.Count; i++)
-                {
-                    list[i] = DrawField(fieldName + " " + i, itemType, list[i]);
-                }
-                return list;
-            }
-            */
             if (fieldType == typeof(FP_Location))
             {
                 return DrawFPLocationField(fieldName, (FP_Location)fieldValue);
@@ -372,8 +357,44 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return DrawFPMultiLingualField(fieldName, (FP_Multilingual)fieldValue);
             }
+            if(fieldType == typeof(FP_Audio))
+            {
+                return DrawFPAudioField(fieldName, (FP_Audio)fieldValue);
+            }
+            if(fieldType == typeof(ConvoTranslation))
+            {
+                return DrawConvoTranslationField(fieldName, (ConvoTranslation)fieldValue);
+            }
             EditorGUILayout.LabelField(fieldName, $"Unsupported field type: {fieldType.Name}");
             return fieldValue;
+        }
+
+        #region Draw Field Methods
+        private ConvoTranslation DrawConvoTranslationField(string fieldName, ConvoTranslation data)
+        {
+
+            EditorGUILayout.LabelField(fieldName);
+
+            var type = typeof(ConvoTranslation);
+            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+            {
+                var fieldValue = field.GetValue(data);
+                var newValue = DrawField(field.Name, field.FieldType, fieldValue, field);
+                if (!Equals(fieldValue, newValue))
+                {
+                    field.SetValue(data, newValue);
+                }
+            }
+            return data;
+        }
+      
+        private FP_Audio DrawFPAudioField(string fieldName,FP_Audio data)
+        {
+            EditorGUILayout.LabelField(fieldName);
+            data.AudioClip = (AudioClip)EditorGUILayout.ObjectField("Audio Clip", data.AudioClip, typeof(AudioClip), false);
+            data.URLAudioType = (AudioType)EditorGUILayout.EnumPopup("URL Audio Type", data.URLAudioType);
+            data.URLReference = EditorGUILayout.TextField("URL Reference", data.URLReference);
+            return data;
         }
         private FP_Location DrawFPLocationField(string fieldName, FP_Location location)
         {
@@ -412,26 +433,24 @@ namespace FuzzPhyte.Utility.Editor
             camera.StepsPerSegment = EditorGUILayout.IntField("Steps Per Segment", camera.StepsPerSegment);
             camera.RendererIndex = EditorGUILayout.IntField("Renderer Index", camera.RendererIndex);
             return camera;    
-            /*
-            public struct FP_Camera
-    {
-        public float CameraFOV;
-        [Header("Damping based for Dolley and Zoom")]
-        public float PitchDamping;
-        public float RollDamping;
-        public float XDamping;
-        public float YDamping;
-        public float ZDamping;
-        [Header("Auto Dolly Parameters")]
-        public float PositionOffset;
-        public int SearchRadius;
-        public int SearchResolution;
-        public int StepsPerSegment;
-        [Header("Camera Renderer Settings")]
-        public int RendererIndex;
-    }
-            */
         }
+
+        #endregion
+        private bool HandleTextAreaAttribute(FieldInfo fieldInfo, Type fieldType, ref object fieldValue)
+        {
+            if (fieldInfo != null)
+            {
+                var textAreaAttribute = fieldInfo.GetCustomAttribute<TextAreaAttribute>();
+                if (textAreaAttribute != null && fieldType == typeof(string))
+                {
+                    EditorGUILayout.LabelField(ObjectNames.NicifyVariableName(fieldInfo.Name)); // Add a label for the field
+                    fieldValue = EditorGUILayout.TextArea((string)fieldValue, GUILayout.Height(EditorGUIUtility.singleLineHeight * (textAreaAttribute.minLines + 1)));
+                    return true;
+                }
+            }
+            return false;
+        }
+
 
         private void CreateScriptableObject()
         {

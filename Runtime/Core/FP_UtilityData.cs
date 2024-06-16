@@ -422,6 +422,15 @@ namespace FuzzPhyte.Utility
         public AudioType URLAudioType;
         public string URLReference;
     }
+    [Serializable]
+    public struct ConvoTranslation
+    {
+        public FP_Language Language;
+        public string Header;
+        [TextArea(2, 4)]
+        public string Text;
+        public FP_Audio AudioText;
+    }
     
     [Serializable]
     public struct FP_Location 
