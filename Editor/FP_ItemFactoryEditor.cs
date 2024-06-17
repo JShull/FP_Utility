@@ -295,39 +295,40 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return fieldValue;
             }
+            
             if (fieldType == typeof(int))
             {
-                return EditorGUILayout.IntField(fieldName, (int)fieldValue);
+                return EditorGUILayout.IntField(ReturnLabelSpacedName(fieldName), (int)fieldValue);
             }
             if (fieldType == typeof(float))
             {
-                return EditorGUILayout.FloatField(fieldName, (float)fieldValue);
+                return EditorGUILayout.FloatField(ReturnLabelSpacedName(fieldName), (float)fieldValue);
             }
             if (fieldType == typeof(string))
             {
-                return EditorGUILayout.TextField(fieldName, (string)fieldValue);
+                return EditorGUILayout.TextField(ReturnLabelSpacedName(fieldName), (string)fieldValue);
             }
             if (fieldType == typeof(bool))
             {
-                return EditorGUILayout.Toggle(fieldName, (bool)fieldValue);
+                return EditorGUILayout.Toggle(ReturnLabelSpacedName(fieldName), (bool)fieldValue);
             }
             if (fieldType == typeof(Color))
             {
-                return EditorGUILayout.ColorField(fieldName, (Color)fieldValue);
+                return EditorGUILayout.ColorField(ReturnLabelSpacedName(fieldName), (Color)fieldValue);
             }
             if (fieldType.IsEnum)
             {
-                return EditorGUILayout.EnumPopup(fieldName, (Enum)fieldValue);
+                return EditorGUILayout.EnumPopup(ReturnLabelSpacedName(fieldName), (Enum)fieldValue);
             }
             if (typeof(UnityEngine.Object).IsAssignableFrom(fieldType))
             {
-                return EditorGUILayout.ObjectField(fieldName, (UnityEngine.Object)fieldValue, fieldType, true);
+                return EditorGUILayout.ObjectField(ReturnLabelSpacedName(fieldName), (UnityEngine.Object)fieldValue, fieldType, true);
             }
             if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
             {
                 Type itemType = fieldType.GetGenericArguments()[0];
                 IList list = (IList)fieldValue ?? (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(itemType));
-                EditorGUILayout.LabelField(fieldName);
+                EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
                 int listSize = EditorGUILayout.IntField("Size", list.Count);
 
                 while (listSize > list.Count)
@@ -341,7 +342,7 @@ namespace FuzzPhyte.Utility.Editor
 
                 for (int i = 0; i < list.Count; i++)
                 {
-                    list[i] = DrawField(fieldName + " " + i, itemType, list[i]);
+                    list[i] = DrawField(ReturnLabelSpacedName(fieldName) + " " + i, itemType, list[i]);
                 }
                 return list;
             }
@@ -365,7 +366,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return DrawConvoTranslationField(fieldName, (ConvoTranslation)fieldValue);
             }
-            EditorGUILayout.LabelField(fieldName, $"Unsupported field type: {fieldType.Name}");
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName), $"Unsupported field type: {fieldType.Name}");
             return fieldValue;
         }
 
@@ -373,24 +374,53 @@ namespace FuzzPhyte.Utility.Editor
         private ConvoTranslation DrawConvoTranslationField(string fieldName, ConvoTranslation data)
         {
 
-            EditorGUILayout.LabelField(fieldName);
-
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
+            //data.Header = EditorGUILayout.TextField("Header", data.Header);
+           
             var type = typeof(ConvoTranslation);
             foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
                 var fieldValue = field.GetValue(data);
-                var newValue = DrawField(field.Name, field.FieldType, fieldValue, field);
+                //I want to see if my field.name is a combined string with two capital letters and then I want to split it and add a space between them
+                //I want to see if my field.name is a combined string with two capital letters and then I want to split it and add a space between them
+                var newName = ReturnLabelSpacedName(field.Name);
+                
+                var newValue = DrawField(newName, field.FieldType, fieldValue, field);
                 if (!Equals(fieldValue, newValue))
                 {
-                    field.SetValue(data, newValue);
+                    field.SetValueDirect(__makeref(data), newValue);
                 }
             }
             return data;
         }
+        //Returns a string with a space between two capital letters
+        private string ReturnLabelSpacedName(string fieldName)
+        {
+            //ObjectNames.NicifyVariableName
+            return ObjectNames.NicifyVariableName(fieldName);
+            /*
+            var newName = "";
+            if (fieldName.Length > 1)
+            {
+                //var newName = "";
+                for (int i = 0; i < fieldName.Length; i++)
+                {
+                    if (i > 0 && char.IsUpper(fieldName[i]))
+                    {
+                        newName += " ";
+                    }
+                    newName += fieldName[i];
+                }
+                //EditorGUILayout.LabelField(newName);
+                return newName;
+            }
+            return fieldName;
+            */
+        }
       
         private FP_Audio DrawFPAudioField(string fieldName,FP_Audio data)
         {
-            EditorGUILayout.LabelField(fieldName);
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
             data.AudioClip = (AudioClip)EditorGUILayout.ObjectField("Audio Clip", data.AudioClip, typeof(AudioClip), false);
             data.URLAudioType = (AudioType)EditorGUILayout.EnumPopup("URL Audio Type", data.URLAudioType);
             data.URLReference = EditorGUILayout.TextField("URL Reference", data.URLReference);
@@ -398,7 +428,7 @@ namespace FuzzPhyte.Utility.Editor
         }
         private FP_Location DrawFPLocationField(string fieldName, FP_Location location)
         {
-            EditorGUILayout.LabelField(fieldName);
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
             location.WorldLocation = EditorGUILayout.Vector3Field("World Location", location.WorldLocation);
             location.EulerRotation = EditorGUILayout.Vector3Field("Euler Rotation", location.EulerRotation);
             location.LocalScale = EditorGUILayout.Vector3Field("Local Scale", location.LocalScale);
@@ -406,7 +436,7 @@ namespace FuzzPhyte.Utility.Editor
         }
         private FP_Multilingual DrawFPMultiLingualField(string fieldName, FP_Multilingual data)
         {
-            EditorGUILayout.LabelField(fieldName);
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName)) ;
             data.Primary = (FP_Language)EditorGUILayout.EnumPopup("Primary Language", data.Primary);
             data.Secondary = (FP_Language)EditorGUILayout.EnumPopup("Secondary Language", data.Secondary);
             data.Tertiary = (FP_Language)EditorGUILayout.EnumPopup("Tertiary Language", data.Tertiary);
@@ -414,7 +444,7 @@ namespace FuzzPhyte.Utility.Editor
         }
         private FP_Camera DrawFPCameraField(string fieldName, FP_Camera camera)
         {
-            EditorGUILayout.LabelField(fieldName);
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
             //
             EditorGUILayout.BeginHorizontal();
             camera.CameraFOV = EditorGUILayout.Slider("Camera FOV",camera.CameraFOV, 5f, 178f); // Adjust range as needed
@@ -440,9 +470,19 @@ namespace FuzzPhyte.Utility.Editor
         {
             if (fieldInfo != null)
             {
+                // Handle Header attribute
+                var headerAttribute = fieldInfo.GetCustomAttribute<HeaderAttribute>();
+                if (headerAttribute != null)
+                {
+                    var headerName = ReturnLabelSpacedName(headerAttribute.header);
+                    EditorGUILayout.LabelField(headerName, EditorStyles.boldLabel);
+                    return false;
+                }
+
                 var textAreaAttribute = fieldInfo.GetCustomAttribute<TextAreaAttribute>();
                 if (textAreaAttribute != null && fieldType == typeof(string))
                 {
+                    var textAreaName = ReturnLabelSpacedName(fieldInfo.Name);
                     EditorGUILayout.LabelField(ObjectNames.NicifyVariableName(fieldInfo.Name)); // Add a label for the field
                     fieldValue = EditorGUILayout.TextArea((string)fieldValue, GUILayout.Height(EditorGUIUtility.singleLineHeight * (textAreaAttribute.minLines + 1)));
                     return true;
@@ -450,8 +490,7 @@ namespace FuzzPhyte.Utility.Editor
             }
             return false;
         }
-
-
+       
         private void CreateScriptableObject()
         {
             if (script == null && (selectedClassIndex == 0 || selectedClassIndex < 0))
