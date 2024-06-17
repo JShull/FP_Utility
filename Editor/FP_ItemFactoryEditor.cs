@@ -25,12 +25,12 @@ namespace FuzzPhyte.Utility.Editor
         private Vector2 secondScrollPosition;
         private Dictionary<string, object> dynamicFields = new Dictionary<string, object>();
 
-        #region Color Tool Parameters
+        #region Color Parameters
         private List<Color> primaryColors = new List<Color>();
         private Color newColor = Color.white;
         private Color[] generatedColors;
         #endregion
-        #region Lower Window Color Resizing Handle Parameters
+        #region Handle Parameters
         private float lowerPanelHeight = 200f; // Initial height of the lower panel
         private bool isResizing = false;
         private Rect resizeHandleRect;
@@ -71,7 +71,6 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
         }
-
         private void InitializeStyles()
         {
             buttonWarningStyle = new GUIStyle(GUI.skin.button);
@@ -86,7 +85,6 @@ namespace FuzzPhyte.Utility.Editor
             buttonActiveStyle.hover.textColor = FP_Utility_Editor.OkayColor;
             buttonActiveStyle.focused.textColor = FP_Utility_Editor.OkayColor;
         }
-
         private void OnGUI()
         {
             GUILayout.Label("Create FP_Data Derived ScriptableObject", EditorStyles.boldLabel);
@@ -366,11 +364,12 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return DrawConvoTranslationField(fieldName, (ConvoTranslation)fieldValue);
             }
+            
             EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName), $"Unsupported field type: {fieldType.Name}");
             return fieldValue;
         }
 
-        #region Draw Field Methods
+        #region Draw Fields
         private ConvoTranslation DrawConvoTranslationField(string fieldName, ConvoTranslation data)
         {
 
@@ -381,8 +380,6 @@ namespace FuzzPhyte.Utility.Editor
             foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
                 var fieldValue = field.GetValue(data);
-                //I want to see if my field.name is a combined string with two capital letters and then I want to split it and add a space between them
-                //I want to see if my field.name is a combined string with two capital letters and then I want to split it and add a space between them
                 var newName = ReturnLabelSpacedName(field.Name);
                 
                 var newValue = DrawField(newName, field.FieldType, fieldValue, field);
