@@ -5,7 +5,7 @@ namespace FuzzPhyte.Utility.Meta
 {
     [Serializable]
     [CreateAssetMenu(fileName = "Tag", menuName = "FuzzPhyte/Utility/Meta/Tag", order = 0)]
-    public class FP_Tag : ScriptableObject
+    public class FP_Tag : FP_Data
     {
         public string TagName;
         [TextArea(2,4)]
