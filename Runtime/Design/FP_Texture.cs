@@ -4,6 +4,7 @@ namespace FuzzPhyte.Utility
 
     public static class FP_Texture
     {
+
         //original code from https://stackoverflow.com/questions/51315918/how-to-encodetopng-compressed-textures-in-unity
         public static Texture2D Decompress(this Texture2D source)
         {
@@ -23,6 +24,8 @@ namespace FuzzPhyte.Utility
             RenderTexture.active = previous;
             RenderTexture.ReleaseTemporary(renderTex);
             return readableText;
-        }    
+        }
+        //also have this way to copy a texture with minmaps settings
+        // https://docs.unity3d.com/ScriptReference/Graphics.CopyTexture.html
     }
 }
