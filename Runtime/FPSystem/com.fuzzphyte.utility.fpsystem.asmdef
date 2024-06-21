@@ -1,0 +1,16 @@
+{
+    "name": "com.fuzzphyte.utility.fpsystem",
+    "rootNamespace": "FuzzPhyte.Utility.FPSystem",
+    "references": [
+        "com.fuzzphyte.utility"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

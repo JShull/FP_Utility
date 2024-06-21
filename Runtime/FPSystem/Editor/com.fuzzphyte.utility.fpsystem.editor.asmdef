@@ -1,0 +1,18 @@
+{
+    "name": "com.fuzzphyte.utility.fpsystem.editor",
+    "rootNamespace": "FuzzPhyte.Utility.FPSystem.Editor",
+    "references": [
+        "GUID:f6e281f41edc74a408b48cdb8091a202"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
