@@ -50,13 +50,7 @@ namespace FuzzPhyte.Utility.Editor
             LoadDerivedTypes();
             CreateHandleTexture();
         }
-        private void CreateHandleTexture()
-        {
-            handleTexture = new Texture2D(1, 1);
-            handleColor = FP_Utility_Editor.OkayColor;
-            handleTexture.SetPixel(0, 0, handleColor);
-            handleTexture.Apply();
-        }
+        
         private void LoadDerivedTypes()
         {
             fpDataDerivedTypes = new List<Type> { null }; // Add null to represent "NA"
@@ -70,6 +64,13 @@ namespace FuzzPhyte.Utility.Editor
                     }
                 }
             }
+        }
+        private void CreateHandleTexture()
+        {
+            handleTexture = new Texture2D(1, 1);
+            handleColor = FP_Utility_Editor.OkayColor;
+            handleTexture.SetPixel(0, 0, handleColor);
+            handleTexture.Apply();
         }
         private void InitializeStyles()
         {
