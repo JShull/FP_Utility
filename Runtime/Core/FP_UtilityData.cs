@@ -405,6 +405,14 @@ namespace FuzzPhyte.Utility
         Spanish,
         French,
     }
+    [SerializeField]
+    public enum MWApiKeyType
+    {
+        NA,
+        MWCollegeWord,
+        MWLearnersWord,
+        MWSchoolWord,
+    }
     //keep tabs on what languages we could be using for a given object
     [Serializable]
     public struct FP_Multilingual
