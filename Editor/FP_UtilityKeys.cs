@@ -26,7 +26,7 @@ namespace FuzzPhyte.Utility.Editor
         [MenuItem("FuzzPhyte/Utility/Keys Manager")]
         public static void ShowWindow()
         {
-            GetWindow<FP_UtilityKeys>("Keys Manager");
+            GetWindow<FP_UtilityKeys>("FP Keys Manager");
         }
 
         private void OnEnable()
