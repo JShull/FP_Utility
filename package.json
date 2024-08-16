@@ -1,6 +1,6 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "2022.3",
@@ -14,7 +14,7 @@
     },
     "dependencies": {
       "com.unity.mathematics": "1.2.6",
-      "com.unity.textmeshpro": "3.0.6"
+      "com.unity.textmeshpro": "3.0.9"
     },
     "samples": [
       {

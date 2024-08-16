@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2024-8-16
+
+### 0.4.3 Changed
+
+- [@JShull](https://github.com/jshull)
+  - FP_Timer.cs
+    - Added in multiple ways to StartTimer with different parameters
+    - Int
+    - String
+    - Float
+
 ## [0.4.2] - 2024-6-11
 
 ### 0.4.2 Added
