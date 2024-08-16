@@ -52,9 +52,11 @@ namespace FuzzPhyte.Utility
         /// <param name="onFinish"></param>
         public void StartTimer(float time, Action onFinish)
         {
-            TimerData timerData = new TimerData();
-            timerData.time = Time.time + time;
-            timerData.onFinish = onFinish;
+            TimerData timerData = new TimerData
+            {
+                time = Time.time + time,
+                onFinish = onFinish
+            };
             timers.Enqueue(timerData);
         }
         /// <summary>
@@ -65,9 +67,11 @@ namespace FuzzPhyte.Utility
         /// <param name="onFinish"></param>
         public void StartTimer(float time, int param,Action<int> onFinish)
         {
-            TimerData timerData = new TimerData();
-            timerData.time = Time.time + time;
-            timerData.onFinish = () => onFinish(param);
+            TimerData timerData = new TimerData
+            {
+                time = Time.time + time,
+                onFinish = () => onFinish(param)
+            };
             timers.Enqueue(timerData);
         }
         /// <summary>
@@ -93,6 +97,21 @@ namespace FuzzPhyte.Utility
         /// <param name="param">Float parameter to pass to the callback</param>
         /// <param name="onFinish">Callback to be invoked when the timer finishes</param>
         public void StartTimer(float time, float param, Action<float> onFinish)
+        {
+            TimerData timerData = new TimerData
+            {
+                time = Time.time + time,
+                onFinish = () => onFinish(param)
+            };
+            timers.Enqueue(timerData);
+        }
+        /// <summary>
+        /// Start a timer with a 'FP_Data' callback
+        /// </summary>
+        /// <param name="time"></param>
+        /// <param name="param"></param>
+        /// <param name="onFinish"></param>
+        public void StartTimer(float time, FP_Data param, Action<FP_Data> onFinish)
         {
             TimerData timerData = new TimerData
             {

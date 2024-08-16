@@ -311,6 +311,10 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return EditorGUILayout.Toggle(ReturnLabelSpacedName(fieldName), (bool)fieldValue);
             }
+            if(fieldType == typeof(Vector2))
+            {
+                return EditorGUILayout.Vector2Field(ReturnLabelSpacedName(fieldName), (Vector2)fieldValue);
+            }
             if (fieldType == typeof(Color))
             {
                 return EditorGUILayout.ColorField(ReturnLabelSpacedName(fieldName), (Color)fieldValue);
@@ -323,6 +327,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return EditorGUILayout.ObjectField(ReturnLabelSpacedName(fieldName), (UnityEngine.Object)fieldValue, fieldType, true);
             }
+            
             if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
             {
                 Type itemType = fieldType.GetGenericArguments()[0];
