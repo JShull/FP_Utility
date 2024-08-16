@@ -120,5 +120,20 @@ namespace FuzzPhyte.Utility
             };
             timers.Enqueue(timerData);
         }
+        /// <summary>
+        /// Start a timer with a 'GameObject' callback
+        /// </summary>
+        /// <param name="time"></param>
+        /// <param name="param"></param>
+        /// <param name="onFinish"></param>
+        public void StartTimer(float time, GameObject param, Action<GameObject> onFinish)
+        {
+            TimerData timerData = new TimerData
+            {
+                time = Time.time + time,
+                onFinish = () => onFinish(param)
+            };
+            timers.Enqueue(timerData);
+        }
     }
 }
