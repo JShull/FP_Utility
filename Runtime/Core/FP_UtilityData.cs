@@ -215,8 +215,8 @@ namespace FuzzPhyte.Utility
         #region Old Input Settings
         public const string OVR_ButtonTwo = "Oculus_CrossPlatform_Button2";
         public const string OVR_ButtonFour = "Oculus_CrossPlatform_Button4";
-        public const string OVR_PrimaryTrigger ="Oculus_CrossPlatform_PrimaryHandTrigger";
-        public const string OVR_SecondaryTrigger = "Oculus_CrossPlatform_SecondaryHandTrigger";
+        public const string OVR_PrimaryTrigger ="Oculus_CrossPlatform_PrimaryIndexTrigger";
+        public const string OVR_SecondaryTrigger = "Oculus_CrossPlatform_SecondaryIndexTrigger";
         public const string OVR_PrimaryGrip = "Oculus_CrossPlatform_PrimaryHandTrigger";
         public const string OVR_SecondaryGrip = "Oculus_CrossPlatform_SecondaryHandTrigger";
         #endregion
