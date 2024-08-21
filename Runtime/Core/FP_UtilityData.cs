@@ -207,6 +207,20 @@ namespace FuzzPhyte.Utility
             return obj;
         }
     }
+    ///<summary>
+    ///Hold some static string names for legacy input scenarios
+    ///</summary>
+    public static class FP_InputData
+    {
+        #region Old Input Settings
+        public const string OVR_ButtonTwo = "Oculus_CrossPlatform_Button2";
+        public const string OVR_ButtonFour = "Oculus_CrossPlatform_Button4";
+        public const string OVR_PrimaryTrigger ="Oculus_CrossPlatform_PrimaryHandTrigger";
+        public const string OVR_SecondaryTrigger = "Oculus_CrossPlatform_SecondaryHandTrigger";
+        public const string OVR_PrimaryGrip = "Oculus_CrossPlatform_PrimaryHandTrigger";
+        public const string OVR_SecondaryGrip = "Oculus_CrossPlatform_SecondaryHandTrigger";
+        #endregion
+    }
 
     #region Generic Enums for Players and NPCs
     [Serializable]
