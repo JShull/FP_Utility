@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.3] - 2024-8-16
+## [0.4.3] - 2024-8-16 / 2024-8-29
 
 ### 0.4.3 Changed
 
@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Int
     - String
     - Float
+  - FP_FactoryItemEditor.cs
+    - Added in Vector3 Support for Default FP_Data related Scriptable Objects 
 
 ## [0.4.2] - 2024-6-11
 
