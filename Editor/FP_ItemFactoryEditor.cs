@@ -315,6 +315,10 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return EditorGUILayout.Vector2Field(ReturnLabelSpacedName(fieldName), (Vector2)fieldValue);
             }
+            if(fieldType == typeof(Vector3))
+            {
+                return EditorGUILayout.Vector3Field(ReturnLabelSpacedName(fieldName), (Vector3)fieldValue);
+            }
             if (fieldType == typeof(Color))
             {
                 return EditorGUILayout.ColorField(ReturnLabelSpacedName(fieldName), (Color)fieldValue);
