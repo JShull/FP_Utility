@@ -7,6 +7,7 @@ namespace FuzzPhyte.Utility
     {
         [SerializeField]
         private Transform targetObject;
+
         [SerializeField]
         private Transform startPoint;
 
@@ -30,6 +31,10 @@ namespace FuzzPhyte.Utility
 
         private void Start()
         {
+            if (targetObject == null)
+            {
+                targetObject = transform;
+            }
             ResetMovement();
             if(playOnStart)
             {
