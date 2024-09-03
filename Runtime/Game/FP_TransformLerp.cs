@@ -6,6 +6,8 @@ namespace FuzzPhyte.Utility
     public class FP_TransformLerp : MonoBehaviour
     {
         [SerializeField]
+        private Transform targetObject;
+        [SerializeField]
         private Transform startPoint;
 
         [SerializeField]
@@ -64,7 +66,7 @@ namespace FuzzPhyte.Utility
             {
                 StopCoroutine(moveCoroutine);
             }
-            transform.position = startPoint.position;
+            targetObject.transform.position = startPoint.position;
             isPaused = true;
         }
 
@@ -98,13 +100,13 @@ namespace FuzzPhyte.Utility
                     float curveValue = movementCurve.Evaluate(t);
 
                     // Use the curve value to interpolate the position
-                    transform.position = Vector3.Lerp(from, to, curveValue);
+                    targetObject.transform.position = Vector3.Lerp(from, to, curveValue);
                 }
                 yield return null;
             }
 
             // Ensure it ends at the exact end position
-            transform.position = to;
+            targetObject.transform.position = to;
         }
     }
 
