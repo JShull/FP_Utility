@@ -7,14 +7,15 @@ namespace FuzzPhyte.Utility.FPSystem
     /// <summary>
     /// This works well with the FPBootStrapper.cs script in your scene
     /// </summary>
-    public abstract class FPSystemBase : MonoBehaviour, IFPSingleton
+    //public class FPManager<TData> : IFPSingleton<TData> where TData : FP_Data
+    public abstract class FPSystemBase<TData> : MonoBehaviour, IFPSingleton<TData> where TData:FP_Data
     {
         /// <summary>
         /// so we don't have to keep declaring a return new call on this
         /// </summary>
         public WaitForEndOfFrame EndOfFrame;
         protected bool AfterLateUpdateActive=false;
-        public static FPSystemBase Instance { get; protected set; }
+        public static FPSystemBase<TData> Instance { get; protected set; }
         [Tooltip("Maybe some starter data for this system")]
         [SerializeField]
         protected FP_Data systemData;
@@ -23,7 +24,7 @@ namespace FuzzPhyte.Utility.FPSystem
         /// but it's not required
         /// </summary>
         /// <param name="data"></param>
-        public virtual void Initialize(bool runAfterLateUpdateLoop,FP_Data data = null)
+        public virtual void Initialize(bool runAfterLateUpdateLoop,TData data = null)
         {
             AfterLateUpdateActive = runAfterLateUpdateLoop;
             if(data!=null)
