@@ -18,7 +18,7 @@ namespace FuzzPhyte.Utility.FPSystem
         public static FPSystemBase<TData> Instance { get; protected set; }
         [Tooltip("Maybe some starter data for this system")]
         [SerializeField]
-        protected FP_Data systemData;
+        protected TData systemData;
         /// <summary>
         /// we might have some data we want to pass in on and it's probably based on our lowest base data class
         /// but it's not required

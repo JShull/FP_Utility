@@ -22,7 +22,7 @@ namespace FuzzPhyte.Utility.FPSystem
                 initializer.Initialize(true);
             }
         }
-        private void Awake()
+        protected virtual void Awake()
         {
             // Ensure only one instance exists
             if (Instance == null)
@@ -37,6 +37,5 @@ namespace FuzzPhyte.Utility.FPSystem
                 return;
             }
         }
-    
     }
 }
