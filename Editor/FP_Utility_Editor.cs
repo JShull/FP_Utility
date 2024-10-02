@@ -315,6 +315,41 @@ namespace FuzzPhyte.Utility.Editor
             // Return the search results.
             return request.Result;
         }
+        public static int GetInstanceIDFromGUID(GUID guid)
+        {
+            // Get the path of the asset from the GUID
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+
+            if (!string.IsNullOrEmpty(assetPath))
+            {
+                // Load the asset at the specified path
+                UnityEngine.Object obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath);
+
+                if (obj != null)
+                {
+                    return obj.GetInstanceID(); // Get the instance ID of the loaded asset
+                }
+            }
+
+            // If the asset couldn't be found, return -1 or handle the error accordingly
+            return -1;
+        }
+        
+        public static GUID ReturnGUIDFromInstance(int instanceID, out bool success)
+        {
+            GameObject obj = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
+            //GetHashCode
+            var getGlobalID = GlobalObjectId.GetGlobalObjectIdSlow(instanceID).assetGUID;
+            if (getGlobalID.ToString() == "GlobalObjectId_V1-0-00000000000000000000000000000000-0-0")
+            {
+                success = false;
+            }
+            else
+            {
+                success = true;
+            }
+            return getGlobalID;
+        }
     }
     /// <summary>
     /// Static class to manage the addition and removal of tags via other editor tools e.g. FP_Recorder

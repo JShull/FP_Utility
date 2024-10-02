@@ -1,7 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -14,6 +14,13 @@ namespace FuzzPhyte.Utility
     {
         //ScriptableObject Setup for other Utility Classes
         public const string MENU_COMPANY ="FuzzPhyte/";
+        // Variable name for editor variables
+        public const string LAST_SCENEPATH_VAR = "FP_LastActiveScenePath";
+        public const string FP_FOLDOUTSTATES_KEY = "FP_FoldoutStates_Keys";
+        public const string FP_FOLDOUTSTATES_VALUE = "FP_FoldoutStates_Values";
+        public const string FP_PREVIOUSFOLDOUT_KEY = "FP_PreviousFoldout";
+        public const string FP_PREVIOUSFOLDOUT_VALUE = "FP_PreviousFoldoutValue";
+        // menu order for misc. menus
         public const int ORDER_MENU = 0;
         public const int ORDER_SUBMENU_LVL1 = 150;
         public const int ORDER_SUBMENU_LVL2 = 130;
@@ -36,6 +43,7 @@ namespace FuzzPhyte.Utility
             Array.Sort(invalidFilenameChars);
             Array.Sort(invalidPathChars);
         }
+        
         /// <summary>
         /// Return color by status
         /// Aligns with our editor script
@@ -496,6 +504,19 @@ namespace FuzzPhyte.Utility
         CS_Strands,
         TechnologyStrands,
         Career
+    }
+    /// <summary>
+    /// Hold my custom list of items that are serializable so I can save editor prefs and other items
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    [System.Serializable]
+    public class FPSerializableList<T>
+    {
+        public List<T> list;
+        public FPSerializableList(List<T> list)
+        {
+            this.list = list;
+        }
     }
     #region Custom UnityEvents
     /// <summary>
