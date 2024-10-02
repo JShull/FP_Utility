@@ -184,11 +184,11 @@ namespace FuzzPhyte.Utility.Editor
                 
                
                 // Track the name initially
-                if (!previousNames.ContainsKey(ID))
-                {
-                    previousNames.Add(ID, obj.name);
-                    dirtyState = true;
-                }
+                //if (!previousNames.ContainsKey(ID))
+                //{
+                //    previousNames.Add(ID, obj.name);
+                //    dirtyState = true;
+                //}
                 // Check if the GameObject name is in all caps and if it is not active (disabled)
                 if (obj.name == obj.name.ToUpper() && !obj.activeInHierarchy && obj.transform.childCount==0)
                 {
@@ -251,7 +251,6 @@ namespace FuzzPhyte.Utility.Editor
                         EditorApplication.RepaintHierarchyWindow();
                         dirtyState = true;
                     }
-                    
                 }
                 else
                 {
