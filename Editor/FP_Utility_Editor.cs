@@ -375,6 +375,50 @@ namespace FuzzPhyte.Utility.Editor
             return null;
         }
     
+        public static string ReturnEditorPath(string packageName, bool local=false)
+        {
+            if (local)
+            {
+                return Path.Combine("Assets", packageName, "Editor");   
+            }
+            return Path.Combine("Packages","com.fuzzphyte.",packageName,"Editor");
+        }
+        public static string ReturnEditorResourceIcons(string editorPath)
+        {
+            return Path.Combine(editorPath, "Icons");
+        }
+        public static Texture2D ReturnEditorIcon(string iconPath, bool package=false)
+        {
+            if (package)
+            {
+                return EditorGUIUtility.Load(iconPath) as Texture2D;
+            }
+            else
+            {
+                return AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+            }
+            
+        }
+        public static bool IsPackageLoadedViaPackageManager()
+        {
+            // Find a known script or asset in your package
+            MonoScript tempScript = MonoScript.FromScriptableObject(ScriptableObject.CreateInstance<FP_Notification>());
+            string path = AssetDatabase.GetAssetPath(tempScript);
+            // Destroy the temporary ScriptableObject after use
+            ScriptableObject.DestroyImmediate(tempScript,true);
+           
+            // Check if the path starts with "Packages/", meaning it's loaded via the Package Manager
+            if (path.StartsWith("Packages/"))
+            {
+                return true; // The package is loaded via the Package Manager
+            }
+            else if (path.StartsWith("Assets/"))
+            {
+                return false; // The package is loaded as part of the regular Assets folder
+            }
+
+            return false;
+        }
         public static string GetPackagePathForScript(string scriptClassName)
         {
             var scriptAsset = GetMonoScriptForClass(scriptClassName);

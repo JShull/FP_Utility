@@ -5,6 +5,7 @@ namespace FuzzPhyte.Utility.Editor
     using System.Collections.Generic;
     using UnityEngine.SceneManagement;
     using System.Linq;
+    using System.IO;
 
     [InitializeOnLoad]
     public static class FP_HHeader
@@ -16,7 +17,7 @@ namespace FuzzPhyte.Utility.Editor
         private static Color headerColor = new Color(0.0f, 0.0f, 0.0f, 1);
         private static int adjHeaderWidth = 40;
         private static string lastChangedObjectName;
-        private static string scriptAssetPath;
+        //private static string scriptAssetPath;
         private static Texture2D hhCloseIcon;
         private static Texture2D hhOpenIcon;
         private static Texture2D hhSelectAllIcon;
@@ -27,16 +28,29 @@ namespace FuzzPhyte.Utility.Editor
         static FP_HHeader()
         {
             Debug.LogWarning($"FP_HHeader: Editor Setup Initialized");
-            scriptAssetPath = FP_Utility_Editor.GetPackagePathForScript("FP_HHeader");
-            hhCloseIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(scriptAssetPath + "/Icons/HH_Close.png");
-            hhOpenIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(scriptAssetPath + "/Icons/HH_Open.png");
-            hhSelectAllIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(scriptAssetPath + "/Icons/HH_SelectAll.png");
-            hhSelectAllIconActive = AssetDatabase.LoadAssetAtPath<Texture2D>(scriptAssetPath + "/Icons/HH_SelectAllActive.png");
+            //am I in the package or in the editor
+            var loadedPackageManager = FP_Utility_Editor.IsPackageLoadedViaPackageManager();
+            Debug.LogWarning($"FP_HHeader: via Unity Package Manager: {loadedPackageManager}");
+            var packageName = loadedPackageManager ? "utility" : "FP_Utility";
+            var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
+            var iconRefEditor = FP_Utility_Editor.ReturnEditorResourceIcons(packageRef);
+            Debug.LogWarning($"iconRefEditor = {iconRefEditor}");
+            //ICON LOAD
+            var closePath = Path.Combine(iconRefEditor, "HH_Close.png");
+            var openPath = Path.Combine(iconRefEditor, "HH_Open.png");
+            var selectAllIcon = Path.Combine(iconRefEditor, "HH_SelectAll.png");
+            var selectAllIconActive = Path.Combine(iconRefEditor, "HH_SelectAllActive.png");
+            Debug.LogWarning($"Close Path Icon Location = {closePath}");
+            hhCloseIcon = FP_Utility_Editor.ReturnEditorIcon(closePath, loadedPackageManager);
+            hhOpenIcon = FP_Utility_Editor.ReturnEditorIcon(openPath, loadedPackageManager);
+            
+            hhSelectAllIcon = FP_Utility_Editor.ReturnEditorIcon(selectAllIcon, loadedPackageManager);
+            hhSelectAllIconActive = FP_Utility_Editor.ReturnEditorIcon(selectAllIconActive, loadedPackageManager);
             LoadFoldoutStatesFromPrefs(); // Load saved foldout states on editor initialization
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
-            Debug.LogWarning($"FP_HHeader: Editor Setup Initialized Complete, icons at {scriptAssetPath}");
+            Debug.LogWarning($"FP_HHeader: Editor Setup Initialized Complete");
         }
         
         private static void OnEditorUpdate()
