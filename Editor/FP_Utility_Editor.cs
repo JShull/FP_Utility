@@ -381,7 +381,8 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return Path.Combine("Assets", packageName, "Editor");   
             }
-            return Path.Combine("Packages","com.fuzzphyte.",packageName,"Editor");
+            var companyNamePackage = "com.fuzzphyte." + packageName;
+            return Path.Combine("Packages", companyNamePackage, "Editor");
         }
         public static string ReturnEditorResourceIcons(string editorPath)
         {
