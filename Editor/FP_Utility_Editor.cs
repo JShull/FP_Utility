@@ -389,6 +389,8 @@ namespace FuzzPhyte.Utility.Editor
         }
         public static Texture2D ReturnEditorIcon(string iconPath, bool package=false)
         {
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+
             if (package)
             {
                 return EditorGUIUtility.Load(iconPath) as Texture2D;
