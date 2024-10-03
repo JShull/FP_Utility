@@ -50,7 +50,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
-            Debug.LogWarning($"FP_HHeader: Editor Setup Initialized Complete");
+            //Debug.LogWarning($"FP_HHeader: Editor Setup Initialized Complete");
         }
         
         private static void OnEditorUpdate()
@@ -65,7 +65,7 @@ namespace FuzzPhyte.Utility.Editor
                 EditorPrefs.SetString(FP_UtilityData.LAST_SCENEPATH_VAR, activeScene.path);
                 OnSceneOpened(activeScene);
                 //this should load our dictionaries
-                Debug.LogWarning($"FP_HHeader: Loading Header Status: Scene Change");
+                //Debug.LogWarning($"FP_HHeader: Loading Header Status: Scene Change");
                 return;
             }
             
@@ -183,7 +183,7 @@ namespace FuzzPhyte.Utility.Editor
         private static void OnSceneOpened(Scene scene)
         {
             // Clear and reset foldout states when a new scene is opened
-            Debug.LogWarning($"FP_HHeader: Scene Changed... Resetting Foldout States");
+            //Debug.LogWarning($"FP_HHeader: Scene Changed... Resetting Foldout States");
             foldoutStates.Clear();
             previousNames.Clear();
             //these resets my data
@@ -212,7 +212,7 @@ namespace FuzzPhyte.Utility.Editor
                 //Debug.LogWarning($"Mouse Down Change Foldout State");
                 EditorApplication.RepaintHierarchyWindow();
             }
-            Debug.LogWarning($"FP_HHeader: Editor opened a new scene: {scene.name}! Refreshed FuzzPhyte Header Data Complete!");
+            //Debug.LogWarning($"FP_HHeader: Editor opened a new scene: {scene.name}! Refreshed FuzzPhyte Header Data Complete!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
         }
@@ -607,7 +607,7 @@ namespace FuzzPhyte.Utility.Editor
                 foldoutStates[keys[i]] = values[i];
                 previousNames[keys[i]] = lastOtherValues[i];
             }
-            Debug.LogWarning("Foldout states loaded from EditorPrefs.");
+            //Debug.LogWarning("Foldout states loaded from EditorPrefs.");
         }
         #endregion
         #region Menu Functions
