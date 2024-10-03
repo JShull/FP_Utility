@@ -168,10 +168,35 @@ namespace FuzzPhyte.Utility.Editor
         private static void OnSceneOpened(Scene scene)
         {
             // Clear and reset foldout states when a new scene is opened
+            Debug.LogWarning($"Scene Changed... Resetting Foldout States!");
             foldoutStates.Clear();
             previousNames.Clear();
             //these resets my data
             LoadFoldoutStatesFromPrefs();
+            //update visuals
+            var foldoutKeys = new List<string>(foldoutStates.Keys);
+            for(int i= 0; i < foldoutKeys.Count; i++)
+            {
+                var ID = foldoutKeys[i];
+                var foldOutState = foldoutStates[ID];
+                var obj = FP_Utility_Editor.FindGameObjectByName(ID);
+                if (obj != null)
+                {
+                    if (foldoutStates[ID])
+                    {
+                        // If expanding, make sure to show previously hidden objects
+                        ShowSubsequentObjects(obj);
+                    }
+                    else
+                    {
+                        // If collapsing, hide subsequent objects
+                        HideSubsequentObjects(obj);
+                    }
+                }
+                
+                //Debug.LogWarning($"Mouse Down Change Foldout State");
+                EditorApplication.RepaintHierarchyWindow();
+            }
             Debug.LogWarning($"Editor opened a new scene: {scene.name}! Refreshing FuzzPhyte Header!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
@@ -322,7 +347,7 @@ namespace FuzzPhyte.Utility.Editor
                             // If collapsing, hide subsequent objects
                             HideSubsequentObjects(obj);
                         }
-                        Debug.LogWarning($"Mouse Down Change Foldout State");
+                        //Debug.LogWarning($"Mouse Down Change Foldout State");
                         EditorApplication.RepaintHierarchyWindow();
                         Event.current.Use();
                         dirtyState = true;
@@ -374,12 +399,11 @@ namespace FuzzPhyte.Utility.Editor
                 }
                 if (dirtyState)
                 {
-                    Debug.LogWarning($"Dirty state!");
+                    //Debug.LogWarning($"Dirty state!");
                     SaveFoldoutStatesToPrefs();
                 }
             }
         }
-        
         private static void DrawCustomFoldout(Rect rect, bool isExpanded)
         {
             
@@ -465,7 +489,6 @@ namespace FuzzPhyte.Utility.Editor
                 sibling.hideFlags |= HideFlags.HideInHierarchy; // Hide in Hierarchy
             }
         }
-        
         private static void ShowSubsequentObjects(GameObject headerObj)
         {
             Transform parentTransform = headerObj.transform.parent;
@@ -547,7 +570,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_KEY + "_"+ activeScene.name, keysJson);
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_VALUE + "_" + activeScene.name, valuesJson);
             EditorPrefs.SetString(FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name, otherJson);
-            Debug.LogWarning("Foldout states saved to EditorPrefs.");
+            Debug.LogWarning($"Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
         }
         private static void LoadFoldoutStatesFromPrefs()
         {
