@@ -26,7 +26,7 @@ namespace FuzzPhyte.Utility.Editor
         private static Vector2 initialMousePosition;
         static FP_HHeader()
         {
-            Debug.LogWarning($"Editor Setup Initialized FP_HHeader");
+            Debug.LogWarning($"FP_HHeader: Editor Setup Initialized");
             scriptAssetPath = FP_Utility_Editor.GetPackagePathForScript("FP_HHeader");
             hhCloseIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(scriptAssetPath + "/Icons/HH_Close.png");
             hhOpenIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(scriptAssetPath + "/Icons/HH_Open.png");
@@ -36,6 +36,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
+            Debug.LogWarning($"FP_HHeader: Editor Setup Initialized Complete, icons at {scriptAssetPath}");
         }
         
         private static void OnEditorUpdate()
@@ -50,7 +51,7 @@ namespace FuzzPhyte.Utility.Editor
                 EditorPrefs.SetString(FP_UtilityData.LAST_SCENEPATH_VAR, activeScene.path);
                 OnSceneOpened(activeScene);
                 //this should load our dictionaries
-                Debug.LogWarning($"Loading via Scene Change");
+                Debug.LogWarning($"FP_HHeader: Loading Header Status: Scene Change");
                 return;
             }
             
@@ -69,7 +70,7 @@ namespace FuzzPhyte.Utility.Editor
                     //Debug.LogWarning($"GameObject Found by Key which is the name: {obj.name}");
                     if (!PreviousNameCheck(key,obj))
                     {
-                        Debug.LogWarning($"A Previous Name Look Failed: this wasn't in the cache, lets add it");
+                        //Debug.LogWarning($"A Previous Name Look Failed: this wasn't in the cache, lets add it");
                         previousNames.Add(key, obj.name);
                         dirtyState = true;
                     }
@@ -77,10 +78,10 @@ namespace FuzzPhyte.Utility.Editor
                 else
                 {
                     // we didn't find the object anymore, so we need to confirm that it wasn't in the previousName
-                    Debug.LogError($"We didn't find the gameobject, was looking for {key} which an object should be in the Hierarchy, maybe the name changed?");
+                    //Debug.LogError($"We didn't find the gameobject, was looking for {key} which an object should be in the Hierarchy, maybe the name changed?");
                     if(!PreviousNameCheck(key, null))
                     {
-                        Debug.LogWarning($"A Name Changed  Check, but no previous key, and it failed the null which means this was 100% a name change and we caught it!");
+                        //Debug.LogWarning($"A Name Changed  Check, but no previous key, and it failed the null which means this was 100% a name change and we caught it!");
                         foldoutStates.Remove(key);
                         if (previousNames.ContainsKey(key))
                         {
@@ -168,7 +169,7 @@ namespace FuzzPhyte.Utility.Editor
         private static void OnSceneOpened(Scene scene)
         {
             // Clear and reset foldout states when a new scene is opened
-            Debug.LogWarning($"Scene Changed... Resetting Foldout States!");
+            Debug.LogWarning($"FP_HHeader: Scene Changed... Resetting Foldout States");
             foldoutStates.Clear();
             previousNames.Clear();
             //these resets my data
@@ -197,7 +198,7 @@ namespace FuzzPhyte.Utility.Editor
                 //Debug.LogWarning($"Mouse Down Change Foldout State");
                 EditorApplication.RepaintHierarchyWindow();
             }
-            Debug.LogWarning($"Editor opened a new scene: {scene.name}! Refreshing FuzzPhyte Header!");
+            Debug.LogWarning($"FP_HHeader: Editor opened a new scene: {scene.name}! Refreshed FuzzPhyte Header Data Complete!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
         }
@@ -301,10 +302,10 @@ namespace FuzzPhyte.Utility.Editor
                     if (!foldoutStates.ContainsKey(ID))
                     {
                         foldoutStates.Add(ID, true);
-                        Debug.LogWarning($"Foldout Debug: ID {ID} | Name: {obj.name} |Status: {foldoutStates[ID]}");
+                        //Debug.LogWarning($"Foldout Debug: ID {ID} | Name: {obj.name} |Status: {foldoutStates[ID]}");
                         dirtyState = true;
                         lastChangedObjectName= obj.name;
-                        Debug.LogWarning($"Updating last changed object = {lastChangedObjectName}");
+                        //Debug.LogWarning($"Updating last changed object = {lastChangedObjectName}");
                     }
                     // Adjust the label position to avoid overlapping the foldout arrow
                     Rect labelRect = new Rect(selectionRect.x + adjHeaderWidth, selectionRect.y, selectionRect.width - adjHeaderWidth, selectionRect.height);
@@ -392,7 +393,7 @@ namespace FuzzPhyte.Utility.Editor
                         ShowSubsequentObjects(obj);
                         foldoutStates.Remove(ID);
                         previousNames.Remove(ID);
-                        Debug.LogWarning($"Some sort of change, removing the foldout state for {obj.name}!");
+                        //Debug.LogWarning($"Some sort of change, removing the foldout state for {obj.name}!");
                         EditorApplication.RepaintHierarchyWindow();
                         dirtyState = true;
                     }
@@ -658,7 +659,7 @@ namespace FuzzPhyte.Utility.Editor
             previousNames.Clear();
             //these resets my data
             SaveFoldoutStatesToPrefs();
-            Debug.LogWarning($"Editor forced data reset! Refreshing FuzzPhyte Header!");
+            Debug.LogWarning($"FP_HHeader: Editor forced data reset, refreshing FuzzPhyte Header!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
         }
