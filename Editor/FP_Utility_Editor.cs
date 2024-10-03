@@ -350,6 +350,59 @@ namespace FuzzPhyte.Utility.Editor
             }
             return getGlobalID;
         }
+        /// <summary>
+        /// will return null if it doesn't exist
+        /// this searches inactive objects as well
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static GameObject FindGameObjectByName(string name)
+        {
+            GameObject[] allGameObjects = Resources.FindObjectsOfTypeAll<GameObject>();
+
+            // Iterate through all GameObjects to find the one with the matching name
+            foreach (GameObject obj in allGameObjects)
+            {
+                // Check if the object is in the scene (filter out prefab assets)
+                if(obj.name == name)
+                {
+                    if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))
+                    {
+                        return obj; // Return the first matching GameObject
+                    }
+                }
+            }
+            return null;
+        }
+    
+        public static string GetPackagePathForScript(string scriptClassName)
+        {
+            var scriptAsset = GetMonoScriptForClass(scriptClassName);
+
+            if (scriptAsset != null)
+            {
+                // Get the path to the script file
+                string scriptPath = AssetDatabase.GetAssetPath(scriptAsset);
+                string directoryPath = Path.GetDirectoryName(scriptPath);
+                Debug.Log("Script directory: " + directoryPath);
+                return directoryPath;
+            }
+
+            return null;
+        }
+        private static MonoScript GetMonoScriptForClass(string className)
+        {
+            foreach (MonoScript script in Resources.FindObjectsOfTypeAll<MonoScript>())
+            {
+                if (script.GetClass() != null && script.GetClass().Name == className)
+                {
+                    return script;
+                }
+            }
+
+            Debug.LogError($"Script {className} not found.");
+            return null;
+        }
     }
     /// <summary>
     /// Static class to manage the addition and removal of tags via other editor tools e.g. FP_Recorder
