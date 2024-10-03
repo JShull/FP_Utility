@@ -30,17 +30,17 @@ namespace FuzzPhyte.Utility.Editor
             Debug.LogWarning($"FP_HHeader: Editor Setup Initialized");
             //am I in the package or in the editor
             var loadedPackageManager = FP_Utility_Editor.IsPackageLoadedViaPackageManager();
-            Debug.LogWarning($"FP_HHeader: via Unity Package Manager: {loadedPackageManager}");
+            //Debug.LogWarning($"FP_HHeader: via Unity Package Manager: {loadedPackageManager}");
             var packageName = loadedPackageManager ? "utility" : "FP_Utility";
             var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
             var iconRefEditor = FP_Utility_Editor.ReturnEditorResourceIcons(packageRef);
-            Debug.LogWarning($"iconRefEditor = {iconRefEditor}");
+            //Debug.LogWarning($"iconRefEditor = {iconRefEditor}");
             //ICON LOAD
             var closePath = Path.Combine(iconRefEditor, "HH_Close.png");
             var openPath = Path.Combine(iconRefEditor, "HH_Open.png");
             var selectAllIcon = Path.Combine(iconRefEditor, "HH_SelectAll.png");
             var selectAllIconActive = Path.Combine(iconRefEditor, "HH_SelectAllActive.png");
-            Debug.LogWarning($"Close Path Icon Location = {closePath}");
+            //Debug.LogWarning($"Close Path Icon Location = {closePath}");
             hhCloseIcon = FP_Utility_Editor.ReturnEditorIcon(closePath, loadedPackageManager);
             hhOpenIcon = FP_Utility_Editor.ReturnEditorIcon(openPath, loadedPackageManager);
             
@@ -585,7 +585,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_KEY + "_"+ activeScene.name, keysJson);
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_VALUE + "_" + activeScene.name, valuesJson);
             EditorPrefs.SetString(FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name, otherJson);
-            Debug.LogWarning($"Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
+            //Debug.LogWarning($"Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
         }
         private static void LoadFoldoutStatesFromPrefs()
         {
