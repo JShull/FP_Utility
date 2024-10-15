@@ -14,7 +14,8 @@ namespace FuzzPhyte.Utility.FPSystem
         /// so we don't have to keep declaring a return new call on this
         /// </summary>
         public WaitForEndOfFrame EndOfFrame;
-        protected bool AfterLateUpdateActive=false;
+        public bool AfterLateUpdateActive=false;
+        //public bool AfterUpdateActive { get => AfterLateUpdateActive; set => AfterLateUpdateActive = value; }
         public static FPSystemBase<TData> Instance { get; protected set; }
         [Tooltip("Maybe some starter data for this system")]
         [SerializeField]

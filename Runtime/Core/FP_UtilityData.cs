@@ -69,6 +69,19 @@ namespace FuzzPhyte.Utility
                     return Color.white;
             }
         }
+        /// <summary>
+        /// Populates the dropdown with string values from the provided enum type.
+        /// </summary>
+        /// <typeparam name="T">The enum type to populate the dropdown from.</typeparam>
+        /// <param name="Dropdown">The TMP dropdown to populate.</param>
+        /// <param name="DropdownEvent">The UnityAction to call when a dropdown value is selected.</param>
+        public static void EnumToDropDown<T>(TMPro.TMP_Dropdown Dropdown,UnityAction<int> DropdownEvent) where T : Enum
+        {
+            Dropdown.ClearOptions();
+            List<string> enumNames = new List<string>(Enum.GetNames(typeof(T)));
+            Dropdown.AddOptions(enumNames);
+            Dropdown.onValueChanged.AddListener(DropdownEvent);
+        }
         #region GUIStyle Returns
         /// <summary>
         /// Return a GUIStyle

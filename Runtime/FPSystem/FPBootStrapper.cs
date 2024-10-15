@@ -10,16 +10,18 @@ namespace FuzzPhyte.Utility.FPSystem
         public static FPBootStrapper<TData> Instance { get; private set; }
         [TextArea(3, 4)]
         public string Instructions = $"An editor script - FPExecutionOrder.cs - will set the execution order of this script to -50. This script will run all FPSystems in the scene. If you want to run a system after the late update loop, set the bool to true in the inspector. If you want to run all systems in the scene, set the bool to true in the inspector. If you want to run a specific list of systems, add them to the list in the inspector.";
-
+        public bool RunAfterLateUpdateLoop;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         public static void InitializeAfterAwake()
         {
             Debug.LogWarning($"Running bootStrapper! {Time.time} and {Time.frameCount}");
-            var MajorFPSystems = Object.FindObjectsOfType<FPSystemBase<TData>>().ToList();
+            
+            //var MajorFPSystems = Object.FindObjectsOfType<FPSystemBase<TData>>().ToList();
+            var MajorFPSystems=Object.FindObjectsByType<FPSystemBase<TData>>(FindObjectsSortMode.InstanceID).ToList();
             Debug.LogWarning($"Major Systems Found: {MajorFPSystems.Count}");
             foreach (var initializer in MajorFPSystems)
             {
-                initializer.Initialize(true);
+                initializer.Initialize(initializer.AfterLateUpdateActive);
             }
         }
         protected virtual void Awake()
@@ -28,6 +30,7 @@ namespace FuzzPhyte.Utility.FPSystem
             if (Instance == null)
             {
                 Instance = this;
+                Debug.LogWarning($"FPBootStrapper instance created on {this.gameObject.name}.");
                 DontDestroyOnLoad(this.gameObject);
             }
             else
