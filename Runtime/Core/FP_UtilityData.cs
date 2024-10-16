@@ -441,6 +441,14 @@ namespace FuzzPhyte.Utility
         French,
     }
     [SerializeField]
+    public enum FP_LanguageLevel
+    {
+        LevelOne,
+        LevelTwo,
+        LevelThree,
+        LevelFour
+    }
+    [SerializeField]
     public enum MWApiKeyType
     {
         NA,
