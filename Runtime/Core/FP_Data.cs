@@ -1,10 +1,12 @@
 namespace FuzzPhyte.Utility
 {
+    using System;
     using UnityEngine;
 
     /// <summary>
     /// Core class for all things tied to Data and Scriptable Objects
     /// </summary>
+    [Serializable]
     public abstract class FP_Data : ScriptableObject
     {
         [Tooltip("Must be UNIQUE")]
