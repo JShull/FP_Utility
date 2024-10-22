@@ -530,7 +530,7 @@ namespace FuzzPhyte.Utility
     /// Hold my custom list of items that are serializable so I can save editor prefs and other items
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    [System.Serializable]
+    [Serializable]
     public class FPSerializableList<T>
     {
         public List<T> list;
