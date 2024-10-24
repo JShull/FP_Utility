@@ -1,11 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.Events;
-
 namespace FuzzPhyte.Utility.Audio
 {
-  public class RandomAudioPlayer : MonoBehaviour
+    using UnityEngine;
+    public class RandomAudioPlayer : MonoBehaviour
   {
      [SerializeField]
     private AudioSource audioSource;
