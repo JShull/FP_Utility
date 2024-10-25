@@ -113,6 +113,7 @@ namespace FuzzPhyte.Utility.TestingDebug
         public virtual void MoveCamera(Vector3 direction)
         {
             LocalTransform.Translate(direction * movementSpeed * Time.deltaTime);
+            
         }
 
         // Rotates the camera based on input
