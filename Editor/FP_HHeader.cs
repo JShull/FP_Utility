@@ -17,7 +17,6 @@ namespace FuzzPhyte.Utility.Editor
         private static Color headerColor = new Color(0.0f, 0.0f, 0.0f, 1);
         private static int adjHeaderWidth = 40;
         private static string lastChangedObjectName;
-        //private static string scriptAssetPath;
         private static Texture2D hhCloseIcon;
         private static Texture2D hhOpenIcon;
         private static Texture2D hhSelectAllIcon;
@@ -159,14 +158,13 @@ namespace FuzzPhyte.Utility.Editor
                 else
                 {
                     // still meets the criteria just reset the data
+
                     var previousState = foldoutStates[prevName];
-                    
                     foldoutStates.Remove(prevName);
                     previousNames.Remove(prevName);
                     if (!foldoutStates.ContainsKey(obj.name))
                     {
                         foldoutStates.Add(obj.name, previousState);
-
                     }
                     else
                     {
@@ -604,7 +602,7 @@ namespace FuzzPhyte.Utility.Editor
             previousNames.Clear();
             for (int i = 0; i < keys.Count; i++)
             {
-                foldoutStates[keys[i]] = values[i];
+                foldoutStates.Add(keys[i], values[i]);
                 previousNames[keys[i]] = lastOtherValues[i];
             }
             //Debug.LogWarning("Foldout states loaded from EditorPrefs.");

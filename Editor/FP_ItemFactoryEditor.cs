@@ -49,6 +49,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             LoadDerivedTypes();
             CreateHandleTexture();
+            //InitializeStyles();
         }
         
         private void LoadDerivedTypes()
@@ -72,20 +73,6 @@ namespace FuzzPhyte.Utility.Editor
             handleTexture.SetPixel(0, 0, handleColor);
             handleTexture.Apply();
         }
-        private void InitializeStyles()
-        {
-            buttonWarningStyle = new GUIStyle(GUI.skin.button);
-            buttonWarningStyle.normal.textColor = FP_Utility_Editor.WarningColor;
-            buttonWarningStyle.active.textColor = FP_Utility_Editor.WarningColor;
-            buttonWarningStyle.hover.textColor = FP_Utility_Editor.WarningColor;
-            buttonWarningStyle.focused.textColor = FP_Utility_Editor.WarningColor;
-
-            buttonActiveStyle = new GUIStyle(GUI.skin.button);
-            buttonActiveStyle.normal.textColor = FP_Utility_Editor.OkayColor;
-            buttonActiveStyle.active.textColor = FP_Utility_Editor.OkayColor;
-            buttonActiveStyle.hover.textColor = FP_Utility_Editor.OkayColor;
-            buttonActiveStyle.focused.textColor = FP_Utility_Editor.OkayColor;
-        }
         private void OnGUI()
         {
             GUILayout.Label("Create FP_Data Derived ScriptableObject", EditorStyles.boldLabel);
@@ -98,11 +85,24 @@ namespace FuzzPhyte.Utility.Editor
             selectedClassIndex = EditorGUILayout.Popup("Select Class", selectedClassIndex, typeNames);
 
             script = (MonoScript)EditorGUILayout.ObjectField("Derived Class Script", script, typeof(MonoScript), false);
-
+            
+            //initialize styles
             if (buttonActiveStyle == null || buttonWarningStyle == null)
             {
-                InitializeStyles();
+                
+                buttonWarningStyle = new GUIStyle(GUI.skin.button);
+                buttonWarningStyle.normal.textColor = FP_Utility_Editor.WarningColor;
+                buttonWarningStyle.active.textColor = FP_Utility_Editor.WarningColor;
+                buttonWarningStyle.hover.textColor = FP_Utility_Editor.WarningColor;
+                buttonWarningStyle.focused.textColor = FP_Utility_Editor.WarningColor;
+
+                buttonActiveStyle = new GUIStyle(GUI.skin.button);
+                buttonActiveStyle.normal.textColor = FP_Utility_Editor.OkayColor;
+                buttonActiveStyle.active.textColor = FP_Utility_Editor.OkayColor;
+                buttonActiveStyle.hover.textColor = FP_Utility_Editor.OkayColor;
+                buttonActiveStyle.focused.textColor = FP_Utility_Editor.OkayColor;
             }
+            
             bool canCreate = script != null || (selectedClassIndex > 0);
             Color lineColor = canCreate ? FP_Utility_Editor.OkayColor : FP_Utility_Editor.WarningColor;
             FP_Utility_Editor.DrawUILine(lineColor);
