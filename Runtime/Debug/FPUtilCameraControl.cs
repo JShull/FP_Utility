@@ -10,7 +10,6 @@ namespace FuzzPhyte.Utility.TestingDebug
         public float rotationSpeed = 100f; // Speed for rotating the camera
         public float dragSpeed = 0.1f; // Sensitivity for drag rotation
 
-        public RectTransform touchRegionRect; // The RectTransform to define the touch region
         private bool isTouching = false; // Is the player holding the screen?
         private Vector2 initialTouchPos;
         
@@ -62,32 +61,30 @@ namespace FuzzPhyte.Utility.TestingDebug
         {
             if (Input.touchCount > 0)
             {
+                Debug.Log($"Touch Detected!");
                 Touch touch = Input.GetTouch(0);
-                if (IsTouchWithinRect(touch.position))
+                if (touch.phase == TouchPhase.Began)
                 {
-                    if (touch.phase == TouchPhase.Began)
-                    {
-                        isTouching = true;
-                        initialTouchPos = touch.position;
-                    }
+                    isTouching = true;
+                    initialTouchPos = touch.position;
+                }
 
-                    if (touch.phase == TouchPhase.Moved && isTouching)
-                    {
-                        Vector2 delta = touch.position - initialTouchPos;
-                        RotateCamera(delta.x, delta.y);
-                        initialTouchPos = touch.position;
-                    }
+                if (touch.phase == TouchPhase.Moved && isTouching)
+                {
+                    Vector2 delta = touch.position - initialTouchPos;
+                    RotateCamera(delta.x, delta.y);
+                    initialTouchPos = touch.position;
+                }
 
-                    if (touch.phase == TouchPhase.Stationary && isTouching)
-                    {
-                        // Move camera forward in the direction it's facing
-                        MoveCamera(Vector3.forward);
-                    }
+                if (touch.phase == TouchPhase.Stationary && isTouching)
+                {
+                    // Move camera forward in the direction it's facing
+                    MoveCamera(Vector3.forward);
+                }
 
-                    if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
-                    {
-                        isTouching = false;
-                    }
+                if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
+                {
+                    isTouching = false;
                 }
             }
         }
@@ -127,6 +124,7 @@ namespace FuzzPhyte.Utility.TestingDebug
         }
 
         // Checks if the touch/mouse position is within the defined RectTransform
+        /*
         bool IsTouchWithinRect(Vector2 screenPosition)
         {
             Vector2 localPoint;
@@ -138,6 +136,7 @@ namespace FuzzPhyte.Utility.TestingDebug
 
             return false;
         }
+        */
 
         public virtual void LateUpdate()
         {
