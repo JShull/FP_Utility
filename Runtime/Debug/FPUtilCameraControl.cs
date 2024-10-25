@@ -14,10 +14,10 @@ namespace FuzzPhyte.Utility.TestingDebug
         private bool isTouching = false; // Is the player holding the screen?
         private Vector2 initialTouchPos;
         
-        [SerializeField] private Camera mainCamera;
+        public Camera mainCamera;
         [SerializeField] private bool setup;
         [SerializeField] private bool useTouch;
-        public void Setup(Camera userSpecifiedCamera)
+        public virtual void Setup(Camera userSpecifiedCamera)
         {
             mainCamera = userSpecifiedCamera;
             if (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer)
@@ -33,7 +33,7 @@ namespace FuzzPhyte.Utility.TestingDebug
         
 
         // Update is called once per frame
-        void Update()
+        public virtual void Update()
         {
             if (!setup)
             {
@@ -51,7 +51,7 @@ namespace FuzzPhyte.Utility.TestingDebug
         }
 
         // Handles touch input for mobile devices
-        void HandleTouchInput()
+        public virtual void HandleTouchInput()
         {
             if (Input.touchCount > 0)
             {
@@ -86,11 +86,12 @@ namespace FuzzPhyte.Utility.TestingDebug
         }
 
         // Handles keyboard and mouse input for desktop
-        void HandleMouseKeyboardInput()
+        public virtual void HandleMouseKeyboardInput()
         {
             // Keyboard movement (WASD or Arrow keys)
             Vector3 move = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"));
             MoveCamera(move);
+            Debug.Log("Move: " + move);
 
             // Mouse rotation
             if (Input.GetMouseButton(1)) // Right-click to rotate
@@ -102,13 +103,13 @@ namespace FuzzPhyte.Utility.TestingDebug
         }
 
         // Moves the camera in a specific direction
-        void MoveCamera(Vector3 direction)
+        public virtual void MoveCamera(Vector3 direction)
         {
             LocalTransform.Translate(direction * movementSpeed * Time.deltaTime);
         }
 
         // Rotates the camera based on input
-        void RotateCamera(float deltaX, float deltaY)
+        public virtual void RotateCamera(float deltaX, float deltaY)
         {
             float rotationX = deltaX * rotationSpeed * Time.deltaTime;
             float rotationY = -deltaY * rotationSpeed * Time.deltaTime;
@@ -128,6 +129,11 @@ namespace FuzzPhyte.Utility.TestingDebug
             }
 
             return false;
+        }
+
+        public virtual void LateUpdate()
+        {
+            
         }
     }
 }
