@@ -7,7 +7,7 @@ namespace FuzzPhyte.Utility.TestingDebug
         [Header("Should be the parent item we are controlling")]
         public Transform LocalTransform;
         public float movementSpeed = 10f; // Speed for moving forward/backward
-        public float rotationSpeed = 100f; // Speed for rotating the camera
+        public float rotationSpeed = 15f; // Speed for rotating the camera
         public float dragSpeed = 0.1f; // Sensitivity for drag rotation
 
         private bool isTouching = false; // Is the player holding the screen?
@@ -72,7 +72,7 @@ namespace FuzzPhyte.Utility.TestingDebug
                 if (touch.phase == TouchPhase.Moved && isTouching)
                 {
                     Vector2 delta = touch.position - initialTouchPos;
-                    RotateCamera(0, delta.y);
+                    RotateCamera(delta.x, 0);
                     initialTouchPos = touch.position;
                 }
                 if (Input.touchCount == 2)
@@ -98,7 +98,6 @@ namespace FuzzPhyte.Utility.TestingDebug
                 
             }
         }
-
         // Handles keyboard and mouse input for desktop
         public virtual void HandleMouseKeyboardInput()
         {
