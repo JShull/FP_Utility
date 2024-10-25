@@ -17,9 +17,15 @@ namespace FuzzPhyte.Utility.TestingDebug
         public Camera mainCamera;
         [SerializeField] private bool setup;
         [SerializeField] private bool useTouch;
-        public virtual void Setup(Camera userSpecifiedCamera)
+        public virtual void Setup(Camera userSpecifiedCamera, bool client)
         {
+            if (!client)
+            {
+                Destroy(this);
+                return;
+            }
             mainCamera = userSpecifiedCamera;
+            mainCamera.enabled = true;
             if (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer)
             {
                 useTouch = true;
@@ -28,6 +34,7 @@ namespace FuzzPhyte.Utility.TestingDebug
             {
                 useTouch = false;
             }
+
             setup = true;
         }
         
