@@ -72,20 +72,30 @@ namespace FuzzPhyte.Utility.TestingDebug
                 if (touch.phase == TouchPhase.Moved && isTouching)
                 {
                     Vector2 delta = touch.position - initialTouchPos;
-                    RotateCamera(delta.x, delta.y);
+                    RotateCamera(0, delta.y);
                     initialTouchPos = touch.position;
                 }
-
-                if (touch.phase == TouchPhase.Stationary && isTouching)
+                if (Input.touchCount == 2)
                 {
-                    // Move camera forward in the direction it's facing
-                    MoveCamera(Vector3.forward);
+                    if (touch.phase == TouchPhase.Stationary && isTouching)
+                    {
+                        // Move camera forward in the direction it's facing
+                        MoveCamera(Vector3.forward);
+                    }
                 }
-
+                if(Input.touchCount == 3)
+                {
+                    if (touch.phase == TouchPhase.Stationary && isTouching)
+                    {
+                        // Move camera forward in the direction it's facing
+                        MoveCamera(Vector3.back);
+                    }
+                }
                 if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
                 {
                     isTouching = false;
                 }
+                
             }
         }
 
