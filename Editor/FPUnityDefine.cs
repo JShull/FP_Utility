@@ -123,7 +123,9 @@ namespace FuzzPhyte.Utility.Editor
         {
             var target = EditorUserBuildSettings.activeBuildTarget;
             var buildTargetGroup = BuildPipeline.GetBuildTargetGroup(target);
+            //var buildTarget = BuildPipeline.GetBuildTargetName(target);
             var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(buildTargetGroup);
+            //PlayerSettings.GetScriptingDefineSymbols(buildTargetGroup);
             return defines.Split(';').ToList();
         }
 

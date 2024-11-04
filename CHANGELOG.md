@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2024-9-01 / 2024-11-04
+
+### 0.4.5 Added
+
+- [@JShull](https://github.com/jshull)
+  - **FP_HHeader.cs**
+    - New static class for managing foldout states and header colors in the Unity Editor
+    - Supports editor initialization, hierarchy updates, and selection change monitoring
+  - **FPUtilCameraControl.cs**
+    - Added new utility script for camera control functionality
+  - **LanguageLevel Enum**
+    - Added to `FP_UtilityData.cs` for categorizing language levels
+  - **FPBuildProcessor.cs**
+    - Added build processor for removing tagged components from runtime scenes
+
+### 0.4.5 Changed
+
+- [@JShull](https://github.com/jshull)
+  - **Boot Strapper**
+    - Refactored to use `FindObjectsOfType` instead of the obsolete `FindObjectOfType`
+  - **FPSystemBase**
+    - `AfterLastUpdateActive` property set to public
+  - **FP_UtilityData.cs**
+    - Added a static function to populate `TMP_DropDown` options from any generic enum
+  - **FPUnityDefine.cs**
+    - Updated to use the latest render pipeline functions, replacing deprecated `renderPipelineAsset` calls
+  - **FP Utility Editor**
+    - Abstract dropdown class moved to runtime design for improved flexibility
+  - **Editor-Only Updates**
+    - Adjusted `FP_EditorOnly.cs` for editor-specific functionality
+    - Reorganized scripts for better package structure
+
 ## [0.4.3] - 2024-8-16 / 2024-8-29
 
 ### 0.4.3 Changed

@@ -333,8 +333,7 @@ namespace FuzzPhyte.Utility.Editor
 
             // If the asset couldn't be found, return -1 or handle the error accordingly
             return -1;
-        }
-        
+        }        
         public static GUID ReturnGUIDFromInstance(int instanceID, out bool success)
         {
             GameObject obj = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
@@ -387,7 +386,6 @@ namespace FuzzPhyte.Utility.Editor
             */
             return null;
         }
-    
         public static string ReturnEditorPath(string packageName, bool local=false)
         {
             if (local)
@@ -404,6 +402,18 @@ namespace FuzzPhyte.Utility.Editor
         public static Texture2D ReturnEditorIcon(string iconPath, bool package=false)
         {
             return AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+        }
+        public static Texture2D ReturnGUITex(int width, int height, Color color)
+        {
+            Color[] pixels = new Color[width * height];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = color;
+            }
+            Texture2D texture = new Texture2D(width, height);
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return texture;
         }
         public static bool IsPackageLoadedViaPackageManager()
         {
