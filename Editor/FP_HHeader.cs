@@ -17,6 +17,7 @@ namespace FuzzPhyte.Utility.Editor
         private static Color headerColor = new Color(0.0f, 0.0f, 0.0f, 1);
         private static int adjHeaderWidth = 40;
         private static string lastChangedObjectName;
+        private static int loopLookCount = 0;
         private static Texture2D hhCloseIcon;
         private static Texture2D hhOpenIcon;
         private static Texture2D hhSelectAllIcon;
@@ -82,9 +83,11 @@ namespace FuzzPhyte.Utility.Editor
                 {
                     
                     //Debug.LogWarning($"GameObject Found by Key which is the name: {obj.name}");
-                    if (!PreviousNameCheck(key,obj))
+                    var nameCheckResults = PreviousNameCheck(key, obj, loopLookCount);
+                    loopLookCount = nameCheckResults.Item2;
+                    if (!nameCheckResults.Item1)
                     {
-                        //Debug.LogWarning($"A Previous Name Look Failed: this wasn't in the cache, lets add it");
+                        Debug.LogWarning($"A Previous Name Look Failed |{key}| this wasn't in the cache, lets add it");
                         previousNames.Add(key, obj.name);
                         dirtyState = true;
                     }
@@ -93,7 +96,9 @@ namespace FuzzPhyte.Utility.Editor
                 {
                     // we didn't find the object anymore, so we need to confirm that it wasn't in the previousName
                     //Debug.LogError($"We didn't find the gameobject, was looking for {key} which an object should be in the Hierarchy, maybe the name changed?");
-                    if(!PreviousNameCheck(key, null))
+                    var nameCheckResults = PreviousNameCheck(key, null,loopLookCount);
+                    loopLookCount = nameCheckResults.Item2;
+                    if (!nameCheckResults.Item1)
                     {
                         //Debug.LogWarning($"A Name Changed  Check, but no previous key, and it failed the null which means this was 100% a name change and we caught it!");
                         foldoutStates.Remove(key);
@@ -113,7 +118,7 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        private static bool PreviousNameCheck(string key, GameObject obj)
+        private static (bool,int) PreviousNameCheck(string key, GameObject obj, int loopNum=0)
         {
             if (previousNames.ContainsKey(key))
             {
@@ -121,16 +126,28 @@ namespace FuzzPhyte.Utility.Editor
                 if (obj == null)
                 {
                     //the assumption is to use the current name of the last item changed
-                    Debug.LogWarning($"We had our Obj return null, lets use the name of the last object changed {lastChangedObjectName}");
+                    //Debug.LogWarning($"We had our Obj return null, lets use the name of the last object changed |{lastChangedObjectName}|");
+                    if (lastChangedObjectName == "") 
+                    {
+                        //Debug.LogWarning($"Blank...");
+                    }
                     obj = FP_Utility_Editor.FindGameObjectByName(lastChangedObjectName);
                     if (obj != null)
                     {
                         //this is the last item we changed
+                        //Debug.LogWarning($"OBJ not null");
                         UpdatePreviousData(obj, prevName, key);
                     }
                     else
                     {
-                        Debug.LogWarning($"Loop... {EditorApplication.timeSinceStartup}");
+                        //return false;
+                        loopNum++;
+                        //Debug.LogWarning($"Loop {loopNum}: {EditorApplication.timeSinceStartup}");
+                        if (loopNum > 100)
+                        {
+                            //Debug.LogError($"Item was probably destroyed");
+                            return (false, 0);
+                        }
                     }
                 }
                 else
@@ -138,16 +155,16 @@ namespace FuzzPhyte.Utility.Editor
                     UpdatePreviousData(obj, prevName, key);
                 }
                 
-                return true;
+                return (true,loopNum);
             }
-            return false;
+            return (false,0);
         }
         private static void UpdatePreviousData(GameObject obj, string prevName, string key)
         {
             if (obj.name != prevName)
             {
                 // Name has changed, check if it still meets the criteria
-                Debug.LogWarning($"NAME CHANGED*************************");
+                Debug.LogWarning($"FP HEADER NAME CHANGED:*************************");
 
                 if (obj.name != obj.name.ToUpper() || obj.activeInHierarchy)
                 {
@@ -159,20 +176,30 @@ namespace FuzzPhyte.Utility.Editor
                 else
                 {
                     // still meets the criteria just reset the data
-
-                    var previousState = foldoutStates[prevName];
-                    foldoutStates.Remove(prevName);
-                    previousNames.Remove(prevName);
-                    if (!foldoutStates.ContainsKey(obj.name))
+                    if (foldoutStates.ContainsKey(prevName))
                     {
-                        foldoutStates.Add(obj.name, previousState);
+                        var previousState = foldoutStates[prevName];
+                        foldoutStates.Remove(prevName);
+                        previousNames.Remove(prevName);
+                        if (!foldoutStates.ContainsKey(obj.name))
+                        {
+                            foldoutStates.Add(obj.name, previousState);
+                        }
+                        else
+                        {
+                            ShowSubsequentObjects(obj);
+                        }
+                        lastChangedObjectName = obj.name;
+                        Debug.LogWarning($"Updating last changed object:{prevName}, now = {lastChangedObjectName}");
                     }
                     else
                     {
+                        Debug.LogWarning($"Foldout state does not contain the previous name: {prevName}");
                         ShowSubsequentObjects(obj);
+                        foldoutStates.Remove(key);
+                        previousNames.Remove(key);
                     }
-                    lastChangedObjectName = obj.name;
-                    Debug.LogWarning($"Updating last changed object = {lastChangedObjectName}");
+                    
                 }
                 EditorApplication.RepaintHierarchyWindow();
                 SaveFoldoutStatesToPrefs();
@@ -584,7 +611,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_KEY + "_"+ activeScene.name, keysJson);
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_VALUE + "_" + activeScene.name, valuesJson);
             EditorPrefs.SetString(FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name, otherJson);
-            //Debug.LogWarning($"Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
+            Debug.LogWarning($"Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
         }
         private static void LoadFoldoutStatesFromPrefs()
         {
@@ -601,8 +628,10 @@ namespace FuzzPhyte.Utility.Editor
             // Clear the current foldoutStates and reconstruct the dictionary
             foldoutStates.Clear();
             previousNames.Clear();
+            Debug.LogWarning($"Keys Count: {keys.Count} | Values Count: {values.Count} | Last Values Count: {lastOtherValues.Count}");
             for (int i = 0; i < keys.Count; i++)
             {
+                
                 foldoutStates.Add(keys[i], values[i]);
                 if (previousNames.ContainsKey(keys[i]))
                 {

@@ -361,6 +361,18 @@ namespace FuzzPhyte.Utility.Editor
             GameObject[] allGameObjects = Resources.FindObjectsOfTypeAll<GameObject>();
 
             // Iterate through all GameObjects to find the one with the matching name
+            for(int i=0; i < allGameObjects.Length; i++)
+            {
+                var obj = allGameObjects[i];
+                if (obj.name == name)
+                {
+                    if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))
+                    {
+                        return obj; // Return the first matching GameObject
+                    }
+                }
+            }
+            /*
             foreach (GameObject obj in allGameObjects)
             {
                 // Check if the object is in the scene (filter out prefab assets)
@@ -372,6 +384,7 @@ namespace FuzzPhyte.Utility.Editor
                     }
                 }
             }
+            */
             return null;
         }
     
