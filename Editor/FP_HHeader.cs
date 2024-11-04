@@ -33,7 +33,8 @@ namespace FuzzPhyte.Utility.Editor
             var packageName = loadedPackageManager ? "utility" : "FP_Utility";
             var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
             var iconRefEditor = FP_Utility_Editor.ReturnEditorResourceIcons(packageRef);
-            //Debug.LogWarning($"iconRefEditor = {iconRefEditor}");
+            Debug.LogWarning($"iconRefEditor = {iconRefEditor}");
+            Debug.LogWarning($"packageRef = {packageRef}");
             //ICON LOAD
             var closePath = Path.Combine(iconRefEditor, "HH_Close.png");
             var openPath = Path.Combine(iconRefEditor, "HH_Open.png");
@@ -603,7 +604,15 @@ namespace FuzzPhyte.Utility.Editor
             for (int i = 0; i < keys.Count; i++)
             {
                 foldoutStates.Add(keys[i], values[i]);
-                previousNames[keys[i]] = lastOtherValues[i];
+                if (previousNames.ContainsKey(keys[i]))
+                {
+                    previousNames[keys[i]] = lastOtherValues[i];
+                }
+                else
+                {
+                    previousNames.Add(keys[i], lastOtherValues[i]);
+                }
+                //previousNames[keys[i]] = lastOtherValues[i];
             }
             //Debug.LogWarning("Foldout states loaded from EditorPrefs.");
         }
