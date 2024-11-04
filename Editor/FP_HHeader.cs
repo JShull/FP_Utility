@@ -629,20 +629,35 @@ namespace FuzzPhyte.Utility.Editor
             foldoutStates.Clear();
             previousNames.Clear();
             Debug.LogWarning($"Keys Count: {keys.Count} | Values Count: {values.Count} | Last Values Count: {lastOtherValues.Count}");
-            for (int i = 0; i < keys.Count; i++)
+            if(lastOtherValues.Count != keys.Count)
             {
-                
-                foldoutStates.Add(keys[i], values[i]);
-                if (previousNames.ContainsKey(keys[i]))
+                Debug.LogWarning($"Last Other Values Count does not match the keys count, this is a problem: Reset everything");
+                for (int i = 0; i < keys.Count; i++)
                 {
-                    previousNames[keys[i]] = lastOtherValues[i];
+
+                    foldoutStates.Add(keys[i], values[i]);
+                    //previousNames.Add(keys[i], keys[i]);
+                    //previousNames[keys[i]] = lastOtherValues[i];
                 }
-                else
-                {
-                    previousNames.Add(keys[i], lastOtherValues[i]);
-                }
-                //previousNames[keys[i]] = lastOtherValues[i];
             }
+            else
+            {
+                for (int i = 0; i < keys.Count; i++)
+                {
+
+                    foldoutStates.Add(keys[i], values[i]);
+                    if (previousNames.ContainsKey(keys[i]))
+                    {
+                        previousNames[keys[i]] = lastOtherValues[i];
+                    }
+                    else
+                    {
+                        previousNames.Add(keys[i], lastOtherValues[i]);
+                    }
+                    //previousNames[keys[i]] = lastOtherValues[i];
+                }
+            }
+            
             //Debug.LogWarning("Foldout states loaded from EditorPrefs.");
         }
         #endregion
