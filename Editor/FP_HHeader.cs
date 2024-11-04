@@ -4,7 +4,6 @@ namespace FuzzPhyte.Utility.Editor
     using UnityEngine;
     using System.Collections.Generic;
     using UnityEngine.SceneManagement;
-    using System.Linq;
     using System.IO;
 
     [InitializeOnLoad]
@@ -24,7 +23,6 @@ namespace FuzzPhyte.Utility.Editor
         private static Texture2D hhSelectAllIconActive;
         private static bool dragSelectionActive;
         private static string selectedObjectName;
-        private static Vector2 initialMousePosition;
         static FP_HHeader()
         {
             Debug.LogWarning($"FP_HHeader: Editor Setup Initialized");
@@ -205,7 +203,6 @@ namespace FuzzPhyte.Utility.Editor
                 SaveFoldoutStatesToPrefs();
             }
         }
-        
         private static void OnSceneOpened(Scene scene)
         {
             // Clear and reset foldout states when a new scene is opened
@@ -412,7 +409,7 @@ namespace FuzzPhyte.Utility.Editor
                         EditorApplication.RepaintHierarchyWindow();
                         //Event.current.Use();
                         dragSelectionActive = true;
-                        initialMousePosition = Event.current.mousePosition;
+                        //initialMousePosition = Event.current.mousePosition;
                         selectedObjectName = obj.name;
                         //Event.current.Use();
                     }
