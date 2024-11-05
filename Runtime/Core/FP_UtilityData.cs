@@ -197,14 +197,9 @@ namespace FuzzPhyte.Utility
         }
         #endregion
     
-        public static FP_BoundingBoxInfo? CreateBoundingBox(GameObject parentObject, Renderer objectRenderer)
+        public static FP_BoundingBoxInfo? CreateBoundingBox(Vector3 worldPosition, Quaternion worldRotation, Renderer objectRenderer)
         {
-            if (parentObject == null)
-            {
-                Debug.LogError("Parent object is null.");
-                return null;
-            }
-
+            
             if (objectRenderer == null)
             {
                 Debug.LogError("Renderer component is null.");
@@ -217,9 +212,9 @@ namespace FuzzPhyte.Utility
             // Create and return the bounding box information
             return new FP_BoundingBoxInfo
             {
-                Center = parentObject.transform.position,
+                Center = worldPosition,
                 Size = bounds.size,
-                Rotation = parentObject.transform.rotation
+                Rotation = worldRotation
             };
         }
     }
