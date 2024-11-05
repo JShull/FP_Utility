@@ -217,7 +217,7 @@ namespace FuzzPhyte.Utility
             // Create and return the bounding box information
             return new FP_BoundingBoxInfo
             {
-                Center = parentObject.transform.InverseTransformPoint(bounds.center),
+                Center = parentObject.transform.position,
                 Size = bounds.size,
                 Rotation = parentObject.transform.rotation
             };
