@@ -2,7 +2,8 @@
     "name": "com.fuzzphyte.utility.editor",
     "rootNamespace": "FuzzPhyte.Utility.Editor",
     "references": [
-        "com.fuzzphyte.utility"
+        "com.fuzzphyte.utility",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [
         "Editor"

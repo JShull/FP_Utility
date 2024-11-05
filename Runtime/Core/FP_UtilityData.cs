@@ -1,12 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
-using UnityEngine;
-using UnityEngine.Events;
-
 namespace FuzzPhyte.Utility
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Runtime.Serialization.Formatters.Binary;
+    using UnityEngine;
+    using UnityEngine.Events;
+    using Unity.Mathematics;
+
     /// <summary>
     /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
     /// </summary>
@@ -195,6 +196,32 @@ namespace FuzzPhyte.Utility
             return v;
         }
         #endregion
+    
+        public static FP_BoundingBoxInfo? CreateBoundingBox(GameObject parentObject, Renderer objectRenderer)
+        {
+            if (parentObject == null)
+            {
+                Debug.LogError("Parent object is null.");
+                return null;
+            }
+
+            if (objectRenderer == null)
+            {
+                Debug.LogError("Renderer component is null.");
+                return null;
+            }
+
+            // Calculate the bounds of the object
+            Bounds bounds = objectRenderer.bounds;
+
+            // Create and return the bounding box information
+            return new FP_BoundingBoxInfo
+            {
+                Center = parentObject.transform.InverseTransformPoint(bounds.center),
+                Size = bounds.size,
+                Rotation = parentObject.transform.rotation
+            };
+        }
     }
     public static class FP_SerilizeDeserialize
     {
@@ -490,6 +517,13 @@ namespace FuzzPhyte.Utility
         public Vector3 WorldLocation;
         public Vector3 EulerRotation;
         public Vector3 LocalScale;
+    }
+    [Serializable]
+    public struct FP_BoundingBoxInfo
+    {
+        public float3 Center;
+        public float3 Size;
+        public Quaternion Rotation;
     }
     [Serializable]
     public enum FP_DialogueType 

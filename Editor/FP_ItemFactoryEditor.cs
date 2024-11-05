@@ -6,6 +6,7 @@ namespace FuzzPhyte.Utility.Editor
     using System.Collections.Generic;
     using System.Reflection;
     using System.Collections;
+    using Unity.Mathematics;
 
     /// <summary>
     /// Editor window for creating FP_Data derived ScriptableObjects
@@ -358,6 +359,14 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return DrawFPLocationField(fieldName, (FP_Location)fieldValue);
             }
+            if(fieldType == typeof(FP_BoundingBoxInfo))
+            {
+                return DrawFPBoundingBoxInfo(fieldName, (FP_BoundingBoxInfo)fieldValue);
+            }
+            if(fieldType == typeof(LayerMask))
+            {
+                return DrawLayerMaskInfo(fieldName, (LayerMask)fieldValue);
+            }
             if(fieldType == typeof(FP_Camera))
             {
                 return DrawFPCameraField(fieldName, (FP_Camera)fieldValue);
@@ -382,7 +391,6 @@ namespace FuzzPhyte.Utility.Editor
         #region Draw Fields
         private ConvoTranslation DrawConvoTranslationField(string fieldName, ConvoTranslation data)
         {
-
             EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
             //data.Header = EditorGUILayout.TextField("Header", data.Header);
            
@@ -470,6 +478,19 @@ namespace FuzzPhyte.Utility.Editor
             camera.StepsPerSegment = EditorGUILayout.IntField("Steps Per Segment", camera.StepsPerSegment);
             camera.RendererIndex = EditorGUILayout.IntField("Renderer Index", camera.RendererIndex);
             return camera;    
+        }
+        private FP_BoundingBoxInfo DrawFPBoundingBoxInfo(string fieldName, FP_BoundingBoxInfo data)
+        {
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
+            data.Center = EditorGUILayout.Vector3Field("Center", data.Center);
+            data.Size = EditorGUILayout.Vector3Field("Size", data.Size);
+            return data;
+        }
+        private LayerMask DrawLayerMaskInfo(string fieldName, LayerMask data)
+        {
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
+            data.value = EditorGUILayout.LayerField("Layer", data.value);
+            return data;
         }
 
         #endregion
