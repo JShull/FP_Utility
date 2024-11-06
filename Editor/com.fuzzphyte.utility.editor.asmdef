@@ -3,7 +3,8 @@
     "rootNamespace": "FuzzPhyte.Utility.Editor",
     "references": [
         "com.fuzzphyte.utility",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"

@@ -1,5 +1,6 @@
 namespace FuzzPhyte.Utility
 {
+    using System;
     using System.Collections.Generic;
     using UnityEngine;
 
@@ -23,11 +24,11 @@ namespace FuzzPhyte.Utility
         [Header("Fonts and Sizes")]
         [Tooltip("List of font settings for different text types.")]
         public List<FontSetting> FontSettings;
-
+        [Obsolete("Use FontSetting")]
         [Header("Font Colors")]
         [Tooltip("Primary font color used in the theme.")]
         public Color FontPrimaryColor;
-
+        [Obsolete("Use FontSetting")]
         [Tooltip("Secondary font color used in the theme.")]
         public Color FontSecondaryColor;
 

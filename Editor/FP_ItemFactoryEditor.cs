@@ -6,7 +6,8 @@ namespace FuzzPhyte.Utility.Editor
     using System.Collections.Generic;
     using System.Reflection;
     using System.Collections;
-    using Unity.Mathematics;
+    using TMPro;
+    using UnityEditor.SceneManagement;
 
     /// <summary>
     /// Editor window for creating FP_Data derived ScriptableObjects
@@ -40,6 +41,11 @@ namespace FuzzPhyte.Utility.Editor
         private Color handleColor = Color.gray; // The color of the handle
         private const float minUpperPanelHeight = 100f; // Minimum height for the top panel
         #endregion
+        #region Runtime Save Parameters
+        // Exclusion list
+        private List<GameObject> trackedObjects = new List<GameObject>();
+        private FPRuntimeChangeTracker fpTracker;
+        #endregion
         [MenuItem("FuzzPhyte/Utility/FP Data Factory")]
         public static void ShowWindow()
         {
@@ -50,9 +56,15 @@ namespace FuzzPhyte.Utility.Editor
         {
             LoadDerivedTypes();
             CreateHandleTexture();
+            fpTracker = new FPRuntimeChangeTracker();
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
             //InitializeStyles();
         }
-        
+        private void OnDisable()
+        {
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+        }
+
         private void LoadDerivedTypes()
         {
             fpDataDerivedTypes = new List<Type> { null }; // Add null to represent "NA"
@@ -167,7 +179,35 @@ namespace FuzzPhyte.Utility.Editor
             // Lower part: Color Theme Generator
             secondScrollPosition = EditorGUILayout.BeginScrollView(secondScrollPosition, GUILayout.Height(lowerPanelHeight));
             DrawColorSelectorTool();
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Selective Scene Save", EditorStyles.boldLabel);
+
+            // Display Tracked list options
+            GUIStyle boldButtonStyleAdd = new GUIStyle(GUI.skin.button);
+            GUIStyle boldButtonStyleRemove = new GUIStyle(GUI.skin.button);
+            boldButtonStyleAdd.fontStyle = boldButtonStyleRemove.fontStyle = FontStyle.Bold;
+            boldButtonStyleAdd.normal.textColor = boldButtonStyleRemove.normal.textColor=Color.white;
+            boldButtonStyleAdd.active.textColor = boldButtonStyleRemove.active.textColor =Color.white;
+            boldButtonStyleAdd.hover.textColor = Color.cyan;
+            boldButtonStyleRemove.hover.textColor = Color.red;
+            boldButtonStyleAdd.alignment = boldButtonStyleRemove.alignment=TextAnchor.MiddleCenter;
+            DisplayTrackedObjects(boldButtonStyleAdd, boldButtonStyleRemove);
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Save Scene Changes",boldButtonStyleAdd))
+            {
+                QuitSceneFromEditor();
+            }
+            EditorGUILayout.Space();
+            EditorGUILayout.Space();
+            if (GUILayout.Button("X All Tracked",boldButtonStyleRemove))
+            {
+                trackedObjects.Clear();
+            }
+            EditorGUILayout.EndHorizontal();
             EditorGUILayout.EndScrollView();
+            // Save during runtime
+            // Section: Save TextMeshPro in Scene
+
         }
         private void DrawColorSelectorTool()
         {
@@ -586,5 +626,112 @@ namespace FuzzPhyte.Utility.Editor
 
             itemName = $"{baseName}{number}";
         }
+
+        #region Tracked Objects During Runtime
+        private void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            Debug.LogWarning($"Play Mode State Changed: {state}");
+            if (state == PlayModeStateChange.EnteredEditMode)
+            {
+                ApplyCachedChanges();
+            }
+        }
+        private void ApplyCachedChanges()
+        {
+            foreach (var kvp in fpTracker.changeCache)
+            {
+                GameObject obj = kvp.Key;
+                if(obj == null)
+                {
+                    continue;
+                }
+                Debug.LogWarning($"OBJ: {kvp.Key}");
+                foreach (var change in kvp.Value)
+                {
+                    if(change.component == null)
+                    {
+                        continue;
+                    }
+                    Debug.LogWarning($"Component: {change.Name}");
+                    var serializedObject = new SerializedObject(change.component);
+                    foreach (var prop in change.modifiedProperties)
+                    {
+                        Debug.LogWarning($"KEY {prop.Key}");
+                        if(prop.Key == "TextMeshPro" && change.component is TextMeshPro textMesh)
+                        {
+                            textMesh.text = prop.Value.ToString();
+                            continue;
+                        }
+                        else
+                        {
+                            var property = serializedObject.FindProperty(prop.Key);
+                            if (property != null)
+                            {
+                                FP_UtilityData.SetPropertyValue(property, prop.Value);
+                            }
+                        }
+                        
+                    }
+                    serializedObject.ApplyModifiedProperties();
+                }
+            }
+
+            // Clear cache after applying changes
+            fpTracker.ClearCache();
+
+            // Now that we’re back in edit mode, mark and save the scene
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+            Debug.Log("Scene saved with applied runtime changes.");
+        }
+        private void DisplayTrackedObjects(GUIStyle buttonStyleAdd, GUIStyle buttonStyleRemove)
+        {
+            
+            EditorGUILayout.LabelField("Objects to Track for Saving", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("+ Tracking", buttonStyleAdd))
+            {
+                foreach (var obj in Selection.gameObjects)
+                {
+                    if (!trackedObjects.Contains(obj))
+                    {
+                        trackedObjects.Add(obj);
+                        string returnData = fpTracker.TrackGameObjectChanges(obj);
+                        Debug.LogWarning($"Data returned: {returnData}");
+                    }
+                }
+            }
+            if(GUILayout.Button("- Tracking", buttonStyleRemove))
+            {
+                foreach (var obj in Selection.gameObjects)
+                {
+                    if (trackedObjects.Contains(obj))
+                    {
+                        trackedObjects.Remove(obj);
+                        fpTracker.RemoveTrackedGameObject(obj);
+                    }
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+            // Display current exclusions
+            foreach (GameObject obj in trackedObjects)
+            {
+                EditorGUILayout.ObjectField(obj, typeof(GameObject), true);
+            }
+        }
+        private void QuitSceneFromEditor()
+        {
+            // quit run time
+            if (EditorApplication.isPlaying)
+            {
+                EditorApplication.isPlaying = false;
+            }
+            else
+            {
+                Debug.LogWarning("Not in play mode.");
+            }
+        }
+        #endregion
+
     }
 }

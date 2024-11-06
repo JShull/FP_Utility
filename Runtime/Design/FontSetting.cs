@@ -13,7 +13,10 @@ namespace FuzzPhyte.Utility
         public TMP_FontAsset Font;
         public int MinSize;
         public int MaxSize;
+        [Space]
         public bool UseAutoSizing = false;
+        public FontStyles FontStyle;
+        public TextAlignmentOptions FontAlignment;
         public Color FontColor; // Specific color for this text type
     }
 }
