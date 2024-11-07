@@ -291,7 +291,17 @@ namespace FuzzPhyte.Utility
         public const string OVR_SecondaryGrip = "Oculus_CrossPlatform_SecondaryHandTrigger";
         #endregion
     }
+    public interface IFPLerpController
+    {
+        void SetupLerp();
+        void StartLerp();
+        void PauseLerp();
+        void ResumeLerp();
+        void ResetLerp();
+        void EndLerp();
+        void OnDrawGizmos();
 
+    }
     #region Generic Enums for Players and NPCs
     [Serializable]
     [SerializeField]
@@ -371,7 +381,7 @@ namespace FuzzPhyte.Utility
     /// Will be used heavily across sequence logic
     /// </summary>
     [Serializable]
-    [SerializeField]
+
     public enum SequenceStatus
     {
         NA = 0,
@@ -385,7 +395,7 @@ namespace FuzzPhyte.Utility
     /// Core 'transition' for all things sequence related
     /// </summary>
     [Serializable]
-    [SerializeField]
+
     public enum SequenceTransition
     {
         NA = 0,
@@ -401,7 +411,7 @@ namespace FuzzPhyte.Utility
     /// Different 'types' of overlays we might have
     /// </summary>
     [Serializable]
-    [SerializeField]
+
     public enum OverlayType 
     {   
         NA,
@@ -412,7 +422,7 @@ namespace FuzzPhyte.Utility
         Vocabulary 
     };
     [Serializable]
-    [SerializeField]
+
     public enum NPCHackState
     {
         NA,
@@ -421,7 +431,7 @@ namespace FuzzPhyte.Utility
         Signalling
     }
     [Serializable]
-    [SerializeField]
+
     public enum NPCHackTalkingState
     {
         NA,
@@ -435,7 +445,6 @@ namespace FuzzPhyte.Utility
     /// some of these items came from this list "https://www.alba.network/GSDinclusiveforms"
     /// </summary>
     [Serializable]
-    [SerializeField]
     public enum FP_Gender
     {
         NA,
@@ -454,7 +463,7 @@ namespace FuzzPhyte.Utility
         Robot // AI Buddies
     }
     [Serializable]
-    [SerializeField]
+    
     public enum FP_Ethnicity
     {
         Unknown,         // Default value, unknown ethnicity
@@ -468,36 +477,37 @@ namespace FuzzPhyte.Utility
         White,           // White or Caucasian
     }
     [Serializable]
-    [SerializeField]
+
     public enum FontSettingLabel
     {
-        HeaderOne,
-        HeaderTwo,
-        HeaderThree,
-        HeaderFour,
-        HeaderFive,
-        HeaderSix,
-        Paragraph,
-        Footer
+        HeaderOne=1,
+        HeaderTwo=2,
+        HeaderThree=3,
+        HeaderFour=4,
+        HeaderFive=5,
+        HeaderSix=6,
+        Paragraph=7,
+        Footer=8
     }
     // placeholder for now, we might need to expand this later
-    [SerializeField]
+    [Serializable]
     public enum FP_Language
     {
-        NA,
-        USEnglish,
-        Spanish,
-        French,
+        NA=0,
+        USEnglish=1,
+        Spanish=2,
+        French=3,
     }
-    [SerializeField]
+    [Serializable]
     public enum FP_LanguageLevel
     {
-        LevelOne,
-        LevelTwo,
-        LevelThree,
-        LevelFour
+        LevelOne=1,
+        LevelTwo=2,
+        LevelThree=3,
+        LevelFour=4
     }
-    [SerializeField]
+    
+    [Serializable]
     public enum MWApiKeyType
     {
         NA,

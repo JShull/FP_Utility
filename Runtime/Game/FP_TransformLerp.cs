@@ -1,9 +1,10 @@
 namespace FuzzPhyte.Utility
 {
     using System.Collections;
+    
     using UnityEngine;
 
-    public class FP_TransformLerp : MonoBehaviour
+    public class FP_TransformLerp : MonoBehaviour, IFPLerpController
     {
         [SerializeField]
         private Transform targetObject;
@@ -31,20 +32,20 @@ namespace FuzzPhyte.Utility
         private bool isPaused = true;
         private Coroutine moveCoroutine;
         
-        private void Start()
+        public void SetupLerp()
         {
             if (targetObject == null)
             {
                 targetObject = transform;
             }
-            ResetMovement();
-            if(playOnStart)
+            ResetLerp();
+            if (playOnStart)
             {
-                StartMovement();
+                StartLerp();
             }
         }
         
-        public void StartMovement()
+        public void StartLerp()
         {
             if (moveCoroutine != null)
             {
@@ -54,20 +55,19 @@ namespace FuzzPhyte.Utility
             moveCoroutine = StartCoroutine(MoveTransform());
         }
         
-        public void PauseMovement()
+        public void PauseLerp()
         {
             isPaused = true;
         }
         
-        public void ResumeMovement()
+        public void ResumeLerp()
         {
             if (isPaused && moveCoroutine != null)
             {
                 isPaused = false;
             }
         }
-        
-        public void ResetMovement()
+        public void ResetLerp()
         {
             if (moveCoroutine != null)
             {
@@ -83,6 +83,13 @@ namespace FuzzPhyte.Utility
             }
             
             isPaused = true;
+        }
+        public void EndLerp()
+        {
+            if (moveCoroutine != null)
+            {
+                StopCoroutine(moveCoroutine);
+            }
         }
         
         private IEnumerator MoveTransform()
@@ -153,6 +160,33 @@ namespace FuzzPhyte.Utility
                 targetObject.transform.position = to;
             }
             //targetObject.transform.position = to;
+        }
+
+        public void OnDrawGizmos()
+        {
+            if(startPoint == null || endPoint == null)
+            {
+                return;
+            }
+#if UNITY_EDITOR
+            if(UnityEditor.Selection.activeGameObject == this.gameObject)
+            {
+                var  startFontStyle = new GUIStyle();
+                var endFontStyle = new GUIStyle();
+                startFontStyle.normal.textColor = Color.green;
+                endFontStyle.normal.textColor = Color.cyan;
+                startFontStyle.fontSize = endFontStyle.fontSize=12; // Set the font size if needed
+                startFontStyle.alignment = endFontStyle.alignment = TextAnchor.MiddleCenter; // Center alignment
+                UnityEditor.Handles.Label(startPoint.position + new Vector3(0, 0.225f, 0), "START", startFontStyle);
+                UnityEditor.Handles.Label(endPoint.position + new Vector3(0, 0.225f, 0), "END", endFontStyle);
+                Gizmos.color = Color.green;
+                Gizmos.DrawSphere(startPoint.position, 0.2f);
+                Gizmos.DrawLineStrip(new Vector3[] { startPoint.position, endPoint.position }, false);
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawWireSphere(endPoint.position, 0.2f);
+            }
+#endif
+           
         }
     }
 }
