@@ -11,7 +11,7 @@ namespace FuzzPhyte.Utility
         public Transform ReferenceTransform; // The transform to follow and rotate with
         public Vector3 PositionOffset; // Offset from the reference transform's position
         public Vector3 RotationOffset; // Offset from the reference transform's rotation
-        private void Start()
+        protected virtual void Start()
         {
             if (ReferenceTransform == null)
             {
@@ -24,7 +24,7 @@ namespace FuzzPhyte.Utility
             // Calculate the initial rotation offset
             RotationOffset = (Quaternion.Inverse(ReferenceTransform.rotation) * transform.rotation).eulerAngles;
         }
-        private void Update()
+        protected virtual void Update()
         {
             if (!ActiveFollow)
             {
