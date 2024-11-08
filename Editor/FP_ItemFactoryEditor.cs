@@ -667,7 +667,7 @@ namespace FuzzPhyte.Utility.Editor
                             var property = serializedObject.FindProperty(prop.Key);
                             if (property != null)
                             {
-                                FP_UtilityData.SetPropertyValue(property, prop.Value);
+                                FP_Utility_Editor.SetPropertyValue(property, prop.Value);
                             }
                         }
                         

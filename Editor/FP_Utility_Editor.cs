@@ -463,6 +463,33 @@ namespace FuzzPhyte.Utility.Editor
             Debug.LogError($"Script {className} not found.");
             return null;
         }
+        public static void SetPropertyValue(SerializedProperty property, object value)
+        {
+            switch (property.propertyType)
+            {
+                case SerializedPropertyType.Float:
+                    property.floatValue = (float)value;
+                    break;
+                case SerializedPropertyType.Integer:
+                    property.intValue = (int)value;
+                    break;
+                case SerializedPropertyType.String:
+                    property.stringValue = (string)value;
+                    break;
+                case SerializedPropertyType.Boolean:
+                    property.boolValue = (bool)value;
+                    break;
+                case SerializedPropertyType.Color:
+                    property.colorValue = (Color)value;
+                    break;
+                case SerializedPropertyType.Vector3:
+                    property.vector3Value = (Vector3)value;
+                    break;
+                case SerializedPropertyType.ObjectReference:
+                    property.objectReferenceValue = (UnityEngine.Object)value;
+                    break;
+            }
+        }
     }
     /// <summary>
     /// Static class to manage the addition and removal of tags via other editor tools e.g. FP_Recorder
