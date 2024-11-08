@@ -264,14 +264,14 @@ namespace FuzzPhyte.Utility
         public const string OVR_SecondaryGrip = "Oculus_CrossPlatform_SecondaryHandTrigger";
         #endregion
     }
-    public interface IFPLerpController
+    public interface IFPMotionController
     {
-        void SetupLerp();
-        void StartLerp();
-        void PauseLerp();
-        void ResumeLerp();
-        void ResetLerp();
-        void EndLerp();
+        void SetupMotion();
+        void StartMotion();
+        void PauseMotion();
+        void ResumeMotion();
+        void ResetMotion();
+        void EndMotion();
         void OnDrawGizmos();
 
     }

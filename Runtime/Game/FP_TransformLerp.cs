@@ -4,7 +4,7 @@ namespace FuzzPhyte.Utility
     
     using UnityEngine;
 
-    public class FP_TransformLerp : MonoBehaviour, IFPLerpController
+    public class FP_TransformLerp : MonoBehaviour, IFPMotionController
     {
         [SerializeField]
         private Transform targetObject;
@@ -32,20 +32,20 @@ namespace FuzzPhyte.Utility
         private bool isPaused = true;
         private Coroutine moveCoroutine;
         
-        public void SetupLerp()
+        public void SetupMotion()
         {
             if (targetObject == null)
             {
                 targetObject = transform;
             }
-            ResetLerp();
+            ResetMotion();
             if (playOnStart)
             {
-                StartLerp();
+                StartMotion();
             }
         }
         
-        public void StartLerp()
+        public void StartMotion()
         {
             if (moveCoroutine != null)
             {
@@ -55,19 +55,19 @@ namespace FuzzPhyte.Utility
             moveCoroutine = StartCoroutine(MoveTransform());
         }
         
-        public void PauseLerp()
+        public void PauseMotion()
         {
             isPaused = true;
         }
         
-        public void ResumeLerp()
+        public void ResumeMotion()
         {
             if (isPaused && moveCoroutine != null)
             {
                 isPaused = false;
             }
         }
-        public void ResetLerp()
+        public void ResetMotion()
         {
             if (moveCoroutine != null)
             {
@@ -84,7 +84,7 @@ namespace FuzzPhyte.Utility
             
             isPaused = true;
         }
-        public void EndLerp()
+        public void EndMotion()
         {
             if (moveCoroutine != null)
             {

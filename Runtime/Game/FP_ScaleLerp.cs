@@ -3,7 +3,7 @@ namespace FuzzPhyte.Utility
 {
     using UnityEngine;
     using System.Collections;
-    public class FP_ScaleLerp : MonoBehaviour,IFPLerpController
+    public class FP_ScaleLerp : MonoBehaviour,IFPMotionController
     {
         [SerializeField]
         private Transform targetObject;
@@ -29,19 +29,19 @@ namespace FuzzPhyte.Utility
         private bool isPaused = true;
         private Coroutine scaleCoroutine;
 
-        public void SetupLerp()
+        public void SetupMotion()
         {
             if (targetObject == null)
             {
                 targetObject = transform;
             }
-            ResetLerp();
+            ResetMotion();
             if (playOnStart)
             {
-                StartLerp();
+                StartMotion();
             }
         }
-        public void StartLerp()
+        public void StartMotion()
         {
             if (scaleCoroutine != null)
             {
@@ -51,12 +51,12 @@ namespace FuzzPhyte.Utility
             scaleCoroutine = StartCoroutine(ScaleTransform());
         }
 
-        public void PauseLerp()
+        public void PauseMotion()
         {
             isPaused = true;
         }
 
-        public void ResumeLerp()
+        public void ResumeMotion()
         {
             if (isPaused && scaleCoroutine != null)
             {
@@ -64,7 +64,7 @@ namespace FuzzPhyte.Utility
             }
         }
 
-        public void ResetLerp()
+        public void ResetMotion()
         {
             if (scaleCoroutine != null)
             {
@@ -74,7 +74,7 @@ namespace FuzzPhyte.Utility
             targetObject.localScale = startScale;
             isPaused = true;
         }
-        public void EndLerp()
+        public void EndMotion()
         {
             if (scaleCoroutine != null)
             {
