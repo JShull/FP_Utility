@@ -1,87 +1,26 @@
-
 namespace FuzzPhyte.Utility
 {
     using UnityEngine;
     using System.Collections;
-    public class FP_ScaleLerp : MonoBehaviour,IFPMotionController
+    public class FP_ScaleLerp : FP_MotionBase
     {
+        [Space]
+        [Header("Scale Lerp Settings")]
         [SerializeField]
-        private Transform targetObject;
-
-        [SerializeField]
-        private Vector3 startScale = Vector3.one;
-
-        [SerializeField]
-        private Vector3 endScale = Vector3.one * 2;
+        protected Vector3 startScale = Vector3.one;
 
         [SerializeField]
-        private AnimationCurve scaleCurve = AnimationCurve.Linear(0, 0, 1, 1);
+        protected Vector3 endScale = Vector3.one * 2;
 
         [SerializeField]
-        private float duration = 3.0f;
-
-        [SerializeField]
-        private bool loop = false;
-
-        [SerializeField]
-        private bool playOnStart = true;
-
-        private bool isPaused = true;
-        private Coroutine scaleCoroutine;
-
-        public void SetupMotion()
+        protected AnimationCurve scaleCurve = AnimationCurve.Linear(0, 0, 1, 1);
+        
+        public override void ResetMotion()
         {
-            if (targetObject == null)
-            {
-                targetObject = transform;
-            }
-            ResetMotion();
-            if (playOnStart)
-            {
-                StartMotion();
-            }
-        }
-        public void StartMotion()
-        {
-            if (scaleCoroutine != null)
-            {
-                StopCoroutine(scaleCoroutine);
-            }
-            isPaused = false;
-            scaleCoroutine = StartCoroutine(ScaleTransform());
-        }
-
-        public void PauseMotion()
-        {
-            isPaused = true;
-        }
-
-        public void ResumeMotion()
-        {
-            if (isPaused && scaleCoroutine != null)
-            {
-                isPaused = false;
-            }
-        }
-
-        public void ResetMotion()
-        {
-            if (scaleCoroutine != null)
-            {
-                StopCoroutine(scaleCoroutine);
-            }
-
+            base.ResetMotion();
             targetObject.localScale = startScale;
-            isPaused = true;
         }
-        public void EndMotion()
-        {
-            if (scaleCoroutine != null)
-            {
-                StopCoroutine(scaleCoroutine);
-            }
-        }
-        private IEnumerator ScaleTransform()
+        protected override IEnumerator MotionRoutine()
         {
             do
             {
@@ -95,17 +34,22 @@ namespace FuzzPhyte.Utility
 
             } while (loop);
         }
-
+        /// <summary>
+        /// Custom Coroutine to lerp the scale of the target object between two points
+        /// </summary>
+        /// <param name="from"></param>
+        /// <param name="to"></param>
+        /// <returns></returns>
         private IEnumerator ScaleBetweenPoints(Vector3 from, Vector3 to)
         {
             float timeElapsed = 0f;
 
-            while (timeElapsed < duration)
+            while (timeElapsed < lerpDuration)
             {
                 if (!isPaused)
                 {
                     timeElapsed += Time.deltaTime;
-                    float t = timeElapsed / duration;
+                    float t = timeElapsed / lerpDuration;
 
                     // Sample the AnimationCurve
                     float curveValue = scaleCurve.Evaluate(t);
@@ -115,11 +59,10 @@ namespace FuzzPhyte.Utility
                 }
                 yield return null;
             }
-
             // Ensure it ends at the exact end scale
             targetObject.localScale = to;
         }
-        public void OnDrawGizmos()
+        public override void OnDrawGizmos()
         {
 #if UNITY_EDITOR
             if(UnityEditor.Selection.activeGameObject == this.gameObject)

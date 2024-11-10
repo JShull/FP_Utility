@@ -273,7 +273,6 @@ namespace FuzzPhyte.Utility
         void ResetMotion();
         void EndMotion();
         void OnDrawGizmos();
-
     }
     public interface IFPTimer<T>
     {

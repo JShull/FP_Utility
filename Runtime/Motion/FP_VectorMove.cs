@@ -2,101 +2,107 @@ namespace FuzzPhyte.Utility
 {
     using System.Collections;
     using UnityEngine;
-    using static UnityEngine.GraphicsBuffer;
 
-    public class FP_VectorMove : MonoBehaviour, IFPMotionController
+    /// <summary>
+    /// Moves the transform along a specified axis by a certain distance there and back
+    /// </summary>
+    public class FP_VectorMove : FP_MotionBase
     {
+        [Space]
+        [Header("Vector Move Settings")]
         // The axis along which the transform will move (e.g., Vector3.right for the X-axis)
         public Vector3 moveAxis = Vector3.right;
-
+        public AnimationCurve VectorCurve;
         // The distance to move along the axis
         public float moveDistance = 5f;
 
-        // Time in seconds it takes to move the distance
-        public float moveTime = 2f;
-
         // Boolean to decide if movement is in local or world space
         public bool useLocalSpace = false;
-
-        // The coroutine that handles the movement
-        private Coroutine moveCoroutine;
-        [SerializeField] protected bool isActive = true;
-        [SerializeField] protected bool isPaused = false;
+        [Tooltip("With loop enabled & this enabled, the object will move back and forth. Just loop = jumps back")]
+        public bool returnToDestination = false;
         protected Vector3 targetPos;
         protected Vector3 startPos;
 
-        
-        private void OnEnable()
+        protected void OnEnable()
         {
             if (useLocalSpace)
             {
                 // Calculate movement in local space
-                startPos = transform.localPosition;
+                startPos = targetObject.localPosition;
                 targetPos = startPos + (moveAxis.normalized * moveDistance);
             }
             else
             {
                 // Calculate movement in world space
-                startPos = transform.position;
+                startPos = targetObject.position;
                 targetPos = startPos + (moveAxis.normalized * moveDistance);
             }
-            SetupMotion();
-            StartMotion();
         }
 
         // Coroutine that loops the movement along the axis
-        private IEnumerator MoveLoop()
+        protected override IEnumerator MotionRoutine()
         {
-            while (isActive)
+            do
             {
                 if (!isPaused)
                 {
                     // Move in the positive direction
                     yield return StartCoroutine(MoveByDistance(moveAxis, moveDistance));
+                    if (loop && !returnToDestination)
+                    {
+                        //Jump back start position
+                        if (useLocalSpace)
+                        {
+                            targetObject.localPosition = startPos;
+                        }
+                        else
+                        {
+                            targetObject.position = startPos;
+                        }
+                    }
                 }
-                if (!isPaused)
+                if (!isPaused && returnToDestination)
                 {
                     // Move in the opposite direction
                     yield return StartCoroutine(MoveByDistance(-moveAxis, moveDistance));
                 }
                 yield return null;
             }
+            while (loop);
+            
         }
-        private void OnDisable()
-        {
-            StopAllCoroutines();
-        }
-
-
+        
         // Coroutine that moves the transform by a certain distance along an axis
         private IEnumerator MoveByDistance(Vector3 direction, float distance)
         {
-            startPos = transform.position;
+            startPos = targetObject.position;
             targetPos = startPos + (direction.normalized * distance);
             if (useLocalSpace)
             {
                 // Calculate movement in local space
-                startPos = transform.localPosition;
+                startPos = targetObject.localPosition;
                 targetPos = startPos + (direction.normalized * distance);
             }
             else
             {
                 // Calculate movement in world space
-                startPos = transform.position;
+                startPos = targetObject.position;
                 targetPos = startPos + (direction.normalized * distance);
             }
             float elapsedTime = 0f;
 
-            while (elapsedTime < moveTime)
+            while (elapsedTime < lerpDuration)
             {
                 // Move the transform based on elapsed time and moveTime
+                var outcome = VectorCurve.Evaluate(elapsedTime / lerpDuration);
                 if (useLocalSpace)
                 {
-                    transform.localPosition = Vector3.Lerp(startPos, targetPos, elapsedTime / moveTime);
+                    
+                    targetObject.localPosition = Vector3.Lerp(startPos, targetPos, outcome);
                 }
                 else
                 {
-                    transform.position = Vector3.Lerp(startPos, targetPos, elapsedTime / moveTime);
+                    targetObject.position = Vector3.Lerp(startPos, targetPos, outcome);
                 }
                 
                 elapsedTime += Time.deltaTime;
@@ -107,54 +113,17 @@ namespace FuzzPhyte.Utility
             // Ensure the transform reaches the exact target position
             if (useLocalSpace)
             {
-                transform.localPosition = targetPos;
+                targetObject.localPosition = targetPos;
             }
             else
             {
-                transform.position = targetPos;
+                targetObject.position = targetPos;
             }
         }
-
-        public void SetupMotion()
-        {
-            StopAllCoroutines();
-            isActive = true;
-            isPaused = true;
-            moveCoroutine = StartCoroutine(MoveLoop());
-        }
-
-        public void StartMotion()
-        {
-            isPaused = false;
-        }
-
-        public void PauseMotion()
-        {
-            isPaused = true;
-        }
-
-        public void ResumeMotion()
-        {
-            isPaused = false;
-        }
-
-        public void ResetMotion()
-        {
-            SetupMotion();
-            StartMotion();
-        }
-
-        public void EndMotion()
-        {
-            isActive = false;
-            StopAllCoroutines();
-            isPaused = true;
-        }
-
-        public void OnDrawGizmos()
+        public override void OnDrawGizmos()
         {
 #if UNITY_EDITOR
-            if (isActive&&UnityEditor.Selection.activeGameObject == this.gameObject)
+            if (UnityEditor.Selection.activeGameObject == this.gameObject)
             {
                 Gizmos.color = Color.red;
                 Gizmos.DrawLineStrip(new Vector3[] { startPos, targetPos },false);

@@ -4,75 +4,28 @@ namespace FuzzPhyte.Utility
     
     using UnityEngine;
 
-    public class FP_TransformLerp : MonoBehaviour, IFPMotionController
+    public class FP_TransformLerp : FP_MotionBase
     {
+        [Space]
+        [Header("Transform Lerp Settings")]
         [SerializeField]
-        private Transform targetObject;
+        protected Transform startPoint;
         
         [SerializeField]
-        private Transform startPoint;
+        protected Transform endPoint;
         
         [SerializeField]
-        private Transform endPoint;
+        protected AnimationCurve movementCurve = AnimationCurve.Linear(0, 0, 1, 1);
         
         [SerializeField]
-        private AnimationCurve movementCurve = AnimationCurve.Linear(0, 0, 1, 1);
+        protected bool localTransform = false;
         
         [SerializeField]
-        private float duration = 3.0f;
+        protected bool playOnStart = true;
         
-        [SerializeField]
-        private bool loop = false;
-        [SerializeField]
-        private bool localTransform = false;
-        
-        [SerializeField]
-        private bool playOnStart = true;
-        
-        private bool isPaused = true;
-        private Coroutine moveCoroutine;
-        
-        public void SetupMotion()
+        public override void ResetMotion()
         {
-            if (targetObject == null)
-            {
-                targetObject = transform;
-            }
-            ResetMotion();
-            if (playOnStart)
-            {
-                StartMotion();
-            }
-        }
-        
-        public void StartMotion()
-        {
-            if (moveCoroutine != null)
-            {
-                StopCoroutine(moveCoroutine);
-            }
-            isPaused = false;
-            moveCoroutine = StartCoroutine(MoveTransform());
-        }
-        
-        public void PauseMotion()
-        {
-            isPaused = true;
-        }
-        
-        public void ResumeMotion()
-        {
-            if (isPaused && moveCoroutine != null)
-            {
-                isPaused = false;
-            }
-        }
-        public void ResetMotion()
-        {
-            if (moveCoroutine != null)
-            {
-                StopCoroutine(moveCoroutine);
-            }
+            base.ResetMotion();
             if (localTransform)
             {
                 targetObject.transform.localPosition = startPoint.localPosition;
@@ -81,18 +34,9 @@ namespace FuzzPhyte.Utility
             {
                 targetObject.transform.position = startPoint.position;
             }
-            
-            isPaused = true;
         }
-        public void EndMotion()
-        {
-            if (moveCoroutine != null)
-            {
-                StopCoroutine(moveCoroutine);
-            }
-        }
-        
-        private IEnumerator MoveTransform()
+
+        protected override IEnumerator MotionRoutine()
         {
             do
             {
@@ -127,12 +71,12 @@ namespace FuzzPhyte.Utility
         {
             float timeElapsed = 0f;
         
-            while (timeElapsed < duration)
+            while (timeElapsed < lerpDuration)
             {
                 if (!isPaused)
                 {
                     timeElapsed += Time.deltaTime;
-                    float t = timeElapsed / duration;
+                    float t = timeElapsed / lerpDuration;
         
                     // Sample the AnimationCurve
                     float curveValue = movementCurve.Evaluate(t);
@@ -162,7 +106,7 @@ namespace FuzzPhyte.Utility
             //targetObject.transform.position = to;
         }
 
-        public void OnDrawGizmos()
+        public override void OnDrawGizmos()
         {
             if(startPoint == null || endPoint == null)
             {
