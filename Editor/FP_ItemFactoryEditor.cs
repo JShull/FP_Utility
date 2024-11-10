@@ -423,6 +423,10 @@ namespace FuzzPhyte.Utility.Editor
             {
                 return DrawConvoTranslationField(fieldName, (ConvoTranslation)fieldValue);
             }
+            if(fieldType == typeof(HelperThreshold))
+            {
+                return DrawHelperCategoryField(fieldName, (HelperThreshold)fieldValue);
+            }
             
             EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName), $"Unsupported field type: {fieldType.Name}");
             return fieldValue;
@@ -495,6 +499,14 @@ namespace FuzzPhyte.Utility.Editor
             data.Primary = (FP_Language)EditorGUILayout.EnumPopup("Primary Language", data.Primary);
             data.Secondary = (FP_Language)EditorGUILayout.EnumPopup("Secondary Language", data.Secondary);
             data.Tertiary = (FP_Language)EditorGUILayout.EnumPopup("Tertiary Language", data.Tertiary);
+            return data;
+        }
+        private HelperThreshold DrawHelperCategoryField(string fieldName, HelperThreshold data)
+        {
+            EditorGUILayout.LabelField(ReturnLabelSpacedName(fieldName));
+            data.Category = (HelperCategory)EditorGUILayout.EnumPopup("Helper Category", data.Category);
+            data.State = (SequenceStatus)EditorGUILayout.EnumPopup("Sequence Status", data.State);
+            data.MaxDelay = EditorGUILayout.FloatField("Max Delay(s)", data.MaxDelay);
             return data;
         }
         private FP_Camera DrawFPCameraField(string fieldName, FP_Camera camera)
@@ -679,7 +691,7 @@ namespace FuzzPhyte.Utility.Editor
             // Clear cache after applying changes
             fpTracker.ClearCache();
 
-            // Now that we’re back in edit mode, mark and save the scene
+            // Now that weï¿½re back in edit mode, mark and save the scene
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
             Debug.Log("Scene saved with applied runtime changes.");

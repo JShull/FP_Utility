@@ -580,6 +580,16 @@ namespace FuzzPhyte.Utility
         [Header("Camera Renderer Settings")]
         public int RendererIndex;
     }
+    /// <summary>
+    /// Serialized struct to hold values for a specific helper threshold
+    /// </summary>
+    [System.Serializable]
+    public struct HelperThreshold
+    {
+        public HelperCategory Category;
+        public SequenceStatus State;
+        public float MaxDelay; // in seconds
+    }
 
     [Serializable]
     public enum StrandType
