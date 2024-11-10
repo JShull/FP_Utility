@@ -3,16 +3,35 @@ using UnityEngine;
 
 namespace FuzzPhyte.Utility
 {
+    public class TimerData: IComparable<TimerData>
+    {
+        public float time;
+        public Action onFinish;
+
+        public int CompareTo(TimerData other)
+        {
+            return time.CompareTo(other.time);
+        }
+    }
+    public class HelperData : IComparable<HelperData>
+    {
+        public HelperCategory Category { get; set; }
+        public float ActivationTime { get; set; }  // Time when the helper should activate
+        public Action onActivate { get; set; }      // Action to execute when activated
+        public int CompareTo(HelperData other)
+        {
+            return ActivationTime.CompareTo(other.ActivationTime);
+        }
+    }
     /// <summary>
     /// Singleton pattern
     /// Uses a simple priority queue method to manage timers in a scene
     /// </summary>
-    public class FP_Timer : MonoBehaviour
+    public class FP_Timer : MonoBehaviour,IFPTimer<TimerData>
     {
-        private static FP_Timer _instance;
+        protected static FP_Timer _instance;
         public static FP_Timer CCTimer { get { return _instance; } }
-
-        public void Awake()
+        public virtual void Awake()
         {
             if (_instance != null && _instance != this)
             {
@@ -23,20 +42,8 @@ namespace FuzzPhyte.Utility
                 _instance = this;
             }
         }
-        private class TimerData : IComparable<TimerData>
-        {
-            public float time;
-            public Action onFinish;
-
-            public int CompareTo(TimerData other)
-            {
-                return time.CompareTo(other.time);
-            }
-        }
-
-        private PriorityQueue<TimerData> timers = new PriorityQueue<TimerData>();
-
-        private void Update()
+        protected PriorityQueue<TimerData> timers = new PriorityQueue<TimerData>();
+        protected virtual void Update()
         {
             while (timers.Count > 0 && timers.Peek().time <= Time.time)
             {
@@ -45,12 +52,14 @@ namespace FuzzPhyte.Utility
                 timerData.onFinish();
             }
         }
+        
+        #region Timer Methods
         /// <summary>
         /// time in seconds from sending
         /// </summary>
         /// <param name="time"></param>
         /// <param name="onFinish"></param>
-        public void StartTimer(float time, Action onFinish)
+        public virtual TimerData StartTimer(float time, Action onFinish)
         {
             TimerData timerData = new TimerData
             {
@@ -58,6 +67,7 @@ namespace FuzzPhyte.Utility
                 onFinish = onFinish
             };
             timers.Enqueue(timerData);
+            return timerData;
         }
         /// <summary>
         /// Start a timer with an Action<int> callback.
@@ -65,7 +75,7 @@ namespace FuzzPhyte.Utility
         /// <param name="time"></param>
         /// <param name="param"></param>
         /// <param name="onFinish"></param>
-        public void StartTimer(float time, int param,Action<int> onFinish)
+        public virtual TimerData StartTimer(float time, int param,Action<int> onFinish)
         {
             TimerData timerData = new TimerData
             {
@@ -73,6 +83,7 @@ namespace FuzzPhyte.Utility
                 onFinish = () => onFinish(param)
             };
             timers.Enqueue(timerData);
+            return timerData;
         }
         /// <summary>
         /// Start a timer with an Action<string> callback.
@@ -80,7 +91,7 @@ namespace FuzzPhyte.Utility
         /// <param name="time">Time in seconds</param>
         /// <param name="param">String parameter to pass to the callback</param>
         /// <param name="onFinish">Callback to be invoked when the timer finishes</param>
-        public void StartTimer(float time, string param, Action<string> onFinish)
+        public virtual TimerData StartTimer(float time, string param, Action<string> onFinish)
         {
             TimerData timerData = new TimerData
             {
@@ -88,15 +99,15 @@ namespace FuzzPhyte.Utility
                 onFinish = () => onFinish(param)
             };
             timers.Enqueue(timerData);
+            return timerData;
         }
-
         /// <summary>
         /// Start a timer with an Action<float> callback.
         /// </summary>
         /// <param name="time">Time in seconds</param>
         /// <param name="param">Float parameter to pass to the callback</param>
         /// <param name="onFinish">Callback to be invoked when the timer finishes</param>
-        public void StartTimer(float time, float param, Action<float> onFinish)
+        public virtual TimerData StartTimer(float time, float param, Action<float> onFinish)
         {
             TimerData timerData = new TimerData
             {
@@ -104,6 +115,7 @@ namespace FuzzPhyte.Utility
                 onFinish = () => onFinish(param)
             };
             timers.Enqueue(timerData);
+            return timerData;
         }
         /// <summary>
         /// Start a timer with a 'FP_Data' callback
@@ -111,7 +123,7 @@ namespace FuzzPhyte.Utility
         /// <param name="time"></param>
         /// <param name="param"></param>
         /// <param name="onFinish"></param>
-        public void StartTimer(float time, FP_Data param, Action<FP_Data> onFinish)
+        public virtual TimerData StartTimer(float time, FP_Data param, Action<FP_Data> onFinish)
         {
             TimerData timerData = new TimerData
             {
@@ -119,6 +131,7 @@ namespace FuzzPhyte.Utility
                 onFinish = () => onFinish(param)
             };
             timers.Enqueue(timerData);
+            return timerData;
         }
         /// <summary>
         /// Start a timer with a 'GameObject' callback
@@ -126,7 +139,7 @@ namespace FuzzPhyte.Utility
         /// <param name="time"></param>
         /// <param name="param"></param>
         /// <param name="onFinish"></param>
-        public void StartTimer(float time, GameObject param, Action<GameObject> onFinish)
+        public virtual TimerData StartTimer(float time, GameObject param, Action<GameObject> onFinish)
         {
             TimerData timerData = new TimerData
             {
@@ -134,6 +147,8 @@ namespace FuzzPhyte.Utility
                 onFinish = () => onFinish(param)
             };
             timers.Enqueue(timerData);
+            return timerData;
         }
+        #endregion
     }
 }

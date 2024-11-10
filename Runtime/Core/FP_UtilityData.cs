@@ -275,6 +275,15 @@ namespace FuzzPhyte.Utility
         void OnDrawGizmos();
 
     }
+    public interface IFPTimer<T>
+    {
+        T StartTimer(float time, Action onFinish);
+        T StartTimer(float time, int param, Action<int> onFinish);
+        T StartTimer(float time, float param, Action<float> onFinish);
+        T StartTimer(float time, string param, Action<string> onFinish);
+        T StartTimer(float time, FP_Data param, Action<FP_Data> onFinish);
+        T StartTimer(float time, GameObject param, Action<GameObject> onFinish);
+    }
     #region Generic Enums for Players and NPCs
     [Serializable]
     [SerializeField]
@@ -436,7 +445,6 @@ namespace FuzzPhyte.Utility
         Robot // AI Buddies
     }
     [Serializable]
-    
     public enum FP_Ethnicity
     {
         Unknown,         // Default value, unknown ethnicity
@@ -450,7 +458,6 @@ namespace FuzzPhyte.Utility
         White,           // White or Caucasian
     }
     [Serializable]
-
     public enum FontSettingLabel
     {
         HeaderOne=1,
@@ -487,6 +494,22 @@ namespace FuzzPhyte.Utility
         MWCollegeWord,
         MWLearnersWord,
         MWSchoolWord,
+    }
+    
+    [Serializable]
+    public enum HelperCategory
+    {
+        NA = 0,
+        Input = 1,
+        Menu = 2,
+        Settings = 3,
+        Movement = 4,
+        Puzzle = 5,
+        SequenceEvent = 10,
+        SequenceAction = 11,
+        GenericInteraction = 12,
+        Dialogue = 13,
+
     }
     //keep tabs on what languages we could be using for a given object
     [Serializable]
