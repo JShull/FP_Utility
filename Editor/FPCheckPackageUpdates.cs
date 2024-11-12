@@ -102,14 +102,14 @@ namespace FuzzPhyte.Utility.Editor
             foreach (var dependency in manifest.dependencyUrls)
             {
                 UnityEngine.Debug.Log($"Fetching latest for package: {dependency}");
-
+                var request = Client.Add(dependency);
+                _updateRequests.Add(request);
             }
-            /*
+            
             // Start listening for update completion
             EditorApplication.update += MonitorUpdateRequests;
-            */
         }
-        /*
+        
         private static void MonitorUpdateRequests()
         {
             bool allComplete = true;
@@ -138,11 +138,6 @@ namespace FuzzPhyte.Utility.Editor
                 EditorApplication.update -= MonitorUpdateRequests;
             }
         }
-
-        */
-
-       
-
         private static void CheckForGitUpdates(string packagePath)
         {
             /*
