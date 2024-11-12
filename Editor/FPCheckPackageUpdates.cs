@@ -69,10 +69,6 @@ namespace FuzzPhyte.Utility.Editor
         static List<string> _packageUrls;
         static List<Request> _updateRequests;
 
-        static FPCheckPackageUpdates()
-        {
-            //EditorApplication.update += CheckForPackageUpdates;
-        }
         // Add a menu item in the Unity Editor under "Tools/FuzzPhyte/Update FP Packages"
         [MenuItem("FuzzPhyte/Utility/Update Packages")]
         public static void RunPackageUpdateCheck()
@@ -102,22 +98,22 @@ namespace FuzzPhyte.Utility.Editor
             for (int i=0; i<manifest.dependencyUrls.Count;i++)
             {
                 var dependency = manifest.dependencyUrls[i];
-                UnityEngine.Debug.Log($"Fetching latest for package: {dependency}");
+                //UnityEngine.Debug.Log($"Fetching latest for package: {dependency}");
                 var request = Client.Add(dependency);
                 if(request != null)
                 {
                     _updateRequests.Add(request);
                 }
             }
-            UnityEngine.Debug.Log($"Send off for requests");
+            UnityEngine.Debug.Log($"Send off {manifest.dependencyUrls.Count} requests");
             // Start listening for update completion
-            EditorApplication.update += MonitorUpdateRequests;
+            MonitorUpdateRequests();
         }
         
         private static void MonitorUpdateRequests()
         {
             bool allComplete = true;
-
+            
             foreach (var request in _updateRequests)
             {
                 if (!request.IsCompleted)
@@ -139,46 +135,7 @@ namespace FuzzPhyte.Utility.Editor
             // If all requests are complete, stop monitoring
             if (allComplete)
             {
-                EditorApplication.update -= MonitorUpdateRequests;
-            }
-        }
-        private static void CheckForGitUpdates(string packagePath)
-        {
-            /*
-            if (!Directory.Exists(packagePath))
-            {
-                UnityEngine.Debug.LogWarning($"Package path not found: {packagePath}");
-                return;
-            }
-            */
-
-            RunGitCommand(packagePath, "fetch");
-            string output = RunGitCommand(packagePath, "status -uno");
-
-            if (output.Contains("Your branch is behind"))
-            {
-                UnityEngine.Debug.Log($"Package {packagePath} has updates available.");
-            }
-        }
-
-        private static string RunGitCommand(string workingDirectory, string arguments)
-        {
-            ProcessStartInfo startInfo = new ProcessStartInfo
-            {
-                FileName = "git",
-                Arguments = arguments,
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using (Process process = Process.Start(startInfo))
-            {
-                using (StreamReader reader = process.StandardOutput)
-                {
-                    return reader.ReadToEnd();
-                }
+                //EditorApplication.update -= MonitorUpdateRequests;
             }
         }
     }
