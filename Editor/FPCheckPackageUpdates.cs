@@ -127,6 +127,7 @@ namespace FuzzPhyte.Utility.Editor
             // Filter and build package paths
             foreach (var dependency in manifest.dependencies)
             {
+                UnityEngine.Debug.Log($"Checking dependency: {dependency.Key}");
                 if (dependency.Key.StartsWith("com.fuzzphyte."))
                 {
                     string packagePath = dependency.Value;
