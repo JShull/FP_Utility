@@ -8,36 +8,60 @@ namespace FuzzPhyte.Utility.Editor
     using System.Linq;
     using UnityEditor.PackageManager;
     using UnityEditor.PackageManager.Requests;
+    using System.Text.RegularExpressions;
 
     #region Manifest Related
-    // Wrapper class for deserialization with JsonUtility
-    [System.Serializable]
     public class FPManifest
     {
-        public Dictionary<string, string> dependencies = new Dictionary<string, string>();
+        public List<string> dependencyUrls = new List<string>();
 
-        // Custom JSON parsing for JsonUtility, since it doesn't support dictionaries directly
-        public static FPManifest FromJson(string json)
+        // Load and parse manifest.json
+        public static FPManifest LoadFromFile(string manifestPath)
         {
-            json = "{ \"dependencies\": " + json + "}"; // Wrapping for JsonUtility
-            FPManifestWrapper wrapper = JsonUtility.FromJson<FPManifestWrapper>(json);
-            return new FPManifest { dependencies = wrapper.dependencies.ToDictionary(entry => entry.Key, entry => entry.Value) };
+            var manifest = new FPManifest();
+
+            if (!File.Exists(manifestPath))
+            {
+                UnityEngine.Debug.LogError("Could not find manifest.json file.");
+                return null;
+            }
+
+            // Read all lines from the file
+            string[] lines = File.ReadAllLines(manifestPath);
+            bool inDependenciesSection = false;
+
+            // Regular expression to capture URLs
+            Regex urlPattern = new Regex(@"https?://[^\s""]+");
+
+            foreach (string line in lines)
+            {
+                // Start processing once we reach "dependencies"
+                if (line.Trim().StartsWith("\"dependencies\":"))
+                {
+                    inDependenciesSection = true;
+                    continue;
+                }
+
+                // Stop processing if we exit the dependencies section
+                if (inDependenciesSection && line.Trim().StartsWith("}"))
+                {
+                    break;
+                }
+
+                // Process lines only within the dependencies section
+                if (inDependenciesSection && line.Contains("com.fuzzphyte."))
+                {
+                    // Extract the URL using the regex pattern
+                    Match match = urlPattern.Match(line);
+                    if (match.Success)
+                    {
+                        manifest.dependencyUrls.Add(match.Value);
+                    }
+                }
+            }
+
+            return manifest;
         }
-
-        
-    }
-    // Helper to convert dependencies to dictionary format
-    [System.Serializable]
-    public class FPManifestWrapper
-    {
-        public List<FPManifestEntry> dependencies;
-    }
-
-    [System.Serializable]
-    public class FPManifestEntry
-    {
-        public string Key;
-        public string Value;
     }
     #endregion
     public static class FPCheckPackageUpdates
@@ -47,7 +71,7 @@ namespace FuzzPhyte.Utility.Editor
 
         static FPCheckPackageUpdates()
         {
-            EditorApplication.update += CheckForPackageUpdates;
+            //EditorApplication.update += CheckForPackageUpdates;
         }
         // Add a menu item in the Unity Editor under "Tools/FuzzPhyte/Update FP Packages"
         [MenuItem("FuzzPhyte/Utility/Update Packages")]
@@ -57,23 +81,35 @@ namespace FuzzPhyte.Utility.Editor
         }
         private static void CheckForPackageUpdates()
         {
-            EditorApplication.update -= CheckForPackageUpdates;
+            //EditorApplication.update -= CheckForPackageUpdates;
 
             // Get all FP_ package URLs from the manifest
-            _packageUrls = GetFPPackagesFromManifest();
-            _updateRequests = new List<Request>();
-            UnityEngine.Debug.LogWarning($"Running request on {_packageUrls.Count} packages!");
-            foreach (string packageUrl in _packageUrls)
-            {
-                UnityEngine.Debug.Log($"Fetching latest for package: {packageUrl}");
-                var request = Client.Add(packageUrl); // This re-fetches the latest from Git
-                _updateRequests.Add(request);
-            }
+            var projectRoot = new DirectoryInfo(Application.dataPath).Parent.FullName;
 
+            string manifestPath = Path.Combine(projectRoot, "Packages", "manifest.json");
+            if (!File.Exists(manifestPath))
+            {
+                UnityEngine.Debug.LogError("Could not find manifest.json file.");
+                return;
+            }
+            FPManifest manifest = FPManifest.LoadFromFile(manifestPath);
+            if (manifest == null)
+            {
+                UnityEngine.Debug.LogError("Null on Manifest");
+                return;
+            }
+            
+            foreach (var dependency in manifest.dependencyUrls)
+            {
+                UnityEngine.Debug.Log($"Fetching latest for package: {dependency}");
+
+            }
+            /*
             // Start listening for update completion
             EditorApplication.update += MonitorUpdateRequests;
+            */
         }
-
+        /*
         private static void MonitorUpdateRequests()
         {
             bool allComplete = true;
@@ -103,40 +139,9 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        private static List<string> GetFPPackagesFromManifest()
-        {
-            //string path = @"C:\Folder1\Folder2\Folder3\Folder4";
-            //string newPath = Path.GetFullPath(Path.Combine(path, @"..\..\"));
-            var projectRoot = new DirectoryInfo(Application.dataPath).Parent.FullName;
+        */
 
-            string manifestPath = Path.Combine(projectRoot, "Packages", "manifest.json");
-            UnityEngine.Debug.LogWarning($"Checking for a manifest at: {manifestPath}");
-            List<string> packagePaths = new List<string>();
-
-            if (!File.Exists(manifestPath))
-            {
-                UnityEngine.Debug.LogError("Could not find manifest.json file.");
-                return packagePaths;
-            }
-
-            // Read JSON content and parse
-            string jsonContent = File.ReadAllText(manifestPath);
-            UnityEngine.Debug.Log($"Manifest content: {jsonContent}");
-            FPManifest manifest = JsonUtility.FromJson<FPManifest>(jsonContent);
-
-            // Filter and build package paths
-            foreach (var dependency in manifest.dependencies)
-            {
-                UnityEngine.Debug.Log($"Checking dependency: {dependency.Key}");
-                if (dependency.Key.StartsWith("com.fuzzphyte."))
-                {
-                    string packagePath = dependency.Value;
-                    packagePaths.Add(packagePath);
-                }
-            }
-
-            return packagePaths;
-        }
+       
 
         private static void CheckForGitUpdates(string packagePath)
         {
