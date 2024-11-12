@@ -98,7 +98,7 @@ namespace FuzzPhyte.Utility.Editor
                 UnityEngine.Debug.LogError("Null on Manifest");
                 return;
             }
-            
+            _updateRequests = new List<Request>();
             for (int i=0; i<manifest.dependencyUrls.Count;i++)
             {
                 var dependency = manifest.dependencyUrls[i];
