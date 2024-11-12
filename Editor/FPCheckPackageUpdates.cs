@@ -99,13 +99,17 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
             
-            foreach (var dependency in manifest.dependencyUrls)
+            for (int i=0; i<manifest.dependencyUrls.Count;i++)
             {
+                var dependency = manifest.dependencyUrls[i];
                 UnityEngine.Debug.Log($"Fetching latest for package: {dependency}");
                 var request = Client.Add(dependency);
-                _updateRequests.Add(request);
+                if(request != null)
+                {
+                    _updateRequests.Add(request);
+                }
             }
-            
+            UnityEngine.Debug.Log($"Send off for requests");
             // Start listening for update completion
             EditorApplication.update += MonitorUpdateRequests;
         }
