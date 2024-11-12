@@ -64,9 +64,9 @@ namespace FuzzPhyte.Utility.Editor
         }
     }
     #endregion
+    //quick way to check for FuzzPhyte package updates
     public static class FPCheckPackageUpdates
     {
-        static List<string> _packageUrls;
         static List<Request> _updateRequests;
 
         // Add a menu item in the Unity Editor under "Tools/FuzzPhyte/Update FP Packages"
