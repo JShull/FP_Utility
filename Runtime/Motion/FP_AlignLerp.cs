@@ -24,8 +24,11 @@ namespace FuzzPhyte.Utility
         [Space]
         [Header("Timer Based Options")]
         public bool useTimer = false;
-        public float timerDuration = 5f; 
-        
+        public float timerDuration = 5f;
+        [Space]
+        [Header("Rotation Parameters")]
+        public bool useRotation = true;
+
         protected Vector3 lastPosition;
         protected Quaternion lastRotation;
         protected Vector3 targetPosition;
@@ -100,7 +103,11 @@ namespace FuzzPhyte.Utility
                     float rotationCurveValue = rotationCurve.Evaluate(t);
 
                     targetObject.position = Vector3.Lerp(lastPosition, targetPosition, positionCurveValue);
-                    targetObject.rotation = Quaternion.Slerp(lastRotation, targetRotation, rotationCurveValue);
+                    if (useRotation)
+                    {
+                        targetObject.rotation = Quaternion.Slerp(lastRotation, targetRotation, rotationCurveValue);
+                    }
+                    
                 }
                 targetPosition = targetAligned.position + offset;
                 targetRotation = targetAligned.rotation;
@@ -109,7 +116,11 @@ namespace FuzzPhyte.Utility
 
             // Ensure the final position and rotation align precisely
             targetObject.position = targetPosition;
-            targetObject.rotation = targetRotation;
+            if (useRotation)
+            {
+                targetObject.rotation = targetRotation;
+            }
+            
         }
 
         public override void OnDrawGizmos()

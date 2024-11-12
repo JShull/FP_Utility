@@ -27,7 +27,7 @@ namespace FuzzPhyte.Utility
         protected Coroutine motionCoroutine;
 
         protected virtual void Start()
-        {
+        { 
             if (PlayOnStart)
             {
                 playOnSetup = true;
