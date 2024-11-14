@@ -65,6 +65,7 @@ namespace FuzzPhyte.Utility
                 }
         
             } while (loop);
+            EndMotion();
         }
         
         private IEnumerator MoveBetweenPoints(Vector3 from, Vector3 to)

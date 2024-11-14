@@ -75,6 +75,7 @@ namespace FuzzPhyte.Utility
                 yield return null;
             }
             while (loop);
+            EndMotion();
         }
         #endregion
     }

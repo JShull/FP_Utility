@@ -81,6 +81,7 @@ namespace FuzzPhyte.Utility
                 }
                 yield return null;
             } while (loop);
+            EndMotion();
         }
 
         private IEnumerator AnimateToTargetPositionAndRotation()

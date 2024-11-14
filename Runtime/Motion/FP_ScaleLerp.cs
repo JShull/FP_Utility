@@ -33,6 +33,7 @@ namespace FuzzPhyte.Utility
                 }
 
             } while (loop);
+            EndMotion();
         }
         /// <summary>
         /// Custom Coroutine to lerp the scale of the target object between two points
