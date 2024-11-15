@@ -7,15 +7,16 @@ namespace FuzzPhyte.Utility
     public abstract class FPSpawner : MonoBehaviour
     {
         [SerializeField] protected Transform spawnPosition; // Position to spawn objects
-
+        [SerializeField] protected bool AlignRotation = false;
         protected abstract GameObject GetNextPrefab(); // Abstract method to be implemented by subclasses
 
         public virtual GameObject Spawn()
         {
             GameObject prefab = GetNextPrefab();
             if (prefab == null) return null;
-
-            GameObject spawnedObject = Instantiate(prefab, spawnPosition.position, Quaternion.identity);
+            Quaternion quaternion = AlignRotation ? prefab.transform.rotation : Quaternion.identity;
+            
+            GameObject spawnedObject = Instantiate(prefab, spawnPosition.position, quaternion);
             return spawnedObject;
         }
 
