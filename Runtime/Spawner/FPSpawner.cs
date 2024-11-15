@@ -14,7 +14,7 @@ namespace FuzzPhyte.Utility
         {
             GameObject prefab = GetNextPrefab();
             if (prefab == null) return null;
-            Quaternion quaternion = AlignRotation ? prefab.transform.rotation : Quaternion.identity;
+            Quaternion quaternion = AlignRotation ? spawnPosition.transform.rotation : Quaternion.identity;
             
             GameObject spawnedObject = Instantiate(prefab, spawnPosition.position, quaternion);
             return spawnedObject;
