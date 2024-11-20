@@ -485,7 +485,59 @@ namespace FuzzPhyte.Utility
         LevelThree=3,
         LevelFour=4
     }
-    
+    [Serializable]
+    public enum CEFRLevel
+    {
+        NA = 0,
+        A1 = 1, //Beginner
+        A2 = 2, //Elementary
+        B1 = 3, //Intermediate
+        B2 = 4, //Upper Intermediate
+        C1 = 5, //Advanced
+        C2 = 6 //Proficient
+    }
+    [Serializable]
+    public enum FP_VocabCategory
+    {
+        None,           // Default or uncategorized
+        Greetings,      // Basic conversational phrases
+        Numbers,        // Counting, phone numbers, etc.
+        TimeAndDate,    // Days, months, seasons, telling time
+        FoodAndDrink,   // Eating out, groceries, cooking
+        Clothing,       // Apparel, shopping
+        FamilyAndPeople,// Relationships, titles, occupations
+        HomeAndFurniture,// Rooms, objects, cleaning
+        Travel,         // Transportation, directions
+        Weather,        // Forecasts, seasons, conditions
+        School,         // Supplies, classrooms, schedules
+        Shopping,       // Stores, money, purchases
+        HobbiesAndSports,// Leisure activities, games
+        Health,         // Body parts, symptoms, doctor visits
+        PlacesAndCities,// Buildings, parks, landmarks
+        Nature,         // Animals, plants, landscapes
+        Technology,     // Gadgets, internet, media
+        WorkAndBusiness,// Jobs, offices, tools
+        Emotions,       // Feelings, moods, states
+        ActionsAndVerbs,// Common actions (e.g., run, walk)
+        ColorsAndShapes,// Visual descriptions
+        Grammar          // Articles, prepositions, etc.
+    }
+    [Serializable]
+    public enum FP_VocabAction
+    {
+        None,       // Default action
+        Grab,       // Picking up an item
+        Raycast,    // Using a raycast to interact
+        Drop,       // Dropping an item
+        Choice,     // Making a choice or selection
+        Inspect,    // Looking closely at an item
+        Listen,     // Hearing the pronunciation or description
+        Speak,      // Speaking the word aloud
+        Place,      // Placing an item in a specific location
+        Open,       // Opening an object (e.g., drawer, door)
+        Close       // Closing an object
+    }
+
     [Serializable]
     public enum MWApiKeyType
     {
@@ -508,7 +560,6 @@ namespace FuzzPhyte.Utility
         SequenceAction = 11,
         GenericInteraction = 12,
         Dialogue = 13,
-
     }
     //keep tabs on what languages we could be using for a given object
     [Serializable]
