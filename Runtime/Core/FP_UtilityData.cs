@@ -499,7 +499,7 @@ namespace FuzzPhyte.Utility
     [Serializable]
     public enum FP_VocabCategory
     {
-        None,           // Default or uncategorized
+        None,           // Default or un-categorized
         Greetings,      // Basic conversational phrases
         Numbers,        // Counting, phone numbers, etc.
         TimeAndDate,    // Days, months, seasons, telling time
@@ -536,6 +536,15 @@ namespace FuzzPhyte.Utility
         Place,      // Placing an item in a specific location
         Open,       // Opening an object (e.g., drawer, door)
         Close       // Closing an object
+    }
+    [Serializable]
+    public enum SemanticMapType
+    {
+        Synonym,
+        Antonym,
+        Category,
+        PartOfWhole,
+        RelatedConcept
     }
 
     [Serializable]
