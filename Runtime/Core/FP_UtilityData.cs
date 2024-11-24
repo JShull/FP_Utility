@@ -546,6 +546,41 @@ namespace FuzzPhyte.Utility
         PartOfWhole,
         RelatedConcept
     }
+    [Serializable]
+    public enum CollocationType
+    {
+        /*
+        adverb + adjective
+            Correct: fully aware
+            Incorrect: outright aware
+        adjective + noun
+            Correct: deep sleep
+            Incorrect: low sleep
+        noun + noun
+            Correct: round of applause
+            Incorrect: group of applause
+        noun + verb
+            Correct: cats purr, dogs bark
+            Incorrect: cats bark, dogs purr
+        verb + noun
+            Correct: give a speech
+            Incorrect: send a speech
+        verb + expression with preposition
+            Correct: run out of time
+            Incorrect: speed out of time
+        verb + adverb
+            Correct: speak loudly
+            Incorrect: speak blaringly
+        */
+        NA,
+        AdverbAdjective,
+        AdjectiveNoun,
+        NounNoun,
+        NounVerb,
+        VerbNoun,
+        VerbPreposition,
+        VerbAdverb,
+    }
 
     [Serializable]
     public enum MWApiKeyType
