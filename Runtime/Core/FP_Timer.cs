@@ -1,8 +1,8 @@
-using System;
-using UnityEngine;
-
 namespace FuzzPhyte.Utility
 {
+    using System;
+    using UnityEngine;
+
     public class TimerData: IComparable<TimerData>
     {
         public float time;
@@ -13,16 +13,7 @@ namespace FuzzPhyte.Utility
             return time.CompareTo(other.time);
         }
     }
-    public class HelperData : IComparable<HelperData>
-    {
-        public HelperCategory Category { get; set; }
-        public float ActivationTime { get; set; }  // Time when the helper should activate
-        public Action onActivate { get; set; }      // Action to execute when activated
-        public int CompareTo(HelperData other)
-        {
-            return ActivationTime.CompareTo(other.ActivationTime);
-        }
-    }
+    
     /// <summary>
     /// Singleton pattern
     /// Uses a simple priority queue method to manage timers in a scene
