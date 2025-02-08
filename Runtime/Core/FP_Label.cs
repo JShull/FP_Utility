@@ -8,7 +8,7 @@ namespace FuzzPhyte.Utility
         [SerializeField] protected float labelOffset = 1.5f; // Offset above the object
         [SerializeField] protected Color lineColor = Color.white; 
         [SerializeField] protected Color textColor = Color.white;
-        [SerializeField] protected Texture2D backgroundTexture = Texture2D.whiteTexture ;
+        [SerializeField] protected Texture2D backgroundTexture;
         [SerializeField] protected float textSize = 12f; // Font size
         [SerializeField] protected float scaleFactor = 0.01f; // Adjust for world unit scaling
         
@@ -29,10 +29,6 @@ namespace FuzzPhyte.Utility
             {
                 return;
             }
-            if(backgroundTexture==null)
-            {
-                backgroundTexture = Texture2D.whiteTexture;
-            }
             
 
     #if UNITY_EDITOR
@@ -42,15 +38,21 @@ namespace FuzzPhyte.Utility
             float handleSize = UnityEditor.HandleUtility.GetHandleSize(labelPosition) * scaleFactor;
 
             // Calculate approximate background size
+            GUIStyleState styleState = new GUIStyleState{
+                textColor = this.textColor
+            };
+            if (backgroundTexture == null)
+            {
+                styleState.background = Texture2D.whiteTexture;    
+            }else{
+                styleState.background = backgroundTexture;
+            }
             GUIStyle style = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.RoundToInt(textSize),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-                normal = new GUIStyleState { 
-                    textColor = this.textColor,
-                    background = backgroundTexture 
-                    }
+                normal = styleState
             };
 
             // Draw label text
