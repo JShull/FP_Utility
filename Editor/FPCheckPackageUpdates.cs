@@ -16,7 +16,7 @@ namespace FuzzPhyte.Utility.Editor
         public List<string> dependencyUrls = new List<string>();
 
         // Load and parse manifest.json
-        public static FPManifest LoadFromFile(string manifestPath)
+        public static FPManifest LoadFromFile(string manifestPath, string packageNameConvention)
         {
             var manifest = new FPManifest();
 
@@ -49,7 +49,8 @@ namespace FuzzPhyte.Utility.Editor
                 }
 
                 // Process lines only within the dependencies section
-                if (inDependenciesSection && line.Contains("com.fuzzphyte."))
+                // assuming package convention is something like com.<core>.PACKAGETOUPDATE = "com.fuzzphyte."
+                if (inDependenciesSection && line.Contains(packageNameConvention))
                 {
                     // Extract the URL using the regex pattern
                     Match match = urlPattern.Match(line);
@@ -68,14 +69,14 @@ namespace FuzzPhyte.Utility.Editor
     public static class FPCheckPackageUpdates
     {
         static List<Request> _updateRequests;
-
+        
         // Add a menu item in the Unity Editor under "Tools/FuzzPhyte/Update FP Packages"
         [MenuItem("FuzzPhyte/Utility/Update Packages")]
         public static void RunPackageUpdateCheck()
         {
-            CheckForPackageUpdates();
+            CheckForPackageUpdates("com.fuzzphyte.");
         }
-        private static void CheckForPackageUpdates()
+        private static void CheckForPackageUpdates(string packageNameConvention)
         {
             //EditorApplication.update -= CheckForPackageUpdates;
 
@@ -88,7 +89,7 @@ namespace FuzzPhyte.Utility.Editor
                 UnityEngine.Debug.LogError("Could not find manifest.json file.");
                 return;
             }
-            FPManifest manifest = FPManifest.LoadFromFile(manifestPath);
+            FPManifest manifest = FPManifest.LoadFromFile(manifestPath, packageNameConvention);
             if (manifest == null)
             {
                 UnityEngine.Debug.LogError("Null on Manifest");
@@ -131,12 +132,13 @@ namespace FuzzPhyte.Utility.Editor
                     UnityEngine.Debug.LogError($"Failed to update package: {request.Error.message}");
                 }
             }
-
+            /*
             // If all requests are complete, stop monitoring
             if (allComplete)
             {
                 //EditorApplication.update -= MonitorUpdateRequests;
             }
+            */
         }
     }
 
