@@ -520,7 +520,8 @@ namespace FuzzPhyte.Utility
         Emotions,       // Feelings, moods, states
         ActionsAndVerbs,// Common actions (e.g., run, walk)
         ColorsAndShapes,// Visual descriptions
-        Grammar          // Articles, prepositions, etc.
+        Grammar,          // Articles, prepositions, etc.
+        Reading_Writing, // books, meta text, table of contents, poster, printed text somewhere, journal etc.
     }
     [Serializable]
     public enum FP_VocabAction
