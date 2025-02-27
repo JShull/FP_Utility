@@ -117,5 +117,26 @@ namespace FuzzPhyte.Utility
             }
             return true;
         }
+        /// <summary>
+        /// Returns true if the given item is currently in the queue.
+        /// </summary>
+        public bool Contains(T item)
+        {
+            // This uses a linear search under the hood. If you need faster
+            // membership checks, consider maintaining an additional HashSet<T>.
+            return data.Contains(item);
+        }
+        /// <summary>
+        /// Returns true if the given item is the 'active' item at the top of the priority queue.
+        /// (i.e., the next item to be dequeued)
+        /// </summary>
+        public bool IsActive(T item)
+        {
+            // Make sure queue is not empty first
+            if (data.Count == 0) return false;
+
+            // Check if the front (smallest) item is 'item'
+            return data[0].Equals(item);
+        }
     }
 }

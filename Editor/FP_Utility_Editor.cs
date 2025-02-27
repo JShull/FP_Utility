@@ -4,6 +4,7 @@ using System;
 using System.Threading.Tasks;
 using UnityEditor.PackageManager;
 using System.IO;
+using GluonGui.WorkspaceWindow.Views.WorkspaceExplorer;
 namespace FuzzPhyte.Utility.Editor
 {
     //Every FP Utility Needs to be able to return the product name 
@@ -41,6 +42,7 @@ namespace FuzzPhyte.Utility.Editor
                     return Color.white;
             }
         }
+        #region Editor UI Related
         /// <summary>
         /// Draw a line
         /// </summary>
@@ -95,6 +97,8 @@ namespace FuzzPhyte.Utility.Editor
             Handles.color = boxColor;
             Handles.DrawPolyLine(points);
         }
+        #endregion
+        
         /// <summary>
         /// Return a GUIStyle
         /// </summary>
@@ -395,9 +399,108 @@ namespace FuzzPhyte.Utility.Editor
             var companyNamePackage = "com.fuzzphyte." + packageName;
             return Path.Combine("Packages", companyNamePackage, "Editor");
         }
+        [MenuItem("FuzzPhyte/Utility/Move Icons & Assets")]
+        public static void MoveAssetsFromPackagesToGizmos()
+        {
+            // 1. Identify your source folders in Packages.
+            //    For example, let's say we want to copy from "Packages/com.mycompany.myawesomepackage/Gizmos" 
+            //    or maybe we have multiple packages with gizmo folders.
+            //    You could set up an array of sourcePaths if you have multiple packages:
+            //
+            //    string[] sourcePaths = new []
+            //    {
+            //        "../Packages/com.mycompany.myawesomepackage/Gizmos",
+            //        "../Packages/com.otherpackage.gizmosdemo/Gizmos"
+            //    };
+            //
+            // For demonstration, let's just do one:
+
+            //string relativePackageGizmoPath = "../Packages/com.mycompany.myawesomepackage/Gizmos";
+
+            //var packageName = loadedPackageManager ? "utility" : "FP_Utility";
+            //var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
+            //var iconRefEditor = FP_Utility_Editor.ReturnEditorResourceIcons(packageRef);
+            /////
+            var loadedPackageManager = IsPackageLoadedViaPackageManager();
+            var packageName = loadedPackageManager ? "utility" : "FP_Utility";
+            var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
+            var iconGizmoEditor = FP_Utility_Editor.ReturnGizmoSequenceIcons(packageRef);
+            //remove Assets
+            string removedAssets = packageRef.Remove(0, 6);
+            string removedGizmoAssets = iconGizmoEditor.Remove(0, 6);
+            string fullPath = Application.dataPath;
+            Debug.Log($"Gizmo Editor: {removedGizmoAssets}, Removed Assets Package Ref: {removedAssets} and we're going to add it to={fullPath}");
+            // 2. Construct absolute path from the Editor context:
+            //    Application.dataPath = "<YourProject>/Assets"
+            //    So we go up one folder to get to "<YourProject>"
+            string packageAbsolutePath = Path.Combine(fullPath, removedAssets);
+            Debug.Log($"Copying from: {packageAbsolutePath}");
+
+            // 3. Determine your target folder in the Assets/Gizmos directory
+            //    If "Assets/Gizmos" doesn’t exist, create it.
+            string genericFPGizmo = Path.Combine("Gizmos", FP_UtilityData.FP_GIZMOS_DEFAULT);
+            string projectGizmosPath = Path.GetFullPath(Path.Combine(Application.dataPath, genericFPGizmo));
+            Debug.Log($"Creating Directory? {projectGizmosPath}");
+            return;
+            if (!Directory.Exists(projectGizmosPath))
+            {
+                Directory.CreateDirectory(projectGizmosPath);
+            }
+
+            // 4. Copy or move the files/folders recursively
+            //    Here’s a helper method that copies directories recursively. 
+            //    We’ll define it below.
+
+            if (Directory.Exists(packageAbsolutePath))
+            {
+                CopyDirectory(packageAbsolutePath, projectGizmosPath);
+                Debug.Log("Gizmo assets copied successfully!");
+            }
+            else
+            {
+                Debug.LogWarning("Source gizmo folder not found: " + packageAbsolutePath);
+            }
+
+            // 5. Refresh the AssetDatabase so Unity will recognize the newly added files
+            AssetDatabase.Refresh();
+        }
+        /// <summary>
+        /// Recursively copy the contents of one directory to another.
+        /// </summary>
+        private static void CopyDirectory(string sourceDir, string destDir)
+        {
+            // Make sure destination folder exists
+            if (!Directory.Exists(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            // Copy all files
+            string[] files = Directory.GetFiles(sourceDir);
+            foreach (string file in files)
+            {
+                string fileName = Path.GetFileName(file);
+                string destPath = Path.Combine(destDir, fileName);
+                File.Copy(file, destPath, overwrite: true);
+            }
+
+            // Recursively copy subdirectories
+            string[] dirs = Directory.GetDirectories(sourceDir);
+            foreach (string dir in dirs)
+            {
+                string dirName = Path.GetFileName(dir);
+                string destSubDir = Path.Combine(destDir, dirName);
+                CopyDirectory(dir, destSubDir);
+            }
+        }
+
         public static string ReturnEditorResourceIcons(string editorPath)
         {
             return Path.Combine(editorPath, "Icons");
+        }
+        public static string ReturnGizmoSequenceIcons(string editorPath)
+        {
+            return Path.Combine(editorPath, "Gizmos");
         }
         public static Texture2D ReturnEditorIcon(string iconPath, bool package=false)
         {

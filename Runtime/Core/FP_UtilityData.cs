@@ -7,6 +7,7 @@ namespace FuzzPhyte.Utility
     using UnityEngine;
     using UnityEngine.Events;
     using Unity.Mathematics;
+    using UnityEditor;
 
     /// <summary>
     /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
@@ -21,6 +22,7 @@ namespace FuzzPhyte.Utility
         public const string FP_FOLDOUTSTATES_VALUE = "FP_FoldoutStates_Values";
         public const string FP_PREVIOUSFOLDOUT_KEY = "FP_PreviousFoldout";
         public const string FP_PREVIOUSFOLDOUT_VALUE = "FP_PreviousFoldoutValue";
+        public const string FP_GIZMOS_DEFAULT = "FP";
         // menu order for misc. menus
         public const int ORDER_MENU = 0;
         public const int ORDER_SUBMENU_LVL1 = 150;
@@ -70,6 +72,24 @@ namespace FuzzPhyte.Utility
                     return Color.white;
             }
         }
+        public static string ReturnIconAddressByStatus(SequenceStatus status)
+        {
+            switch (status)
+            {
+                case SequenceStatus.None:
+                    return "/"+FP_GIZMOS_DEFAULT+"/NA.png";
+                case SequenceStatus.Locked:
+                    return "/" + FP_GIZMOS_DEFAULT +"/locked.png";
+                case SequenceStatus.Unlocked:
+                    return "/" + FP_GIZMOS_DEFAULT +"/unlocked.png";
+                case SequenceStatus.Active:
+                    return "/" + FP_GIZMOS_DEFAULT + "/active.png";
+                case SequenceStatus.Finished:
+                    return "/" + FP_GIZMOS_DEFAULT +"/finished.png";
+                default:
+                    return "/" + FP_GIZMOS_DEFAULT +"/error.png";
+            }
+        }
         /// <summary>
         /// Populates the dropdown with string values from the provided enum type.
         /// </summary>
@@ -83,7 +103,7 @@ namespace FuzzPhyte.Utility
             Dropdown.AddOptions(enumNames);
             Dropdown.onValueChanged.AddListener(DropdownEvent);
         }
-        #region GUIStyle Returns
+        #region GUIStyle & Gizmo Related
         /// <summary>
         /// Return a GUIStyle
         /// </summary>
@@ -116,6 +136,9 @@ namespace FuzzPhyte.Utility
             newStyle.richText = true;
             return newStyle;
         }
+        #region Gizmo Related
+        
+        #endregion
         #endregion
         /// <summary>
         /// If we need to take a string function and return a Unity Action on said target
@@ -217,6 +240,7 @@ namespace FuzzPhyte.Utility
                 Rotation = worldRotation
             };
         }
+        
     }
     public static class FP_SerilizeDeserialize
     {
@@ -357,6 +381,7 @@ namespace FuzzPhyte.Utility
         Disgusted   // Feeling disgusted
     }
     #endregion
+    #region Enums and Data Classes
     /// <summary>
     /// Core 'status' for all things sequence related
     /// Will be used heavily across sequence logic
@@ -693,6 +718,7 @@ namespace FuzzPhyte.Utility
         TechnologyStrands,
         Career
     }
+#endregion
     /// <summary>
     /// Hold my custom list of items that are serializable so I can save editor prefs and other items
     /// </summary>
