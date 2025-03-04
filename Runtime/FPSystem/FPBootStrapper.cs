@@ -11,6 +11,11 @@ namespace FuzzPhyte.Utility.FPSystem
         [TextArea(3, 4)]
         public string Instructions = $"An editor script - FPExecutionOrder.cs - will set the execution order of this script to -50. This script will run all FPSystems in the scene. If you want to run a system after the late update loop, set the bool to true in the inspector. If you want to run all systems in the scene, set the bool to true in the inspector. If you want to run a specific list of systems, add them to the list in the inspector.";
         public bool RunAfterLateUpdateLoop;
+        [Header("Bootstrapper Data Processing Settings")]
+        [Tooltip("If you want to process some sort of derived FP_Data")]
+        public bool ProcessSystemDataOnInit;
+        [Tooltip("If you want the bootstrapper to initialize the system data, set this to true and set the InitSystemData to the data you want to initialize.")]
+        public TData InitSystemData;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         public static void InitializeAfterAwake()
         {
@@ -21,7 +26,14 @@ namespace FuzzPhyte.Utility.FPSystem
             Debug.LogWarning($"Major Systems Found: {MajorFPSystems.Count}");
             foreach (var initializer in MajorFPSystems)
             {
-                initializer.Initialize(initializer.AfterLateUpdateActive);
+                if (Instance.ProcessSystemDataOnInit)
+                {
+                    initializer.Initialize(initializer.AfterLateUpdateActive,Instance.InitSystemData);
+                }
+                else
+                {
+                    initializer.Initialize(initializer.AfterLateUpdateActive);
+                }
             }
         }
         protected virtual void Awake()
