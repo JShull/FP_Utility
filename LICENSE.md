@@ -6,7 +6,7 @@
 
                     MIT License
 
-Copyright (c) [2024] [John B. Shull]
+Copyright (c) [2025] [John B. Shull]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -662,7 +662,7 @@ state the exclusion of warranty; and each file should have at least
 the "copyright" line and a pointer to where the full notice is found.
 
     FP_Utility is a Unity based package for building on Unity Character Controller to help generate a character controller driven by a data file.
-    Copyright (C) 2024  John B. Shull
+    Copyright (C) 2025  John B. Shull
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -682,7 +682,7 @@ Also add information on how to contact you by electronic and paper mail.
   If the program does terminal interaction, make it output a short
 notice like this when it starts in an interactive mode:
 
-    FP_Utility Copyright (C) 2024  John B. Shull
+    FP_Utility Copyright (C) 2025  John B. Shull
     This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
     This is free software, and you are welcome to redistribute it
     under certain conditions; type `show c' for details.

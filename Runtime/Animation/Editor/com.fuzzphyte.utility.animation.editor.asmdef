@@ -1,0 +1,19 @@
+{
+    "name": "com.fuzzphyte.utility.animation.editor",
+    "rootNamespace": "FuzzPhyte.Utility.Animation.Editor",
+    "references": [
+        "GUID:dfa2f16c4edec5b479a837fbe339bee9",
+        "GUID:8729f3cadef284ac4bc6fd994d431e7a"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

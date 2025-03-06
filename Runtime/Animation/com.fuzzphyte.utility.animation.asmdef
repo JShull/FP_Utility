@@ -1,0 +1,17 @@
+{
+    "name": "com.fuzzphyte.utility.animation",
+    "rootNamespace": "FuzzPhyte.Utility.Animation",
+    "references": [
+        "com.fuzzphyte.utility",
+        "Unity.Animation.Rigging"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

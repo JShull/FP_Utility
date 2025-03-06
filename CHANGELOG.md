@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-03-06
+
+### 0.5.0 Added
+
+- [@JShull](https://github.com/jshull)
+  - **FPIKManager.cs**
+    - Simple Mono class for managing a head and left/right hand IK. Based on simple use cases, visual interior/exterior cone, and distance checks
+  - **FPIKManagerEditor.cs**
+    - Editor class that works with the FPIKManager
+  - **FPGizmoDraw.cs**
+    - New static class designed around Gizmo creations for various meshes
+    - GenerateConeMesh(segments,height,angle,bothSideUV=false)
+  - An IK Sample for demonstrating how to use the FPIKManager.cs class
+    - *SamplesURP\IK\testAnim.unity*
+
+### 0.5.0 Changed
+
+- [@JShull](https://github.com/jshull)
+  - **FP_Utility_Editor.cs**
+    - Modified DrawUIBox to include indent left/right parameters
+
 ## [0.4.5] - 2024-9-01 / 2024-11-04
 
 ### 0.4.5 Added

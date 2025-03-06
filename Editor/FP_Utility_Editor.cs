@@ -86,14 +86,14 @@ namespace FuzzPhyte.Utility.Editor
         /// Pass the rect information we need
         /// </summary>
         /// <param name="box"></param>
-        public static void DrawUIBox(Rect box, float heightAdjustment, Color boxColor)
+        public static void DrawUIBox(Rect box, float heightAdjustment, Color boxColor,float indentAdjustment=15, float rightIndentAdjust=0)
         {
             Vector3[] points = new Vector3[5];
-            points[0] = box.min + new Vector2(15, 0);
-            points[1] = box.min + new Vector2(box.width, 0);
-            points[2] = box.max + new Vector2(0, heightAdjustment);
-            points[3] = box.min + new Vector2(15, box.height + heightAdjustment);
-            points[4] = box.min + new Vector2(15, 0);
+            points[0] = box.min + new Vector2(indentAdjustment, 0);
+            points[1] = box.min + new Vector2(box.width+rightIndentAdjust, 0);
+            points[2] = box.max + new Vector2(rightIndentAdjust, heightAdjustment);
+            points[3] = box.min + new Vector2(indentAdjustment, box.height + heightAdjustment);
+            points[4] = box.min + new Vector2(indentAdjustment, 0);
             Handles.color = boxColor;
             Handles.DrawPolyLine(points);
         }
@@ -375,19 +375,6 @@ namespace FuzzPhyte.Utility.Editor
                     }
                 }
             }
-            /*
-            foreach (GameObject obj in allGameObjects)
-            {
-                // Check if the object is in the scene (filter out prefab assets)
-                if(obj.name == name)
-                {
-                    if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))
-                    {
-                        return obj; // Return the first matching GameObject
-                    }
-                }
-            }
-            */
             return null;
         }
         public static string ReturnEditorPath(string packageName, bool local=false)
