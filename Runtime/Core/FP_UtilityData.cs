@@ -631,6 +631,17 @@ namespace FuzzPhyte.Utility
         GenericInteraction = 12,
         Dialogue = 13,
     }
+    /// <summary>
+    /// Goes with HelperCategory to determine code that we need to run
+    /// </summary>
+    [Serializable]
+    public enum HelperAction
+    {
+        NA = 0,
+        Replay = 1,
+        Subtitles = 2,
+        Translation = 3,
+    }
     //keep tabs on what languages we could be using for a given object
     [Serializable]
     public struct FP_Multilingual
