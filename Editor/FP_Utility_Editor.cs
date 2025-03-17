@@ -19,6 +19,9 @@ namespace FuzzPhyte.Utility.Editor
     {
         public static Color WarningColor = new Color(1f, 0.64f, 0);
         public static Color OkayColor = new Color(0.01f, 0.61f, 0.98f);
+        public static Color TextHoverColor = new Color(0.01f, 0.61f, 0.98f);
+        public static Color TextMenuColor = Color.white;
+        public static Color TextActiveColor = new Color(0.01f, 0.8f, 1f);
         /// <summary>
         /// Return Color for editor window to help with state of sequence
         /// </summary>
