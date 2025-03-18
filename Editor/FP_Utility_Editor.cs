@@ -508,6 +508,7 @@ namespace FuzzPhyte.Utility.Editor
             texture.Apply();
             return texture;
         }
+        #region MonoScript and Script Execution Order
         public static bool IsPackageLoadedViaPackageManager()
         {
             // Find a known script or asset in your package
@@ -583,6 +584,51 @@ namespace FuzzPhyte.Utility.Editor
                     break;
             }
         }
+
+        /// <summary>
+        /// Public method to set the execution order of a script
+        /// </summary>
+        /// <param name="scriptType"></param>
+        /// <param name="order"></param>
+        public static void SetExecutionOrder(System.Type scriptType, int order)
+        {
+            string scriptName = scriptType.Name;
+            MonoScript script = FindMonoScript(scriptType);
+
+            if (script == null)
+            {
+                Debug.LogError($"Script {scriptName} not found. Ensure the name is correct.");
+                return;
+            }
+
+            int currentOrder = MonoImporter.GetExecutionOrder(script);
+            if (currentOrder != order)
+            {
+                MonoImporter.SetExecutionOrder(script, order);
+                Debug.Log($"Set execution order for {scriptName} to {order}");
+            }
+        }
+
+        /// <summary>
+        /// Find a MonoScript by its type
+        /// </summary>
+        /// <param name="scriptType"></param>
+        /// <returns></returns>
+        private static MonoScript FindMonoScript(System.Type scriptType)
+        {
+            string[] guids = AssetDatabase.FindAssets($"{scriptType.Name} t:MonoScript");
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                MonoScript monoScript = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                if (monoScript != null && monoScript.GetClass() == scriptType)
+                {
+                    return monoScript;
+                }
+            }
+            return null;
+        }
+        #endregion
     }
     /// <summary>
     /// Static class to manage the addition and removal of tags via other editor tools e.g. FP_Recorder
