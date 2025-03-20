@@ -8,6 +8,7 @@ namespace FuzzPhyte.Utility
     using UnityEngine.Events;
     using Unity.Mathematics;
     using UnityEditor;
+    using TMPro;
 
     /// <summary>
     /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
@@ -103,6 +104,19 @@ namespace FuzzPhyte.Utility
             Dropdown.AddOptions(enumNames);
             Dropdown.onValueChanged.AddListener(DropdownEvent);
         }
+        #region Font Setting Stuff
+        public static void ApplyFontSetting(TMP_Text textComponent, FontSetting fontSetting)
+        {
+            if (fontSetting != null && textComponent != null)
+            {
+                textComponent.font = fontSetting.Font;
+                textComponent.color = fontSetting.FontColor;
+                textComponent.alignment = fontSetting.FontAlignment;
+                textComponent.fontSize = fontSetting.UseAutoSizing ? textComponent.fontSize : fontSetting.MaxSize;
+                textComponent.fontStyle = fontSetting.FontStyle;
+            }
+        }
+        #endregion
         #region GUIStyle & Gizmo Related
         /// <summary>
         /// Return a GUIStyle
