@@ -4,6 +4,10 @@ namespace  FuzzPhyte.Utility
     using System.Collections.Generic;
     using UnityEngine;
 
+    /// <summary>
+    /// Class to establish a Dropdown based on a List of Strings and corresponding Unity Events tied to an enum
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public abstract class FP_DropdownPopulate<T> : MonoBehaviour where T : Enum
     {
         public List<string> DropdownOptions = new List<string>();

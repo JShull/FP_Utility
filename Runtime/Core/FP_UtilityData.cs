@@ -104,6 +104,7 @@ namespace FuzzPhyte.Utility
             Dropdown.AddOptions(enumNames);
             Dropdown.onValueChanged.AddListener(DropdownEvent);
         }
+        
         #region Font Setting Stuff
         public static void ApplyFontSetting(TMP_Text textComponent, FontSetting fontSetting)
         {
@@ -117,7 +118,27 @@ namespace FuzzPhyte.Utility
             }
         }
         #endregion
-        #region GUIStyle & Gizmo Related
+        #region Design & GUIStyle & Gizmo Related
+        // <summary>
+        /// Quick check on Material already set to transparent
+        /// </summary>
+        /// <param name="mat">material in question?</param>
+        /// <returns></returns>
+        public static bool IsMaterialTransparent(Material mat)
+        {
+            var keyWord = mat.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT");
+            var hasProp = mat.HasProperty("_Surface") && mat.GetFloat("_Surface") == 1;
+
+            if (keyWord)
+            {
+                return true;
+            }
+            if (hasProp)
+            {
+                return true;
+            }
+            return false;
+        }
         /// <summary>
         /// Return a GUIStyle
         /// </summary>
