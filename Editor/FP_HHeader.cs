@@ -83,7 +83,7 @@ namespace FuzzPhyte.Utility.Editor
                 var key = foldoutKeys[i];
                 //GUID gUID = new(key);
                 //var instanceID = FP_Utility_Editor.GetInstanceIDFromGUID(gUID);
-                GameObject obj = FP_Utility_Editor.FindGameObjectByName(key);
+                GameObject obj = FP_Utility_Editor.FindGameObjectByNameInactive(key);
                 //Debug.LogWarning($"Looking for gameobject named: {key}");
                 if (obj!=null)
                 {
@@ -136,7 +136,7 @@ namespace FuzzPhyte.Utility.Editor
                     {
                         //Debug.LogWarning($"Blank...");
                     }
-                    obj = FP_Utility_Editor.FindGameObjectByName(lastChangedObjectName);
+                    obj = FP_Utility_Editor.FindGameObjectByNameInactive(lastChangedObjectName);
                     if (obj != null)
                     {
                         //this is the last item we changed
@@ -224,7 +224,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 var ID = foldoutKeys[i];
                 var foldOutState = foldoutStates[ID];
-                var obj = FP_Utility_Editor.FindGameObjectByName(ID);
+                var obj = FP_Utility_Editor.FindGameObjectByNameInactive(ID);
                 if (obj != null)
                 {
                     if (foldoutStates[ID])
@@ -688,7 +688,7 @@ namespace FuzzPhyte.Utility.Editor
             foreach (var key in foldoutKeys)
             {
                 foldoutStates[key] = true;
-                GameObject obj = FP_Utility_Editor.FindGameObjectByName(key);
+                GameObject obj = FP_Utility_Editor.FindGameObjectByNameInactive(key);
                 if(obj != null)
                 {
                     ShowSubsequentObjects(obj);

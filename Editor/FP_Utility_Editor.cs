@@ -387,7 +387,7 @@ namespace FuzzPhyte.Utility.Editor
         /// <returns></returns>
         public static GameObject FindGameObjectByNameInactive(string name)
         {
-            GameObject[] allGameObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
+            GameObject[] allGameObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             for (int i = 0; i < allGameObjects.Length; i++)
             {
                 var obj = allGameObjects[i];
