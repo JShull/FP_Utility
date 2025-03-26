@@ -34,14 +34,14 @@ namespace FuzzPhyte.Utility.Editor
             var packageName = loadedPackageManager ? "utility" : "FP_Utility";
             var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
             var iconRefEditor = FP_Utility_Editor.ReturnEditorResourceIcons(packageRef);
-            Debug.LogWarning($"iconRefEditor = {iconRefEditor}");
-            Debug.LogWarning($"packageRef = {packageRef}");
+            Debug.LogWarning($"FP_HHeader: iconRefEditor = {iconRefEditor}");
+            Debug.LogWarning($"FP_HHeader: packageRef = {packageRef}");
             //ICON LOAD
             var closePath = Path.Combine(iconRefEditor, "HH_Close.png");
             var openPath = Path.Combine(iconRefEditor, "HH_Open.png");
             var selectAllIcon = Path.Combine(iconRefEditor, "HH_SelectAll.png");
             var selectAllIconActive = Path.Combine(iconRefEditor, "HH_SelectAllActive.png");
-            //Debug.LogWarning($"Close Path Icon Location = {closePath}");
+           
             hhCloseIcon = FP_Utility_Editor.ReturnEditorIcon(closePath, loadedPackageManager);
             hhOpenIcon = FP_Utility_Editor.ReturnEditorIcon(openPath, loadedPackageManager);
             
@@ -53,7 +53,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged; //restores the settings I saved right when we come back from play mode
-            //Debug.LogWarning($"FP_HHeader: Editor Setup Initialized Complete");
+           
         }
         
         private static void OnEditorUpdate()
@@ -64,15 +64,14 @@ namespace FuzzPhyte.Utility.Editor
             }
             Scene activeScene = SceneManager.GetActiveScene();
             bool dirtyState = false;
-            //Debug.LogWarning($"On Editor Update!");
-            //LoadFoldoutStatesFromPrefs();
+           
             string lastScenePath = EditorPrefs.GetString(FP_UtilityData.LAST_SCENEPATH_VAR, "");
             if (activeScene.path != lastScenePath)
             {
                 EditorPrefs.SetString(FP_UtilityData.LAST_SCENEPATH_VAR, activeScene.path);
                 OnSceneOpened(activeScene);
                 //this should load our dictionaries
-                //Debug.LogWarning($"FP_HHeader: Loading Header Status: Scene Change");
+               
                 return;
             }
             
@@ -81,10 +80,8 @@ namespace FuzzPhyte.Utility.Editor
             for (int i = 0; i < foldoutKeys.Count; i++)
             {
                 var key = foldoutKeys[i];
-                //GUID gUID = new(key);
-                //var instanceID = FP_Utility_Editor.GetInstanceIDFromGUID(gUID);
                 GameObject obj = FP_Utility_Editor.FindGameObjectByNameInactive(key);
-                //Debug.LogWarning($"Looking for gameobject named: {key}");
+               
                 if (obj!=null)
                 {
                     
@@ -93,7 +90,7 @@ namespace FuzzPhyte.Utility.Editor
                     loopLookCount = nameCheckResults.Item2;
                     if (!nameCheckResults.Item1)
                     {
-                        Debug.LogWarning($"A Previous Name Look Failed |{key}| this wasn't in the cache, lets add it");
+                        Debug.LogWarning($"FP_HHeader: A Previous Name Look Failed |{key}| this wasn't in the cache, lets add it");
                         previousNames.Add(key, obj.name);
                         dirtyState = true;
                     }
@@ -169,7 +166,7 @@ namespace FuzzPhyte.Utility.Editor
             if (obj.name != prevName)
             {
                 // Name has changed, check if it still meets the criteria
-                Debug.LogWarning($"FP HEADER NAME CHANGED:*************************");
+                Debug.LogWarning($"FP_HHeader: *************************:NAME CHANGED:*************************");
 
                 if (obj.name != obj.name.ToUpper() || obj.activeInHierarchy)
                 {
@@ -195,11 +192,11 @@ namespace FuzzPhyte.Utility.Editor
                             ShowSubsequentObjects(obj);
                         }
                         lastChangedObjectName = obj.name;
-                        Debug.LogWarning($"Updating last changed object:{prevName}, now = {lastChangedObjectName}");
+                        Debug.LogWarning($"FP_HHeader: Updating last changed object:{prevName}, now = {lastChangedObjectName}");
                     }
                     else
                     {
-                        Debug.LogWarning($"Foldout state does not contain the previous name: {prevName}");
+                        Debug.LogWarning($"FP_HHeader: Foldout state does not contain the previous name: {prevName}");
                         ShowSubsequentObjects(obj);
                         foldoutStates.Remove(key);
                         previousNames.Remove(key);
@@ -291,7 +288,7 @@ namespace FuzzPhyte.Utility.Editor
                                 // Highlight the original selected item
                                 EditorGUIUtility.PingObject(selectedObj);
                                 SaveFoldoutStatesToPrefs();
-                                Debug.LogError($"Selection changed?");
+                                Debug.LogError($"FP_HHeader: Selection changed?");
                                 break;  // Stop after expanding the first relevant root object
                             }
                         }
@@ -503,11 +500,6 @@ namespace FuzzPhyte.Utility.Editor
                 DrawCustomFoldout(foldoutRect, true);
             }
 
-           
-
-            // Draw the custom foldout arrow
-            
-
         }
         private static Rect ReturnFoldOutRect(Rect selectionRect, Vector2 xyDim)
         {
@@ -711,7 +703,23 @@ namespace FuzzPhyte.Utility.Editor
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_KEY + "_"+ activeScene.name, keysJson);
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_VALUE + "_" + activeScene.name, valuesJson);
             EditorPrefs.SetString(FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name, otherJson);
-            Debug.LogWarning($"Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
+            Debug.LogWarning($"FP_HHeader: Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
+        }
+        private static void ClearFoldoutStatesFromPrefs()
+        {
+            Scene activeScene = SceneManager.GetActiveScene();
+
+            // Generate keys for this scene
+            string keysKey = FP_UtilityData.FP_FOLDOUTSTATES_KEY + "_" + activeScene.name;
+            string valuesKey = FP_UtilityData.FP_FOLDOUTSTATES_VALUE + "_" + activeScene.name;
+            string previousKey = FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name;
+
+            // Remove them from EditorPrefs
+            EditorPrefs.DeleteKey(keysKey);
+            EditorPrefs.DeleteKey(valuesKey);
+            EditorPrefs.DeleteKey(previousKey);
+
+            Debug.LogWarning($"FP_HHeader: Cleared all Editor Prefs tied to the scene: {activeScene.name}");
         }
         private static void LoadFoldoutStatesFromPrefs()
         {
@@ -798,7 +806,6 @@ namespace FuzzPhyte.Utility.Editor
         {
             // Collect all keys to modify in a separate list
             List<string> keysToCollapse = new List<string>(foldoutStates.Keys);
-
             // Iterate over the collected keys
             foreach (string key in keysToCollapse)
             {
@@ -822,6 +829,8 @@ namespace FuzzPhyte.Utility.Editor
         {
             foldoutStates.Clear();
             previousNames.Clear();
+            //blast editor prefs
+            ClearFoldoutStatesFromPrefs();
             //these resets my data
             SaveFoldoutStatesToPrefs();
             Debug.LogWarning($"FP_HHeader: Editor forced data reset, refreshing FuzzPhyte Header!");
