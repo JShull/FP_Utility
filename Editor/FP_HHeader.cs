@@ -722,7 +722,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_KEY + "_"+ activeScene.name, keysJson);
             EditorPrefs.SetString(FP_UtilityData.FP_FOLDOUTSTATES_VALUE + "_" + activeScene.name, valuesJson);
             EditorPrefs.SetString(FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name, otherJson);
-            Debug.LogWarning($"FP_HHeader: Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
+            //Debug.LogWarning($"FP_HHeader: Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
         }
         private static void RestoreHiddenPrefabs()
         {
