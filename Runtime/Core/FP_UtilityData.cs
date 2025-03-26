@@ -9,6 +9,7 @@ namespace FuzzPhyte.Utility
     using Unity.Mathematics;
     using UnityEditor;
     using TMPro;
+    using System.Linq;
 
     /// <summary>
     /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
@@ -23,6 +24,7 @@ namespace FuzzPhyte.Utility
         public const string FP_FOLDOUTSTATES_VALUE = "FP_FoldoutStates_Values";
         public const string FP_PREVIOUSFOLDOUT_KEY = "FP_PreviousFoldout";
         public const string FP_PREVIOUSFOLDOUT_VALUE = "FP_PreviousFoldoutValue";
+        public const string FP_HIDDENOBJECTS_KEY = "FP_HiddenObjects_Keys";
         public const string FP_GIZMOS_DEFAULT = "FP";
         // menu order for misc. menus
         public const int ORDER_MENU = 0;
@@ -772,10 +774,52 @@ namespace FuzzPhyte.Utility
     [Serializable]
     public class FPSerializableList<T>
     {
-        public List<T> list;
+        public List<T> list = new List<T>();
+        public FPSerializableList()
+        {
+
+        }
         public FPSerializableList(List<T> list)
         {
             this.list = list;
+        }
+    }
+    [Serializable]
+    public class FPSerializableDictionary<TKey, TValue>
+    {
+        public FPSerializableList<TKey> keys = new FPSerializableList<TKey>(new List<TKey>());
+        public FPSerializableList<FPSerializableList<TValue>> values = new FPSerializableList<FPSerializableList<TValue>>(new List<FPSerializableList<TValue>>());
+
+        public FPSerializableDictionary() { } // Needed for Unity JSON serialization
+
+        public FPSerializableDictionary(Dictionary<TKey, List<TValue>> dict)
+        {
+            keys = new FPSerializableList<TKey>(new List<TKey>(dict.Keys));
+
+            foreach (var key in keys.list)
+            {
+                values.list.Add(new FPSerializableList<TValue>(dict[key])); // Store values as a List of Lists
+            }
+        }
+
+        public Dictionary<TKey, List<TValue>> ToDictionary()
+        {
+            Dictionary<TKey, List<TValue>> dict = new Dictionary<TKey, List<TValue>>();
+
+            for (int i = 0; i < keys.list.Count; i++)
+            {
+                if (i < values.list.Count && values.list[i] != null)
+                {
+                    dict[keys.list[i]] = new List<TValue>(values.list[i].list); // Convert back to dictionary
+                }
+                else
+                {
+                    Debug.LogWarning($"Mismatch in dictionary deserialization: Key '{keys.list[i]}' has no matching value.");
+                    dict[keys.list[i]] = new List<TValue>(); // Assign empty list to avoid null issues
+                }
+            }
+
+            return dict;
         }
     }
     #region Custom UnityEvents

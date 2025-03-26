@@ -311,6 +311,7 @@ namespace FuzzPhyte.Utility.Editor
             else if(state==PlayModeStateChange.EnteredEditMode)
             {
                 foldoutStates = new Dictionary<string, bool>(editRuntimeFoldoutStates);
+                RestoreHiddenPrefabs();
                 EditorApplication.RepaintHierarchyWindow();
             }
             /*
@@ -568,6 +569,14 @@ namespace FuzzPhyte.Utility.Editor
             int siblingIndex = headerObj.transform.GetSiblingIndex();
             int childCount = parentTransform != null ? parentTransform.childCount : headerObj.scene.rootCount;
 
+            string foldoutKey = headerObj.name;
+            Dictionary<string, List<string>> hiddenObjectsByFoldout = LoadHiddenObjectsFromPrefs();
+
+            if (!hiddenObjectsByFoldout.ContainsKey(foldoutKey)) 
+            {
+                hiddenObjectsByFoldout[foldoutKey] = new List<string>();
+            }
+
             for (int i = siblingIndex + 1; i < childCount; i++)
             {
                 GameObject sibling;
@@ -586,10 +595,20 @@ namespace FuzzPhyte.Utility.Editor
                     break; // Stop hiding when the next header is encountered
                 }
 
+                // if it's a prefab instance, track it under the foldout key
+                if(PrefabUtility.GetPrefabInstanceStatus(sibling)== PrefabInstanceStatus.Connected)
+                {
+                    //Debug.LogWarning($"Found a prefab? {sibling.name}");
+                    hiddenObjectsByFoldout[foldoutKey].Add(sibling.name);
+                }
                 // Hide the sibling object
                 sibling.hideFlags |= HideFlags.HideInHierarchy; // Hide in Hierarchy
             }
+            //Save updated hidden prefab data
+            
+            SaveHiddenObjectsToPrefs(hiddenObjectsByFoldout);
         }
+        
         private static void ShowSubsequentObjects(GameObject headerObj)
         {
             Transform parentTransform = headerObj.transform.parent;
@@ -705,22 +724,56 @@ namespace FuzzPhyte.Utility.Editor
             EditorPrefs.SetString(FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name, otherJson);
             Debug.LogWarning($"FP_HHeader: Foldout states saved to EditorPrefs: {FP_UtilityData.FP_FOLDOUTSTATES_KEY}_{activeScene.name}");
         }
-        private static void ClearFoldoutStatesFromPrefs()
+        private static void RestoreHiddenPrefabs()
         {
-            Scene activeScene = SceneManager.GetActiveScene();
+            Dictionary<string, List<string>> hiddenObjectsByFoldout = LoadHiddenObjectsFromPrefs();
 
-            // Generate keys for this scene
-            string keysKey = FP_UtilityData.FP_FOLDOUTSTATES_KEY + "_" + activeScene.name;
-            string valuesKey = FP_UtilityData.FP_FOLDOUTSTATES_VALUE + "_" + activeScene.name;
-            string previousKey = FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name;
+            foreach (var foldoutKey in hiddenObjectsByFoldout.Keys)
+            {
+                foreach (string prefabName in hiddenObjectsByFoldout[foldoutKey])
+                {
+                    GameObject prefabInstance = FP_Utility_Editor.FindGameObjectByNameInactive(prefabName);
+                    if (prefabInstance != null)
+                    {
+                        prefabInstance.hideFlags |= HideFlags.HideInHierarchy; // Re-hide the object
+                    }
+                }
+            }
 
-            // Remove them from EditorPrefs
-            EditorPrefs.DeleteKey(keysKey);
-            EditorPrefs.DeleteKey(valuesKey);
-            EditorPrefs.DeleteKey(previousKey);
-
-            Debug.LogWarning($"FP_HHeader: Cleared all Editor Prefs tied to the scene: {activeScene.name}");
+            // Clear stored data after restoring
+            EditorPrefs.DeleteKey(FP_UtilityData.FP_HIDDENOBJECTS_KEY + "_"+SceneManager.GetActiveScene().name);
         }
+        private static void SaveHiddenObjectsToPrefs(Dictionary<string, List<string>> hiddenObjects)
+        {
+            string key = FP_UtilityData.FP_HIDDENOBJECTS_KEY + "_"+ SceneManager.GetActiveScene().name;
+
+            string json = JsonUtility.ToJson(new FPSerializableDictionary<string, string>(hiddenObjects), true); // Pretty print for debugging
+            //Debug.Log($"Saving Hidden Objects JSON: {json}"); // Debug Output
+            EditorPrefs.SetString(key, json);
+        }
+        private static Dictionary<string, List<string>> LoadHiddenObjectsFromPrefs()
+        {
+            string key = FP_UtilityData.FP_HIDDENOBJECTS_KEY + "_"+ SceneManager.GetActiveScene().name;
+
+            if (EditorPrefs.HasKey(key))
+            {
+                string json = EditorPrefs.GetString(key);
+                //Debug.Log($"Loading Hidden Objects JSON: {json}"); // Debug Output
+
+                var deserializedData = JsonUtility.FromJson<FPSerializableDictionary<string, string>>(json);
+
+                if (deserializedData == null || deserializedData.keys.list == null || deserializedData.values.list == null)
+                {
+                    Debug.LogError("Failed to deserialize Hidden Objects from JSON.");
+                    return new Dictionary<string, List<string>>(); // Return empty dictionary
+                }
+
+                return deserializedData.ToDictionary();
+            }
+
+            return new Dictionary<string, List<string>>();
+        }
+        
         private static void LoadFoldoutStatesFromPrefs()
         {
             Scene activeScene = SceneManager.GetActiveScene();
@@ -836,6 +889,23 @@ namespace FuzzPhyte.Utility.Editor
             Debug.LogWarning($"FP_HHeader: Editor forced data reset, refreshing FuzzPhyte Header!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
+        }
+        private static void ClearFoldoutStatesFromPrefs()
+        {
+            Scene activeScene = SceneManager.GetActiveScene();
+
+            // Generate keys for this scene
+            string keysKey = FP_UtilityData.FP_FOLDOUTSTATES_KEY + "_" + activeScene.name;
+            string valuesKey = FP_UtilityData.FP_FOLDOUTSTATES_VALUE + "_" + activeScene.name;
+            string previousKey = FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name;
+            string hiddenKey = FP_UtilityData.FP_HIDDENOBJECTS_KEY + "_" + activeScene.name;
+            // Remove them from EditorPrefs
+            EditorPrefs.DeleteKey(keysKey);
+            EditorPrefs.DeleteKey(valuesKey);
+            EditorPrefs.DeleteKey(previousKey);
+            EditorPrefs.DeleteKey(hiddenKey);
+
+            Debug.LogWarning($"FP_HHeader: Cleared all Editor Prefs tied to the scene: {activeScene.name}");
         }
         #endregion
     }
