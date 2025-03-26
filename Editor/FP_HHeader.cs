@@ -11,6 +11,8 @@ namespace FuzzPhyte.Utility.Editor
     {
         private static Dictionary<string, bool> foldoutStates = new Dictionary<string, bool>();
         private static Dictionary<string, string> previousNames = new Dictionary<string, string>();
+        [Tooltip("Cache state before we play so we can come back after play ends")]
+        private static Dictionary<string,bool> editRuntimeFoldoutStates = new Dictionary<string,bool>();
         private static Color expandedColor = new Color(0.412f, 0.678f, 0, 1);
         private static Color collapsedColor = new Color(0.728f, 0.678f, 0, 1);
         private static Color headerColor = new Color(0.0f, 0.0f, 0.0f, 1);
@@ -45,15 +47,21 @@ namespace FuzzPhyte.Utility.Editor
             
             hhSelectAllIcon = FP_Utility_Editor.ReturnEditorIcon(selectAllIcon, loadedPackageManager);
             hhSelectAllIconActive = FP_Utility_Editor.ReturnEditorIcon(selectAllIconActive, loadedPackageManager);
+
             LoadFoldoutStatesFromPrefs(); // Load saved foldout states on editor initialization
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged; //restores the settings I saved right when we come back from play mode
             //Debug.LogWarning($"FP_HHeader: Editor Setup Initialized Complete");
         }
         
         private static void OnEditorUpdate()
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
             Scene activeScene = SceneManager.GetActiveScene();
             bool dirtyState = false;
             //Debug.LogWarning($"On Editor Update!");
@@ -115,7 +123,6 @@ namespace FuzzPhyte.Utility.Editor
                 EditorApplication.RepaintHierarchyWindow();
             }
         }
-
         private static (bool,int) PreviousNameCheck(string key, GameObject obj, int loopNum=0)
         {
             if (previousNames.ContainsKey(key))
@@ -293,30 +300,46 @@ namespace FuzzPhyte.Utility.Editor
             }
                 
         }
-        // Helper method to check if a transform is a child of another transform
-        private static bool IsChildOf(Transform parent, Transform child)
+        private static void OnPlayModeStateChanged(PlayModeStateChange state)
         {
-            Transform current = child;
-
-            while (current != null)
+            if(state == PlayModeStateChange.EnteredPlayMode)
             {
-                if (current == parent)
-                {
-                    return true;
-                }
-                current = current.parent;
+                //about to enter play mode
+                editRuntimeFoldoutStates = new Dictionary<string, bool>(foldoutStates);
+                
+                //expand everything
+                ExpandAllHeaders();
+                EditorApplication.RepaintHierarchyWindow();
             }
-
-            return false;
+            else if(state==PlayModeStateChange.EnteredEditMode)
+            {
+                foldoutStates = new Dictionary<string, bool>(editRuntimeFoldoutStates);
+                EditorApplication.RepaintHierarchyWindow();
+            }
+            /*
+            //OLD
+            if (state == PlayModeStateChange.EnteredEditMode)
+            {
+                LoadFoldoutStatesFromPrefs(); // Restore foldout states after exiting Play Mode
+                EditorApplication.RepaintHierarchyWindow();
+            }
+            */
         }
-       
-        
         private static void OnHierarchyWindowItemOnGUI(int instanceID, Rect selectionRect)
         {
+            
             // Get the GameObject associated with this hierarchy item
             GameObject obj = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
             //get position in the inspector
-            
+            if (obj == null)
+            {
+                return;
+            }
+            DrawHierarchyVisuals(obj, selectionRect);
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
             bool dirtyState=false;
             if (obj != null)
             {
@@ -327,23 +350,19 @@ namespace FuzzPhyte.Utility.Editor
                 // Check if the GameObject name is in all caps and if it is not active (disabled)
                 if (obj.name == obj.name.ToUpper() && !obj.activeInHierarchy && obj.transform.childCount==0)
                 {
-                    // Track foldout state using the GameObject's instance ID
-                    //Debug.LogWarning($"Inspecting {obj.name}, Current Foldout size: {foldoutStates.Count}");
-                    /*
-                    for(int i=0;i < foldoutStates.Count; i++)
-                    {
-                        var aKey = foldoutStates.Keys.ToList();
-                        //Debug.LogWarning($"LOOP: Foldout Debug: ID {aKey[i]} | Status: {foldoutStates[aKey[i]]}");
-                    }
-                    */
+                    
                     if (!foldoutStates.ContainsKey(ID))
                     {
                         foldoutStates.Add(ID, true);
-                        //Debug.LogWarning($"Foldout Debug: ID {ID} | Name: {obj.name} |Status: {foldoutStates[ID]}");
                         dirtyState = true;
                         lastChangedObjectName= obj.name;
-                        //Debug.LogWarning($"Updating last changed object = {lastChangedObjectName}");
                     }
+                    bool isExpanded = foldoutStates[ID];
+                    var foldoutRect = ReturnFoldOutRect(selectionRect, new Vector2(4, 15));
+                    ///
+                    /// DRAWING STUFF BEGINS
+                    /// 
+                    /*
                     // Adjust the label position to avoid overlapping the foldout arrow
                     Rect labelRect = new Rect(selectionRect.x + adjHeaderWidth, selectionRect.y, selectionRect.width - adjHeaderWidth, selectionRect.height);
 
@@ -364,10 +383,15 @@ namespace FuzzPhyte.Utility.Editor
 
                     // Ensure the custom foldout arrow is drawn last and is clearly visible
                     Rect foldoutRect = new Rect(selectionRect.x + 4, selectionRect.y, 15, selectionRect.height);
-                    bool isExpanded = foldoutStates[ID];
+                    
+                    
 
                     // Draw the custom foldout arrow
                     DrawCustomFoldout(foldoutRect, isExpanded); // Change color as needed
+                    */
+                    ///
+                    /// END OF DRAWING
+                    ///
 
                     // Toggle the foldout state on click
                     if (Event.current.type == EventType.MouseDown && foldoutRect.Contains(Event.current.mousePosition))
@@ -392,7 +416,7 @@ namespace FuzzPhyte.Utility.Editor
                     }
 
                     // Draw the custom select all icon
-                    Rect selectAllRect = new Rect(selectionRect.x + 20, selectionRect.y, 15, selectionRect.height);
+                    Rect selectAllRect = ReturnFoldOutRect(selectionRect, new Vector2(20, 15));
                     // Draw the custom select all icon
                     if(obj.name == selectedObjectName)
                     {
@@ -441,6 +465,53 @@ namespace FuzzPhyte.Utility.Editor
                     SaveFoldoutStatesToPrefs();
                 }
             }
+        }
+        private static void DrawHierarchyVisuals(GameObject obj, Rect selectionRect)
+        {
+            if (obj.name != obj.name.ToUpper() || obj.activeInHierarchy || obj.transform.childCount != 0)
+            {
+                return; // Only apply visuals to headers
+            }
+            // Adjust the label position to avoid overlapping the foldout arrow
+
+            string ID = obj.name;
+
+
+            // Set up custom style for bold text
+            GUIStyle style = new GUIStyle
+            {
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = Color.white } // You can change the color here
+            };
+            Rect labelRect = new Rect(selectionRect.x + adjHeaderWidth, selectionRect.y, selectionRect.width - adjHeaderWidth, selectionRect.height);
+            // Optionally change the background color
+            Rect backgroundRect = selectionRect;
+            backgroundRect.xMin = 50;
+            EditorGUI.DrawRect(backgroundRect, headerColor); // Semi-transparent black
+            // Draw Object Name
+            EditorGUI.LabelField(labelRect, obj.name, style);
+
+            // Ensure the custom foldout arrow is drawn last and is clearly visible
+            Rect foldoutRect = ReturnFoldOutRect(selectionRect,new Vector2(4,15));
+            if (foldoutStates.ContainsKey(ID)) 
+            {
+                bool isExpanded = foldoutStates[ID];
+                DrawCustomFoldout(foldoutRect, isExpanded); // Change color as needed
+            }
+            else
+            {
+                DrawCustomFoldout(foldoutRect, true);
+            }
+
+           
+
+            // Draw the custom foldout arrow
+            
+
+        }
+        private static Rect ReturnFoldOutRect(Rect selectionRect, Vector2 xyDim)
+        {
+            return new Rect(selectionRect.x + xyDim.x, selectionRect.y, xyDim.y, selectionRect.height);
         }
         private static void DrawCustomFoldout(Rect rect, bool isExpanded)
         {
@@ -593,6 +664,38 @@ namespace FuzzPhyte.Utility.Editor
             }
             
         }
+        
+        // Helper method to check if a transform is a child of another transform
+        private static bool IsChildOf(Transform parent, Transform child)
+        {
+            Transform current = child;
+
+            while (current != null)
+            {
+                if (current == parent)
+                {
+                    return true;
+                }
+                current = current.parent;
+            }
+
+            return false;
+        }
+        //helper method to expand all without saving
+        private static void ExpandAllHeaders()
+        {
+            var foldoutKeys = new List<string>(foldoutStates.Keys); // Create a separate list of keys
+            foreach (var key in foldoutKeys)
+            {
+                foldoutStates[key] = true;
+                GameObject obj = FP_Utility_Editor.FindGameObjectByName(key);
+                if(obj != null)
+                {
+                    ShowSubsequentObjects(obj);
+                }
+            }
+            EditorApplication.RepaintHierarchyWindow();
+        }
         #region Save and Load Foldout States
         private static void SaveFoldoutStatesToPrefs()
         {
@@ -664,7 +767,7 @@ namespace FuzzPhyte.Utility.Editor
         private static void UnhideAllInHierarchy()
         {
             // Iterate over all GameObjects in the scene
-            foreach (GameObject obj in Object.FindObjectsOfType<GameObject>(true)) // 'true' includes inactive objects
+            foreach (GameObject obj in Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)) // 'true' includes inactive objects
             {
                 // Check if the object is hidden in the hierarchy
                 if (obj.hideFlags.HasFlag(HideFlags.HideInHierarchy))

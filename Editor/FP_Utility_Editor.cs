@@ -380,6 +380,27 @@ namespace FuzzPhyte.Utility.Editor
             }
             return null;
         }
+        /// <summary>
+        /// Helps find objects using the inactive set to true and by instance ID
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static GameObject FindGameObjectByNameInactive(string name)
+        {
+            GameObject[] allGameObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
+            for (int i = 0; i < allGameObjects.Length; i++)
+            {
+                var obj = allGameObjects[i];
+                if (obj.name == name)
+                {
+                    if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))
+                    {
+                        return obj; // Return the first matching GameObject
+                    }
+                }
+            }
+            return null;
+        }
         public static string ReturnEditorPath(string packageName, bool local=false)
         {
             if (local)
