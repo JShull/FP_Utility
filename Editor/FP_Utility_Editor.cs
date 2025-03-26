@@ -391,7 +391,8 @@ namespace FuzzPhyte.Utility.Editor
             for (int i = 0; i < allGameObjects.Length; i++)
             {
                 var obj = allGameObjects[i];
-                if (obj.name == name)
+                
+                if (obj.name.Trim() == name.Trim())
                 {
                     if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))
                     {
