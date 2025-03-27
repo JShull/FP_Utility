@@ -1,10 +1,12 @@
-namespace FuzzPhyte.Utility.Editor
+﻿namespace FuzzPhyte.Utility.Editor
 {
     using UnityEditor;
     using UnityEngine;
     using System.Collections.Generic;
     using UnityEngine.SceneManagement;
     using System.IO;
+    using System.Text.RegularExpressions;
+    using System.Linq;
 
     [InitializeOnLoad]
     public static class FP_HHeader
@@ -53,7 +55,6 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged; //restores the settings I saved right when we come back from play mode
-           
         }
         
         private static void OnEditorUpdate()
@@ -772,8 +773,7 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return new Dictionary<string, List<string>>();
-        }
-        
+        }  
         private static void LoadFoldoutStatesFromPrefs()
         {
             Scene activeScene = SceneManager.GetActiveScene();
@@ -824,7 +824,7 @@ namespace FuzzPhyte.Utility.Editor
         #endregion
         #region Menu Functions
         
-        [MenuItem("GameObject/FuzzPhyte/Expand Z Hierarchy", false, 51)]
+        [MenuItem("GameObject/FuzzPhyte/Header:Expand Z Sections", false, 51)]
         private static void UnhideAllInHierarchy()
         {
             // Iterate over all GameObjects in the scene
@@ -854,7 +854,7 @@ namespace FuzzPhyte.Utility.Editor
             SaveFoldoutStatesToPrefs();
         }
         // Method to collapse all custom sections
-        [MenuItem("GameObject/FuzzPhyte/Collapse Z Sections", false, 52)]
+        [MenuItem("GameObject/FuzzPhyte/Header:Collapse Z Sections", false, 52)]
         private static void CollapseZCustomSections()
         {
             // Collect all keys to modify in a separate list
@@ -877,7 +877,8 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.RepaintHierarchyWindow();
             SaveFoldoutStatesToPrefs();
         }
-        [MenuItem("GameObject/FuzzPhyte/Reset Scene Hierarchy Data", false, 53)]
+        [MenuItem("GameObject/FuzzPhyte/Header:Reset Z Sections Data", false, 53)]
+        
         private static void ResetSceneData()
         {
             foldoutStates.Clear();
@@ -889,6 +890,92 @@ namespace FuzzPhyte.Utility.Editor
             Debug.LogWarning($"FP_HHeader: Editor forced data reset, refreshing FuzzPhyte Header!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
+        }
+        [MenuItem("Assets/FuzzPhyte/Header: Create Headers", false, 50)]
+        private static void CreateHeadersFromData()
+        {
+            if (Application.isPlaying)
+            {
+                Debug.LogWarning("You can only run this in Edit Mode.");
+                return;
+            }
+
+            if (Selection.activeObject is FP_HHeaderData headerData)
+            {
+                Undo.RegisterCompleteObjectUndo(headerData, "Create Header GameObjects");
+
+                for (int i = 0; i < headerData.Headers.Count; i++)
+                {
+                    string rawName = headerData.Headers[i];
+                    if (string.IsNullOrWhiteSpace(rawName))
+                        continue;
+                    rawName=rawName.ToUpper();
+                    // Normalize name: //obj.name == obj.name.ToUpper()
+                    string safeName = Regex.Replace(rawName.ToUpperInvariant(), @"[^A-Z0-9 _]", "").Trim();
+
+                    // Check for duplicate name
+                    GameObject existing = GameObject.Find(safeName);
+                    if (existing != null)
+                    {
+                        Debug.LogWarning($"A GameObject named '{safeName}' already exists. Skipping.");
+                        continue;
+                    }
+
+                    GameObject go = new GameObject(safeName);
+                    Undo.RegisterCreatedObjectUndo(go, "Create Header Object");
+
+                    go.SetActive(false);
+
+                    // Insert at top of hierarchy in order
+                    go.transform.SetSiblingIndex(i);
+                }
+                //visuals
+                hhCloseIcon = headerData.CloseIcon;
+                hhOpenIcon = headerData.OpenIcon;
+                hhSelectAllIcon = headerData.SelectAllIcon;
+                hhSelectAllIconActive = headerData.SelectAllIconActive;
+                collapsedColor = headerData.CollapsedColor;
+                expandedColor = headerData.ExpandedColor;
+                headerColor = headerData.HeaderColor;
+                EditorApplication.RepaintHierarchyWindow();
+                Debug.Log($"Created {headerData.Headers.Count} header GameObjects from: {headerData.name}");
+            }
+            else
+            {
+                Debug.LogWarning("Please select a valid FP_HHeaderData asset.");
+            }
+        }
+        [MenuItem("Assets/FuzzPhyte/Header: Save Headers", false, 51)]
+        private static void CreateHeaderDataFile()
+        {
+            var asset = ScriptableObject.CreateInstance<FP_HHeaderData>();
+            asset.Headers = new List<string>(foldoutStates.Keys.ToList());
+            asset.ExpandedColor = expandedColor;
+            asset.HeaderColor = headerColor;
+            asset.CollapsedColor = collapsedColor;
+            asset.CloseIcon = hhCloseIcon;
+            asset.OpenIcon = hhOpenIcon;
+            asset.SelectAllIcon = hhSelectAllIcon;
+            asset.SelectAllIconActive = hhSelectAllIconActive;
+            asset.UniqueID = System.DateTime.Now.ToLongTimeString()+"FPHeader_42";
+            var items = FP_Utility_Editor.CreateAssetDatabaseFolder("Assets/FP_Utility", "Editor/FPHHeaderData");
+            if (items.Item1)
+            {
+                var fileName = System.DateTime.Now.ToString("MMddyyyy_hhmmss") + "_FPHHeader.asset";
+
+                var itemsCreated = FP_Utility_Editor.CreateAssetAt(asset, System.IO.Path.Combine(items.Item2, fileName));
+                Debug.LogWarning($"FP_HHeader: Asset Created at {itemsCreated}");
+            }
+            else
+            {
+                Debug.LogError($"Can't create a folder at Assets/FP_Utility");
+            }
+            //var fileName = "Assets/FP_Utilty/Editor/FPHHeaderData/"+System.DateTime.Now.ToString("MMddyyyy_hhmmss") + "_FPHHeader.asset";
+            //string path = AssetDatabase.GenerateUniqueAssetPath(fileName);
+            //AssetDatabase.CreateAsset(asset, path);
+            //AssetDatabase.SaveAssets();
+            //EditorUtility.FocusProjectWindow();
+            //Selection.activeObject = asset;
         }
         private static void ClearFoldoutStatesFromPrefs()
         {
@@ -907,6 +994,7 @@ namespace FuzzPhyte.Utility.Editor
 
             Debug.LogWarning($"FP_HHeader: Cleared all Editor Prefs tied to the scene: {activeScene.name}");
         }
+        
         #endregion
     }
 }
