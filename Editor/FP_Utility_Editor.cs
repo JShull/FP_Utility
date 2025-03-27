@@ -147,7 +147,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             //var fullLocalPath = localDir + "/" + relativeFolder;
             var fullLocalPath = Path.Combine(localDir,relativeFolder);
-            fullLocalPath.Replace("\\","/");
+            fullLocalPath = fullLocalPath.Replace("\\", "/");
             if (!AssetDatabase.IsValidFolder(fullLocalPath))
             {
                 
@@ -175,16 +175,21 @@ namespace FuzzPhyte.Utility.Editor
             if(fullLocalPath.Contains("Assets"))
             {
                 fullLocalPath = localDir.Replace("Assets", "");
-                fullLocalPath.Replace("\\","/");
+                fullLocalPath=fullLocalPath.Replace("\\","/");
             }
-            if(File.Exists(Application.dataPath+ fullLocalPath))
+            var combinedAgain = Path.Combine(Application.dataPath.ToString(), fullLocalPath);
+            combinedAgain = combinedAgain.Replace("\\","/");
+            Debug.Log($"Combined file? {combinedAgain}");
+            if(File.Exists(combinedAgain))
             {
-                return (true, fullLocalPath);
+                return (true, combinedAgain);
             }
             else
             {
-                Directory.CreateDirectory(Application.dataPath + fullLocalPath);
-                return (false, fullLocalPath);
+                //var combinedpath = Path.Combine(Application.dataPath.ToString(), fullLocalPath);
+                //Debug.Log($"Creating Directory: {combinedpath}");
+                Directory.CreateDirectory(combinedAgain);
+                return (false, combinedAgain);
             }
         }
         /// <summary>
@@ -197,14 +202,14 @@ namespace FuzzPhyte.Utility.Editor
         {
             //var productSlashName = productName+"/";
             var potentialFolder = Path.Combine(Application.dataPath,"Samples", productName);
-            potentialFolder.Replace("\\","/");
+            potentialFolder=potentialFolder.Replace("\\","/");
             if (!File.Exists(potentialFolder))
             {
                 Directory.CreateDirectory(potentialFolder);
             }
             //var sampleLocalFolder = productName + " Samples";
             var versionFolder = Path.Combine(potentialFolder, version);
-            versionFolder.Replace("\\","/");
+            versionFolder = versionFolder.Replace("\\", "/");
             if (!File.Exists(versionFolder))
             {
                 Directory.CreateDirectory(versionFolder);
@@ -212,7 +217,7 @@ namespace FuzzPhyte.Utility.Editor
             AssetDatabase.Refresh();
             var sampleWithinVersion = productName + " Samples";
             var fullDirectory = Path.Combine(versionFolder, sampleWithinVersion);
-            fullDirectory.Replace("\\","/");
+            fullDirectory = fullDirectory.Replace("\\", "/");
             Debug.Log($"Full Directory {fullDirectory}");
             if (!File.Exists(fullDirectory))
             {
@@ -221,8 +226,8 @@ namespace FuzzPhyte.Utility.Editor
             var localSamplePath = Path.Combine("Samples", productName);
             var localSampleVersion = localSamplePath+version;
             var assetLocalPath = Path.Combine(localSampleVersion,sampleWithinVersion);
-            assetLocalPath.Replace("\\","/");
-            fullDirectory.Replace("\\","/");
+            assetLocalPath = assetLocalPath.Replace("\\", "/");
+            fullDirectory = fullDirectory.Replace("\\", "/");
             return (assetLocalPath, fullDirectory);
         }
 
@@ -253,7 +258,7 @@ namespace FuzzPhyte.Utility.Editor
             
             // Optionally, log the creation
             // Debug.Log("ExampleAsset created at " + assetPath);
-            return $"Asset Created at {assetPath}";
+            return assetPath;
         }
         /// <summary>
         /// Pass a string and the Editor will attempt at creating a new layer 

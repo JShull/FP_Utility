@@ -7,6 +7,7 @@
     using System.IO;
     using System.Text.RegularExpressions;
     using System.Linq;
+    using System;
 
     [InitializeOnLoad]
     public static class FP_HHeader
@@ -51,6 +52,7 @@
             hhSelectAllIconActive = FP_Utility_Editor.ReturnEditorIcon(selectAllIconActive, loadedPackageManager);
 
             LoadFoldoutStatesFromPrefs(); // Load saved foldout states on editor initialization
+            LoadHeaderStyleFromFile();
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
@@ -242,6 +244,7 @@
             }
             //Debug.LogWarning($"FP_HHeader: Editor opened a new scene: {scene.name}! Refreshed FuzzPhyte Header Data Complete!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
+            LoadHeaderStyleFromFile();
             EditorApplication.RepaintHierarchyWindow();
         }
         private static void OnSelectionChanged()
@@ -821,6 +824,28 @@
             
             //Debug.LogWarning("Foldout states loaded from EditorPrefs.");
         }
+        private static void LoadHeaderStyleFromFile()
+        {
+            Scene activeScene = SceneManager.GetActiveScene();
+            string savedHeaderFileLocation = EditorPrefs.GetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name);
+            //attempt to load this asset into the scriptable object
+            try
+            {
+                var theHeaderStyle = (FP_HHeaderData)AssetDatabase.LoadAssetAtPath(savedHeaderFileLocation, typeof(FP_HHeaderData));
+                //only load the style
+                expandedColor = theHeaderStyle.ExpandedColor;
+                headerColor=theHeaderStyle.HeaderColor;
+                collapsedColor = theHeaderStyle.CollapsedColor;
+                hhCloseIcon = theHeaderStyle.CloseIcon;
+                hhOpenIcon = theHeaderStyle.OpenIcon;
+                hhSelectAllIcon = theHeaderStyle.SelectAllIcon;
+                hhSelectAllIconActive = theHeaderStyle.SelectAllIconActive;
+            }
+            catch(Exception ex)
+            {
+                Debug.LogError($"FP_HHeader: Header Data Style file probably wasn't created yet - can ignore. {savedHeaderFileLocation} Log: {ex.Message}");
+            }
+        }
         #endregion
         #region Menu Functions
         
@@ -828,7 +853,8 @@
         private static void UnhideAllInHierarchy()
         {
             // Iterate over all GameObjects in the scene
-            foreach (GameObject obj in Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)) // 'true' includes inactive objects
+
+            foreach (GameObject obj in GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)) // 'true' includes inactive objects
             {
                 // Check if the object is hidden in the hierarchy
                 if (obj.hideFlags.HasFlag(HideFlags.HideInHierarchy))
@@ -939,6 +965,7 @@
                 headerColor = headerData.HeaderColor;
                 EditorApplication.RepaintHierarchyWindow();
                 Debug.Log($"Created {headerData.Headers.Count} header GameObjects from: {headerData.name}");
+                CreateHeaderDataFile();
             }
             else
             {
@@ -957,25 +984,26 @@
             asset.OpenIcon = hhOpenIcon;
             asset.SelectAllIcon = hhSelectAllIcon;
             asset.SelectAllIconActive = hhSelectAllIconActive;
-            asset.UniqueID = System.DateTime.Now.ToLongTimeString()+"FPHeader_42";
-            var items = FP_Utility_Editor.CreateAssetDatabaseFolder("Assets/FP_Utility", "Editor/FPHHeaderData");
+            asset.UniqueID = System.DateTime.Now.ToLongTimeString()+"FPHeader_42"; 
+            var path = Path.Combine("Assets", "FP_Utility\\Editor\\FP_HHeader");
+            Debug.Log($"{Application.dataPath}");
+            var fileName = System.DateTime.Now.ToString("MMddyyyy_hhmmss") + "_FPHHeader.asset";
+            Debug.Log($"Local Path= {path}");
+            var items = FP_Utility_Editor.CreateAssetPath("FP_Utility\\Editor", "FP_HHeader");
+            var itemsCreatedPath = "";
             if (items.Item1)
             {
-                var fileName = System.DateTime.Now.ToString("MMddyyyy_hhmmss") + "_FPHHeader.asset";
-
-                var itemsCreated = FP_Utility_Editor.CreateAssetAt(asset, System.IO.Path.Combine(items.Item2, fileName));
-                Debug.LogWarning($"FP_HHeader: Asset Created at {itemsCreated}");
+                itemsCreatedPath = FP_Utility_Editor.CreateAssetAt(asset, Path.Combine(path, fileName));
             }
             else
             {
-                Debug.LogError($"Can't create a folder at Assets/FP_Utility");
+                Debug.LogWarning($"Didn't find the directory, created it for you {items.Item2}");
+                itemsCreatedPath = FP_Utility_Editor.CreateAssetAt(asset, Path.Combine(path, fileName));
             }
-            //var fileName = "Assets/FP_Utilty/Editor/FPHHeaderData/"+System.DateTime.Now.ToString("MMddyyyy_hhmmss") + "_FPHHeader.asset";
-            //string path = AssetDatabase.GenerateUniqueAssetPath(fileName);
-            //AssetDatabase.CreateAsset(asset, path);
-            //AssetDatabase.SaveAssets();
-            //EditorUtility.FocusProjectWindow();
-            //Selection.activeObject = asset;
+            Debug.LogWarning($"FP_HHeader: Asset Created at {itemsCreatedPath}");
+            
+            Scene activeScene = SceneManager.GetActiveScene();
+            EditorPrefs.SetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name, itemsCreatedPath);
         }
         private static void ClearFoldoutStatesFromPrefs()
         {

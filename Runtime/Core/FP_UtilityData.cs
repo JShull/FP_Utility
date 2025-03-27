@@ -25,6 +25,7 @@ namespace FuzzPhyte.Utility
         public const string FP_PREVIOUSFOLDOUT_KEY = "FP_PreviousFoldout";
         public const string FP_PREVIOUSFOLDOUT_VALUE = "FP_PreviousFoldoutValue";
         public const string FP_HIDDENOBJECTS_KEY = "FP_HiddenObjects_Keys";
+        public const string FP_HEADERSTYLE_VALUE = "FP_HHeaderDataStyle";
         public const string FP_GIZMOS_DEFAULT = "FP";
         // menu order for misc. menus
         public const int ORDER_MENU = 0;
