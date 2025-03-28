@@ -4,7 +4,7 @@ using System;
 using System.Threading.Tasks;
 using UnityEditor.PackageManager;
 using System.IO;
-using GluonGui.WorkspaceWindow.Views.WorkspaceExplorer;
+
 namespace FuzzPhyte.Utility.Editor
 {
     //Every FP Utility Needs to be able to return the product name 
@@ -466,7 +466,7 @@ namespace FuzzPhyte.Utility.Editor
             Debug.Log($"Copying from: {packageAbsolutePath}");
 
             // 3. Determine your target folder in the Assets/Gizmos directory
-            //    If "Assets/Gizmos" doesn’t exist, create it.
+            //    If "Assets/Gizmos" doesnï¿½t exist, create it.
             string genericFPGizmo = Path.Combine("Gizmos", FP_UtilityData.FP_GIZMOS_DEFAULT);
             string projectGizmosPath = Path.GetFullPath(Path.Combine(Application.dataPath, genericFPGizmo));
             Debug.Log($"Creating Directory? {projectGizmosPath}");
@@ -477,8 +477,8 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             // 4. Copy or move the files/folders recursively
-            //    Here’s a helper method that copies directories recursively. 
-            //    We’ll define it below.
+            //    Hereï¿½s a helper method that copies directories recursively. 
+            //    Weï¿½ll define it below.
 
             if (Directory.Exists(packageAbsolutePath))
             {

@@ -843,7 +843,7 @@
             }
             catch(Exception ex)
             {
-                Debug.LogError($"FP_HHeader: Header Data Style file probably wasn't created yet - can ignore. {savedHeaderFileLocation} Log: {ex.Message}");
+                Debug.LogWarning($"FP_HHeader: Header Data Style file probably wasn't created yet - you can ignore this! {savedHeaderFileLocation} Log: {ex.Message}");
             }
         }
         #endregion
