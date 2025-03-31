@@ -7,10 +7,8 @@ namespace FuzzPhyte.Utility
     using UnityEngine;
     using UnityEngine.Events;
     using Unity.Mathematics;
-    using UnityEditor;
     using TMPro;
-    using System.Linq;
-
+  
     /// <summary>
     /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
     /// </summary>
@@ -177,6 +175,32 @@ namespace FuzzPhyte.Utility
         #region Gizmo Related
         
         #endregion
+        #endregion
+        #region Units and Conversions
+        public static (bool,float) ReturnUnitByPixels(float refPixelPerUnit,float pixels,UnitOfMeasure units)
+        {
+            var pixelPerUnit = pixels / refPixelPerUnit;
+            switch(units)
+            {
+                case UnitOfMeasure.Millimeter:
+                    return (true,pixelPerUnit * 1000f);
+                case UnitOfMeasure.Centimeter:
+                    return (true,pixelPerUnit * 100f);
+                case UnitOfMeasure.Meter:
+                    return (true,pixelPerUnit);
+                case UnitOfMeasure.Kilometer:
+                    return (true,pixelPerUnit / 1000f);
+                case UnitOfMeasure.Inch:
+                    return (true,pixelPerUnit * 39.37f);
+                case UnitOfMeasure.Feet:
+                    return (true,pixelPerUnit * 3.28084f);
+                case UnitOfMeasure.Miles:
+                    return (true,pixelPerUnit / 1609.34f);
+                case UnitOfMeasure.NauticalMiles:
+                    return (true,pixelPerUnit / 1852f);
+            }
+            return (false,1);
+        }
         #endregion
         /// <summary>
         /// If we need to take a string function and return a Unity Action on said target
@@ -420,6 +444,18 @@ namespace FuzzPhyte.Utility
     }
     #endregion
     #region Enums and Data Classes
+    [Serializable]
+    public enum UnitOfMeasure
+    {
+        Millimeter = 0,
+        Centimeter = 2,
+        Meter = 3,
+        Kilometer = 4,
+        Inch = 10,
+        Feet = 11,
+        Miles=12,
+        NauticalMiles=13,
+    }
     /// <summary>
     /// Core 'status' for all things sequence related
     /// Will be used heavily across sequence logic
