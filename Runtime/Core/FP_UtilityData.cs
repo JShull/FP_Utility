@@ -177,6 +177,13 @@ namespace FuzzPhyte.Utility
         #endregion
         #endregion
         #region Units and Conversions
+        public static uint ReturnUINTByDate(System.DateTime theTime)
+        {
+            long ticks = theTime.Ticks;
+            // Fold 64-bit ticks into 32-bit seed
+            uint seed = (uint)(ticks ^ (ticks >> 32));
+            return seed;
+        }
         public static (bool,float) ReturnUnitByPixels(float refPixelPerUnit,float pixels,UnitOfMeasure units)
         {
             var pixelPerUnit = pixels / refPixelPerUnit;

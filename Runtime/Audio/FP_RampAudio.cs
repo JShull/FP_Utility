@@ -33,13 +33,14 @@ namespace FuzzPhyte.Utility.Audio
         public UnityEvent AudioFinishedEvent;
         public UnityEvent LoopEvent;
 
-        private float fadeInEndTime;
-        private float fadeOutStartTime;
-        private bool isFadingIn = true;
-        private bool isFadingOut = false;
-        private bool isActive = false;
-        private bool audioEnded = false;
-        private int loopCount = 0;
+        protected float fadeInEndTime;
+        protected float fadeOutStartTime;
+        protected bool isFadingIn = true;
+        protected bool isFadingOut = false;
+        protected bool isActive = false;
+        protected bool audioEnded = false;
+        protected bool audioClipLengthConfirmed = false;
+        protected int loopCount = 0;
 
         void Start()
         {
@@ -54,16 +55,9 @@ namespace FuzzPhyte.Utility.Audio
             }
 
             // Validate and adjust EndTime if necessary
-            if (EndTime <= 0f || EndTime > FPAudioSource.clip.length)
-            {
-                EndTime = FPAudioSource.clip.length;
-            }
+            SetupEndFadeTime();
 
-            // Adjust fadeOutStartTime based on EndTime
-            fadeOutStartTime = EndTime - FadeOutDuration;
-           
-            
-            if(FadeIn || FadeOut)
+            if (FadeIn || FadeOut)
             {
                 //if we are fading we want to at least start the volume at 0
                 FPAudioSource.volume = 0;
@@ -76,6 +70,11 @@ namespace FuzzPhyte.Utility.Audio
 
         public void ActivateRamp()
         {
+            ///lets check real quick again for scenarios in which we started with null clip, and added it afterwards
+            if (!audioClipLengthConfirmed)
+            {
+                SetupEndFadeTime();
+            }
             isActive = true;
             FPAudioSource.time = StartTime; // Start playing from the specified start time
             if (FadeIn)
@@ -90,7 +89,7 @@ namespace FuzzPhyte.Utility.Audio
         {
             CustomLoop = false;
         }
-        void SetupInitialVolume()
+        protected void SetupInitialVolume()
         {
             if (FadeIn)
             {
@@ -99,6 +98,22 @@ namespace FuzzPhyte.Utility.Audio
             else if (FadeOut)
             {
                 FPAudioSource.volume = FadeOutCurve.Evaluate(0); // Assume volume by anim clip start
+            }
+        }
+        /// <summary>
+        /// Just checks our clip length and/or end time is 'right'
+        /// </summary>
+        protected void SetupEndFadeTime()
+        {
+            if (FPAudioSource.clip != null)
+            {
+                if (EndTime <= 0f || EndTime > FPAudioSource.clip.length)
+                {
+                    EndTime = FPAudioSource.clip.length;
+                }
+                audioClipLengthConfirmed = true;
+                // Adjust fadeOutStartTime based on EndTime
+                fadeOutStartTime = EndTime - FadeOutDuration;
             }
         }
         void Update()
