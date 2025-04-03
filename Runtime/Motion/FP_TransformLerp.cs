@@ -94,7 +94,6 @@ namespace FuzzPhyte.Utility
                 }
                 yield return null;
             }
-        
             // Ensure it ends at the exact end position
             if (localTransform)
             {
@@ -131,8 +130,6 @@ namespace FuzzPhyte.Utility
                 Gizmos.DrawWireSphere(endPoint.position, 0.2f);
             }
 #endif
-           
         }
     }
 }
-

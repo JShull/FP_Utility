@@ -70,7 +70,6 @@ namespace FuzzPhyte.Utility
             }
             while (loop);
             EndMotion();
-            
         }
         
         // Coroutine that moves the transform by a certain distance along an axis

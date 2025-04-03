@@ -403,6 +403,10 @@ namespace FuzzPhyte.Utility
         public const string OVR_SecondaryGrip = "Oculus_CrossPlatform_SecondaryHandTrigger";
         #endregion
     }
+    public interface IFPUIEventListener<T> where T : class
+    {
+        void OnUIEvent(FP_UIEventData<T> eventData);
+    }
     public interface IFPMotionController
     {
         void SetupMotion();
