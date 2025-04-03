@@ -208,6 +208,52 @@ namespace FuzzPhyte.Utility
             }
             return (false,1);
         }
+        public static Vector3 ReturnVector3InMeters(Vector3 measure, UnitOfMeasure units)
+        {
+            switch (units)
+            {
+                case UnitOfMeasure.Millimeter:
+                    return measure / 1000f;
+                case UnitOfMeasure.Centimeter:
+                    return measure / 100f;
+                case UnitOfMeasure.Meter:
+                    return measure;
+                case UnitOfMeasure.Kilometer:
+                    return measure * 1000f;
+                case UnitOfMeasure.Inch:
+                    return measure / 39.37f;
+                case UnitOfMeasure.Feet:
+                    return measure / 3.28084f;
+                case UnitOfMeasure.Miles:
+                    return measure * 1609.34f;
+                case UnitOfMeasure.NauticalMiles:
+                    return measure * 1852f;
+            }
+            return measure;
+        }
+        public static (bool,float) ReturnValueInMeters (float measure, UnitOfMeasure units)
+        {
+            switch (units)
+            {
+                case UnitOfMeasure.Millimeter:
+                    return (true, measure/1000f);
+                case UnitOfMeasure.Centimeter:
+                    return (true, measure/100f);
+                case UnitOfMeasure.Meter:
+                    return (true, measure);
+                case UnitOfMeasure.Kilometer:
+                    return (true, measure*1000f);
+                case UnitOfMeasure.Inch:
+                    return (true, measure/39.37f);
+                case UnitOfMeasure.Feet:
+                    return (true, measure / 3.28084f);
+                case UnitOfMeasure.Miles:
+                    return (true, measure*1609.34f);
+                case UnitOfMeasure.NauticalMiles:
+                    return (true, measure*1852f);
+            }
+            return (false, measure);
+        }
         #endregion
         /// <summary>
         /// If we need to take a string function and return a Unity Action on said target
