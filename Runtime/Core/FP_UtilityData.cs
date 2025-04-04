@@ -178,6 +178,24 @@ namespace FuzzPhyte.Utility
         #endregion
         #endregion
         #region Units and Conversions
+        /// <summary>
+        /// Will return a point on a plane relative the mouse position and the camera
+        /// E.g. plane: Plane customPlane = new Plane(Vector3.forward, new Vector3(0, 0, 10)); 
+        /// </summary>
+        /// <param name="camera"></param>
+        /// <param name="mousePosition"></param>
+        /// <param name="plane"></param>
+        /// <returns></returns>
+        public static (bool,Vector3) GetMouseWorldPositionOnPlane(Camera camera, Vector3 mousePosition, Plane plane)
+        {
+            //Plane customPlane = new Plane(Vector3.forward, new Vector3(0, 0, 10)); 
+            Ray mouseRay = camera.ScreenPointToRay(mousePosition);
+            if (plane.Raycast(mouseRay, out float distance))
+            {
+                return (true,mouseRay.GetPoint(distance));
+            }
+            return (false,Vector3.zero); // or some fallback
+        }
         public static uint ReturnUINTByDate(System.DateTime theTime)
         {
             long ticks = theTime.Ticks;
