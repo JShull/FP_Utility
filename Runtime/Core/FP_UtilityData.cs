@@ -8,6 +8,7 @@ namespace FuzzPhyte.Utility
     using UnityEngine.Events;
     using Unity.Mathematics;
     using TMPro;
+    using UnityEngine.EventSystems;
   
     /// <summary>
     /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
@@ -406,6 +407,9 @@ namespace FuzzPhyte.Utility
     public interface IFPUIEventListener<T> where T : class
     {
         void OnUIEvent(FP_UIEventData<T> eventData);
+        void PointerDown(PointerEventData eventData);
+        void PointerUp(PointerEventData eventData);
+        void PointerDrag(PointerEventData eventData);
     }
     public interface IFPMotionController
     {
