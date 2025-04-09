@@ -506,6 +506,7 @@ namespace FuzzPhyte.Utility
         void PointerDown(PointerEventData eventData);
         void PointerUp(PointerEventData eventData);
         void PointerDrag(PointerEventData eventData);
+        void ResetVisuals();
     }
     public interface IFPMotionController
     {
