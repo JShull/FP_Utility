@@ -368,7 +368,7 @@ namespace FuzzPhyte.Utility
         /// <param name="position"></param>
         /// <param name="normal"></param>
         /// <param name="planeColor"></param>
-        public static void MakePlane(Vector3 position, Vector3 normal, Color planeColor, float planeScale=2f,float drawTime=5)
+        public static void DrawLinePlane(Vector3 position, Vector3 normal, Color planeColor, float planeScale=2f,float drawTime=5)
         {
             Vector3 v3;
 
@@ -461,6 +461,44 @@ namespace FuzzPhyte.Utility
         public const string OVR_PrimaryGrip = "Oculus_CrossPlatform_PrimaryHandTrigger";
         public const string OVR_SecondaryGrip = "Oculus_CrossPlatform_SecondaryHandTrigger";
         #endregion
+    }
+    /// <summary>
+    /// Initial interface for all simple tools
+    /// </summary>
+    public interface IFPTool
+    {
+        public virtual void Initialize(FP_Data data)
+        {}
+        public virtual bool ActivateTool()
+        {
+            Debug.LogError($"Implement Activate!");
+            return false;
+        }
+        public virtual bool StartTool()
+        {
+            Debug.LogError($"Implement Start!");
+            return false;
+        }
+        public virtual bool UseTool()
+        {
+            Debug.LogError($"Implement Use!");
+            return false;
+        }
+        public virtual bool EndTool()
+        {
+            Debug.LogError($"Implement End!");
+            return false;
+        }
+        public virtual bool DeactivateTool()
+        {
+            Debug.LogError($"Implement Deactivated");
+            return false;
+        }
+        public virtual bool ForceDeactivateTool()
+        {
+            Debug.LogError($"Implement Forced Deactivation!");
+            return false;
+        }
     }
     public interface IFPUIEventListener<T> where T : class
     {
