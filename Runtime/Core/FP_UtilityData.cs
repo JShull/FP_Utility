@@ -186,10 +186,20 @@ namespace FuzzPhyte.Utility
         /// <param name="mousePosition"></param>
         /// <param name="plane"></param>
         /// <returns></returns>
-        public static (bool,Vector3) GetMouseWorldPositionOnPlane(Camera camera, Vector3 mousePosition, Plane plane)
+        public static (bool,Vector3) GetMouseWorldPositionOnPlane(Camera camera, Vector2 mousePosition, Plane plane)
         {
-            //Plane customPlane = new Plane(Vector3.forward, new Vector3(0, 0, 10)); 
-            Ray mouseRay = camera.ScreenPointToRay(mousePosition);
+            //Plane customPlane = new Plane(Vector3.forward, new Vector3(0, 0, 10));
+            Ray mouseRay;
+            if (camera.orthographic)
+            {
+                Vector3 mouseWorld = camera.ScreenToWorldPoint(new Vector3(mousePosition.x,mousePosition.y, camera.nearClipPlane));
+                mouseRay = new Ray(mouseWorld, camera.transform.forward);
+            }
+            else
+            {
+                mouseRay = camera.ScreenPointToRay(mousePosition);
+            }
+                
             if (plane.Raycast(mouseRay, out float distance))
             {
                 return (true,mouseRay.GetPoint(distance));
@@ -352,8 +362,38 @@ namespace FuzzPhyte.Utility
             }
             return v;
         }
+        /// <summary>
+        /// Debug DrawLine
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="normal"></param>
+        /// <param name="planeColor"></param>
+        public static void MakePlane(Vector3 position, Vector3 normal, Color planeColor, float planeScale=2f,float drawTime=5)
+        {
+            Vector3 v3;
+
+            if (normal.normalized != Vector3.forward)
+                v3 = Vector3.Cross(normal, Vector3.forward).normalized * planeScale;
+            else
+                v3 = Vector3.Cross(normal, Vector3.up).normalized * planeScale ;
+
+            var corner0 = position + v3;
+            var corner2 = position - v3;
+            var q = Quaternion.AngleAxis(90.0f, normal);
+            v3 = q * v3;
+            var corner1 = position + v3;
+            var corner3 = position - v3;
+
+            Debug.DrawLine(corner0, corner2, planeColor, drawTime);
+            Debug.DrawLine(corner1, corner3, planeColor, drawTime);
+            Debug.DrawLine(corner0, corner1, planeColor, drawTime);
+            Debug.DrawLine(corner1, corner2, planeColor, drawTime);
+            Debug.DrawLine(corner2, corner3, planeColor, drawTime);
+            Debug.DrawLine(corner3, corner0, planeColor, drawTime);
+            Debug.DrawRay(position, normal, Color.blue, drawTime);
+        }
         #endregion
-    
+
         public static FP_BoundingBoxInfo? CreateBoundingBox(Vector3 worldPosition, Quaternion worldRotation, Renderer objectRenderer)
         {
             
