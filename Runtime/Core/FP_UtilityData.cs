@@ -499,6 +499,21 @@ namespace FuzzPhyte.Utility
             Debug.LogError($"Implement Forced Deactivation!");
             return false;
         }
+        public virtual bool LockTool()
+        {
+            Debug.LogError($"Implement Lock!");
+            return false;
+        }
+        public virtual bool UnlockTool()
+        {
+            Debug.LogError($"Implement Unlock!");
+            return false;
+        }
+        public virtual FPToolState ReturnState()
+        {
+            Debug.LogError($"Implement ReturnState!");
+            return FPToolState.NA;
+        }
     }
     public interface IFPUIEventListener<T> where T : class
     {
@@ -517,6 +532,18 @@ namespace FuzzPhyte.Utility
         void ResetMotion();
         void EndMotion();
         void OnDrawGizmos();
+    }
+    [Serializable]
+    public enum FPToolState
+    {
+        Deactivated = 0,
+        Activated = 1,
+        Starting = 2,
+        ActiveUse = 3,
+        Ending = 9,
+        Locked = 66,
+        Unlocked = 99,
+        NA = 1000,
     }
     public interface IFPTimer<T>
     {
