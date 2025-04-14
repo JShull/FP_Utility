@@ -138,5 +138,12 @@ namespace FuzzPhyte.Utility
             // Check if the front (smallest) item is 'item'
             return data[0].Equals(item);
         }
+        /// <summary>
+        /// Only should be called when we need to reset something from say a data file coming in
+        /// </summary>
+        public void ResetAndClear()
+        {
+            data.Clear();
+        }
     }
 }
