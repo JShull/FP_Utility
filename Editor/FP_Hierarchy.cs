@@ -6,7 +6,7 @@ namespace FuzzPhyte.Utility.Editor
     public static class FP_Hierarchy
     {
         #region Move to Top Hierarchy
-        [MenuItem("GameObject/FuzzPhyte/Hierarchy Top",false,0)]
+        [MenuItem("GameObject/FuzzPhyte/Hierarchy/To the Top",false,0)]
         private static void MoveToTop()
         {
             // Get the currently selected GameObject
@@ -36,14 +36,14 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
         // Validate the menu item to make sure it is only shown when a GameObject is selected
-        [MenuItem("GameObject/FuzzPhyte/Hierarchy Top", true)]
+        [MenuItem("GameObject/FuzzPhyte/Hierarchy/To the Top", true)]
         private static bool ValidateMoveToTop()
         {
             return Selection.activeGameObject != null;
         }
         #endregion
         #region Collapse Nested
-        [MenuItem("GameObject/FuzzPhyte/Collapse All Items", false, 1)]
+        [MenuItem("GameObject/FuzzPhyte/Hierarchy/Collapse All", false, 100)]
         private static void CollapseAllHierarchyItems()
         {
             // Save the currently selected GameObject

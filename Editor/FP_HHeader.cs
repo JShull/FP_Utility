@@ -28,6 +28,8 @@
         private static Texture2D hhSelectAllIconActive;
         private static bool dragSelectionActive;
         private static string selectedObjectName;
+        public static bool IsEnabled => EditorPrefs.GetBool(FP_UtilityData.FP_HHeader_ENABLED_KEY+ "_" + SceneManager.GetActiveScene().name, true);
+
         static FP_HHeader()
         {
             Debug.LogWarning($"FP_HHeader: Editor Setup Initialized");
@@ -65,6 +67,7 @@
             {
                 return;
             }
+            if (!IsEnabled) return;
             Scene activeScene = SceneManager.GetActiveScene();
             bool dirtyState = false;
            
@@ -214,6 +217,7 @@
         {
             // Clear and reset foldout states when a new scene is opened
             //Debug.LogWarning($"FP_HHeader: Scene Changed... Resetting Foldout States");
+            if (!IsEnabled) return;
             foldoutStates.Clear();
             previousNames.Clear();
             //these resets my data
@@ -249,6 +253,7 @@
         }
         private static void OnSelectionChanged()
         {
+            if (!IsEnabled) return;
             // Get the currently selected object in the scene
             if (EditorWindow.focusedWindow != null && EditorWindow.focusedWindow.titleContent.text == "Scene")
             {
@@ -303,7 +308,8 @@
         }
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
         {
-            if(state == PlayModeStateChange.EnteredPlayMode)
+            if (!IsEnabled) return;
+            if (state == PlayModeStateChange.EnteredPlayMode)
             {
                 //about to enter play mode
                 editRuntimeFoldoutStates = new Dictionary<string, bool>(foldoutStates);
@@ -329,7 +335,7 @@
         }
         private static void OnHierarchyWindowItemOnGUI(int instanceID, Rect selectionRect)
         {
-            
+            if (!IsEnabled) return;
             // Get the GameObject associated with this hierarchy item
             GameObject obj = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
             //get position in the inspector
@@ -848,8 +854,57 @@
         }
         #endregion
         #region Menu Functions
+        [MenuItem("FuzzPhyte/Utility/Header/Enable FP_HHeader",false,20)]
+        private static void ToggleHeaderMenuMain() => ToggleHeaderSystem();
+        [MenuItem("FuzzPhyte/Utility/Header/Enable FP_HHeader", true)]
+        private static bool ValidateHeaderMenuMain()
+        {
+            ValidateHeaderMenu("FuzzPhyte/Utility/Header/Enable FP_HHeader");
+            return true;
+        }
+
+
+        [MenuItem("GameObject/FuzzPhyte/Header/Enable FP_HHeader", false, 20)]
+        private static void ToggleHeaderMenuHierarchy() => ToggleHeaderSystem();
+        [MenuItem("GameObject/FuzzPhyte/Header/Enable FP_HHeader", true)]
+        private static bool ValidateHeaderMenuHierarchy()
+        {
+            ValidateHeaderMenu("GameObject/FuzzPhyte/Header/Enable FP_HHeader");
+            return true;
+        }
         
-        [MenuItem("GameObject/FuzzPhyte/Header:Expand Z Sections", false, 51)]
+        
+        [MenuItem("Assets/FuzzPhyte/Header/Enable FP_HHeader", false, 20)]
+        private static void ToggleHeaderMenuAssets() => ToggleHeaderSystem();
+
+        [MenuItem("Assets/FuzzPhyte/Header/Enable FP_HHeader", true)]
+        private static bool ValidateHeaderMenuAssets()
+        {
+            ValidateHeaderMenu("Assets/FuzzPhyte/Header/Enable FP_HHeader");
+            return true;
+        }
+        private static void ToggleHeaderSystem()
+        {
+            bool newValue = !IsEnabled;
+            EditorPrefs.SetBool(FP_UtilityData.FP_HHeader_ENABLED_KEY + "_" + SceneManager.GetActiveScene().name, newValue);
+            Debug.LogWarning($"FP_HHeader is now {(newValue ? "Enabled" : "Disabled")}");
+
+            if (!newValue)
+            {
+                UnhideAllInHierarchy(); // custom function you already have
+            }
+            else
+            {
+                ResetSceneData();
+            }
+            EditorApplication.RepaintHierarchyWindow();
+        }
+        private static void ValidateHeaderMenu(string path)
+        {
+            Menu.SetChecked(path, IsEnabled);
+        }
+        
+        [MenuItem("GameObject/FuzzPhyte/Header/Expand Z Sections", false, 51)]
         private static void UnhideAllInHierarchy()
         {
             // Iterate over all GameObjects in the scene
@@ -880,7 +935,7 @@
             SaveFoldoutStatesToPrefs();
         }
         // Method to collapse all custom sections
-        [MenuItem("GameObject/FuzzPhyte/Header:Collapse Z Sections", false, 52)]
+        [MenuItem("GameObject/FuzzPhyte/Header/Collapse Z Sections", false, 52)]
         private static void CollapseZCustomSections()
         {
             // Collect all keys to modify in a separate list
@@ -903,7 +958,7 @@
             EditorApplication.RepaintHierarchyWindow();
             SaveFoldoutStatesToPrefs();
         }
-        [MenuItem("GameObject/FuzzPhyte/Header:Reset Z Sections Data", false, 53)]
+        [MenuItem("GameObject/FuzzPhyte/Header/Reset Z Sections Data", false, 53)]
         
         private static void ResetSceneData()
         {
@@ -917,7 +972,7 @@
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
         }
-        [MenuItem("Assets/FuzzPhyte/Header: Create Headers", false, 50)]
+        [MenuItem("Assets/FuzzPhyte/Header/Create Headers", false, 50)]
         private static void CreateHeadersFromData()
         {
             if (Application.isPlaying)
@@ -972,7 +1027,7 @@
                 Debug.LogWarning("Please select a valid FP_HHeaderData asset.");
             }
         }
-        [MenuItem("Assets/FuzzPhyte/Header: Save Headers", false, 51)]
+        [MenuItem("Assets/FuzzPhyte/Header/Save Headers", false, 51)]
         private static void CreateHeaderDataFile()
         {
             var asset = ScriptableObject.CreateInstance<FP_HHeaderData>();
@@ -1022,6 +1077,7 @@
 
             Debug.LogWarning($"FP_HHeader: Cleared all Editor Prefs tied to the scene: {activeScene.name}");
         }
+
         
         #endregion
     }
