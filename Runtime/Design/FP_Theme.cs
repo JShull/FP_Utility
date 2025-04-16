@@ -46,6 +46,7 @@ namespace FuzzPhyte.Utility
         [Tooltip("Description of the theme.")]
         [TextArea(2, 4)]
         public string Description;
-
+        [TextArea(2,3)]
+        public string Notes;
     }
 }

@@ -21,6 +21,7 @@ namespace FuzzPhyte.Utility
     public class FP_Timer : MonoBehaviour,IFPTimer<TimerData>
     {
         protected static FP_Timer _instance;
+        public bool DontDestroy=false;
         public static FP_Timer CCTimer { get { return _instance; } }
         public virtual void Awake()
         {
@@ -31,6 +32,10 @@ namespace FuzzPhyte.Utility
             else
             {
                 _instance = this;
+            }
+            if (DontDestroy) 
+            {
+                DontDestroyOnLoad(this.gameObject);
             }
         }
         protected PriorityQueue<TimerData> timers = new PriorityQueue<TimerData>();
