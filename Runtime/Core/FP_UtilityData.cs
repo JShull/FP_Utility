@@ -902,6 +902,14 @@ namespace FuzzPhyte.Utility
         Subtitles = 2,
         Translation = 3,
     }
+    [Serializable]
+    public enum FPImpactType
+    {
+        NA = 0,
+        Low = 1,
+        Medium =2,
+        High = 3,
+    }
     //keep tabs on what languages we could be using for a given object
     [Serializable]
     public struct FP_Multilingual
