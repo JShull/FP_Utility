@@ -809,6 +809,19 @@ namespace FuzzPhyte.Utility
         Reading_Writing, // books, meta text, table of contents, poster, printed text somewhere, journal etc.
     }
     [Serializable]
+    public enum FP_VocabSupport
+    {
+        None=0,
+        Age,
+        Color,
+        Material,
+        Opinion,
+        Purpose,
+        Shape,
+        Size,
+        Texture
+    }
+    [Serializable]
     public enum FP_VocabAction
     {
         None,       // Default action
