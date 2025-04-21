@@ -661,7 +661,6 @@ namespace FuzzPhyte.Utility
     /// Core 'transition' for all things sequence related
     /// </summary>
     [Serializable]
-
     public enum SequenceTransition
     {
         NA = 0,
@@ -677,7 +676,6 @@ namespace FuzzPhyte.Utility
     /// Different 'types' of overlays we might have
     /// </summary>
     [Serializable]
-
     public enum OverlayType 
     {   
         NA,
@@ -688,7 +686,6 @@ namespace FuzzPhyte.Utility
         Vocabulary 
     };
     [Serializable]
-
     public enum NPCHackState
     {
         NA,
@@ -697,7 +694,6 @@ namespace FuzzPhyte.Utility
         Signalling
     }
     [Serializable]
-
     public enum NPCHackTalkingState
     {
         NA,
@@ -812,14 +808,16 @@ namespace FuzzPhyte.Utility
     public enum FP_VocabSupport
     {
         None=0,
-        Age,
-        Color,
-        Material,
-        Opinion,
-        Purpose,
-        Shape,
-        Size,
-        Texture
+        Beauty = 1,
+        Age = 2,
+        Goodness = 3,
+        Size = 4,
+        Shape = 5,
+        Color =6,
+        Origin = 7,
+        Material =8,
+        Purpose=9,
+        Number = 10,
     }
     [Serializable]
     public enum FP_VocabAction
@@ -1010,7 +1008,7 @@ namespace FuzzPhyte.Utility
         TechnologyStrands,
         Career
     }
-#endregion
+    #endregion
     /// <summary>
     /// Hold my custom list of items that are serializable so I can save editor prefs and other items
     /// </summary>
