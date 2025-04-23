@@ -415,7 +415,20 @@ namespace FuzzPhyte.Utility
                 Rotation = worldRotation
             };
         }
-        
+
+        /// <summary>
+        /// Return the top level parent of a transform
+        /// </summary>
+        /// <param name="transform"></param>
+        /// <returns></returns>
+        public static Transform GetTopLevelParent(Transform transform)
+        {
+            while (transform.parent != null)
+            {
+                transform = transform.parent;
+            }
+            return transform;
+        }
     }
     public static class FP_SerilizeDeserialize
     {
