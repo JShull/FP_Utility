@@ -7,5 +7,6 @@ namespace FuzzPhyte.Utility
     public class FP_SelectionBase : MonoBehaviour
     {
         public FP_Tag MainFPTag;
+        public FP_Tag HelperTag;
     }
 }

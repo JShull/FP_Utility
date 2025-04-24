@@ -1,0 +1,16 @@
+{
+    "name": "com.fuzzphyte.utility.attributes",
+    "rootNamespace": "FuzzPhyte.Utility.Attributes",
+    "references": [
+        "GUID:b2274f1409ce26f40919f89f9d4f667c"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
