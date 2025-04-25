@@ -62,6 +62,16 @@ namespace FuzzPhyte.Utility.Editor
         /// Draw a line
         /// </summary>
         /// <param name="lineColor">Color of a line</param>
+        public static void DrawUILine(Color lineColor, Rect passedRect)
+        {
+            Handles.color = lineColor;
+            Handles.DrawLine(new Vector2(passedRect.x, passedRect.y), new Vector2(passedRect.width, passedRect.y));
+            
+        }
+        /// <summary>
+        /// Draw a line
+        /// </summary>
+        /// <param name="lineColor">Color of a line</param>
         /// <param name="leftPointShift">Negative value indents left to right</param>
         public static void DrawUILine(Color lineColor, float leftPointShift)
         {
