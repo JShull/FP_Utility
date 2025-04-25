@@ -214,7 +214,7 @@ namespace FuzzPhyte.Utility
             uint seed = (uint)(ticks ^ (ticks >> 32));
             return seed;
         }
-        public static (bool,float) ReturnUnitByPixels(float refPixelPerUnit,float pixels,UnitOfMeasure units)
+        public static (bool,float) ReturnUnitByPixels(float refPixelPerUnit,float pixels,UnitOfMeasure units, float customValue=1)
         {
             var pixelPerUnit = pixels / refPixelPerUnit;
             switch(units)
@@ -235,10 +235,13 @@ namespace FuzzPhyte.Utility
                     return (true,pixelPerUnit / 1609.34f);
                 case UnitOfMeasure.NauticalMiles:
                     return (true,pixelPerUnit / 1852f);
+                case UnitOfMeasure.Custom:
+                    return (true, pixelPerUnit * customValue);
+
             }
             return (false,1);
         }
-        public static Vector3 ReturnVector3InMeters(Vector3 measure, UnitOfMeasure units)
+        public static Vector3 ReturnVector3InMeters(Vector3 measure, UnitOfMeasure units, float customValue=1f)
         {
             switch (units)
             {
@@ -258,10 +261,12 @@ namespace FuzzPhyte.Utility
                     return measure * 1609.34f;
                 case UnitOfMeasure.NauticalMiles:
                     return measure * 1852f;
+                case UnitOfMeasure.Custom:
+                    return measure * customValue;
             }
             return measure;
         }
-        public static (bool,float) ReturnValueInMeters (float measure, UnitOfMeasure units)
+        public static (bool,float) ReturnValueInMeters (float measure, UnitOfMeasure units, float customValue=1f)
         {
             switch (units)
             {
@@ -281,6 +286,8 @@ namespace FuzzPhyte.Utility
                     return (true, measure*1609.34f);
                 case UnitOfMeasure.NauticalMiles:
                     return (true, measure*1852f);
+                    case UnitOfMeasure.Custom:
+                    return (true, measure * customValue);
             }
             return (false, measure);
         }
@@ -654,6 +661,7 @@ namespace FuzzPhyte.Utility
         Feet = 11,
         Miles=12,
         NauticalMiles=13,
+        Custom=99
     }
     /// <summary>
     /// Core 'status' for all things sequence related
