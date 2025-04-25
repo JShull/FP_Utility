@@ -67,6 +67,22 @@ namespace FuzzPhyte.Utility.Audio
                 ActivateRamp();
             }
         }
+        /// <summary>
+        /// public method to set up the audio source based on an already assigned clip
+        /// </summary>
+        public float SetupRampAudioRemote()
+        {
+            SetupEndFadeTime();
+            return EndTime;
+        }
+        /// <summary>
+        /// Public method to stop the audio abruptly
+        /// </summary>
+        public void AbruptlyStopAudio()
+        {
+            isActive = false;
+            FPAudioSource.Stop();
+        }
 
         public void ActivateRamp()
         {
@@ -113,9 +129,10 @@ namespace FuzzPhyte.Utility.Audio
                 }
                 audioClipLengthConfirmed = true;
                 // Adjust fadeOutStartTime based on EndTime
-                fadeOutStartTime = EndTime - FadeOutDuration;
+                fadeOutStartTime = EndTime - FadeOutDuration;   
             }
         }
+      
         void Update()
         {
             if (!isActive || audioEnded) return;
