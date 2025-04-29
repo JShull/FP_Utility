@@ -82,7 +82,7 @@
             }
             
             var foldoutKeys = new List<string>(foldoutStates.Keys);
-
+            Debug.LogWarning($"FP_HHeader: Keys Length: {foldoutKeys.Count}");
             for (int i = 0; i < foldoutKeys.Count; i++)
             {
                 var key = foldoutKeys[i];
