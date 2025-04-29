@@ -201,7 +201,8 @@
                         if (!foldoutStates.ContainsKey(obj.name))
                         {
                             foldoutStates.Add(obj.name, previousState);
-                            //previousNames.Add(obj.name,)
+                            //JOHN
+                            previousNames.Add(obj.name, key);
                         }
                         else
                         {
