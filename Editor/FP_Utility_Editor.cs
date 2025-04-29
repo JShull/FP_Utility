@@ -406,25 +406,16 @@ namespace FuzzPhyte.Utility.Editor
             for (int i = 0; i < allGameObjects.Length; i++)
             {
                 var obj = allGameObjects[i];
-                
-                if (obj.name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase))
+                if (obj != null)
                 {
-                    bool isPrefabInstance = PrefabUtility.GetPrefabInstanceStatus(obj) == PrefabInstanceStatus.Connected;
-                    if(isPrefabInstance || string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))
+                    if (obj.name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase))
                     {
-                        return obj;
+                        bool isPrefabInstance = PrefabUtility.GetPrefabInstanceStatus(obj) == PrefabInstanceStatus.Connected;
+                        if (isPrefabInstance || string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))
+                        {
+                            return obj;
+                        }
                     }
-                    /*
-                    if (PrefabUtility.GetPrefabAssetType(obj) == PrefabAssetType.NotAPrefab)
-                    {
-                        return obj;
-                    }
-                    
-                    if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))
-                    {
-                        return obj; // Return the first matching GameObject
-                    }
-                    */
                 }
             }
             return null;
