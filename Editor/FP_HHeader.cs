@@ -80,12 +80,14 @@
                
                 return;
             }
-            
+            //i don't think foldoutStates is getting updated after we have a sync/find issue we probably need to read from the file each time or have an editor pref variable flag
+
             var foldoutKeys = new List<string>(foldoutStates.Keys);
             Debug.LogWarning($"FP_HHeader: Keys Length: {foldoutKeys.Count}");
             for (int i = 0; i < foldoutKeys.Count; i++)
             {
                 var key = foldoutKeys[i];
+                Debug.LogWarning($"FP_HHeader: Key {key}, index {i}");
                 GameObject obj = FP_Utility_Editor.FindGameObjectByNameInactive(key);
                
                 if (obj!=null)
