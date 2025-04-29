@@ -87,12 +87,12 @@
             for (int i = 0; i < foldoutKeys.Count; i++)
             {
                 var key = foldoutKeys[i];
-                Debug.LogWarning($"FP_HHeader: Key {key}, index {i}");
+                
                 GameObject obj = FP_Utility_Editor.FindGameObjectByNameInactive(key);
-               
+                
                 if (obj!=null)
                 {
-                    
+                    Debug.LogWarning($"FP_HHeader: Key {key}, index {i}, obj = {obj.name}");
                     //Debug.LogWarning($"GameObject Found by Key which is the name: {obj.name}");
                     var nameCheckResults = PreviousNameCheck(key, obj, loopLookCount);
                     loopLookCount = nameCheckResults.Item2;
@@ -107,6 +107,7 @@
                 {
                     // we didn't find the object anymore, so we need to confirm that it wasn't in the previousName
                     //Debug.LogError($"We didn't find the gameobject, was looking for {key} which an object should be in the Hierarchy, maybe the name changed?");
+                    Debug.LogWarning($"FP_HHeader: Key {key}, index {i}, obj = null");
                     var nameCheckResults = PreviousNameCheck(key, null,loopLookCount);
                     loopLookCount = nameCheckResults.Item2;
                     if (!nameCheckResults.Item1)
