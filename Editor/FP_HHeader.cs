@@ -83,7 +83,7 @@
             //i don't think foldoutStates is getting updated after we have a sync/find issue we probably need to read from the file each time or have an editor pref variable flag
 
             var foldoutKeys = new List<string>(foldoutStates.Keys);
-            Debug.LogWarning($"FP_HHeader: Keys Length: {foldoutKeys.Count}");
+            //Debug.LogWarning($"FP_HHeader: Keys Length: {foldoutKeys.Count}");
             for (int i = 0; i < foldoutKeys.Count; i++)
             {
                 var key = foldoutKeys[i];
@@ -92,7 +92,7 @@
                 
                 if (obj!=null)
                 {
-                    Debug.LogWarning($"FP_HHeader: Key {key}, index {i}, obj = {obj.name}");
+                    //Debug.LogWarning($"FP_HHeader: Key {key}, index {i}, obj = {obj.name}");
                     //Debug.LogWarning($"GameObject Found by Key which is the name: {obj.name}");
                     var nameCheckResults = PreviousNameCheck(key, obj, loopLookCount);
                     loopLookCount = nameCheckResults.Item2;
@@ -135,7 +135,7 @@
             if (previousNames.ContainsKey(key))
             {
                 var prevName = previousNames[key];
-                Debug.LogWarning($"FP_HHeader: key = {key}, value = {prevName}");
+                //Debug.LogWarning($"FP_HHeader: key = {key}, value = {prevName}");
                 if (obj == null)
                 {
                     //the assumption is to use the current name of the last item changed
