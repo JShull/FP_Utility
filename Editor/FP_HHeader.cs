@@ -113,6 +113,7 @@
                         foldoutStates.Remove(key);
                         if (previousNames.ContainsKey(key))
                         {
+                            Debug.LogWarning($"FP_HHeader: Removing a key, {key} because this object failed to come back.");
                             previousNames.Remove(key);
                         }
                         dirtyState = true;
