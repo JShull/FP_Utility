@@ -220,8 +220,8 @@
                     }
                     
                 }
-                EditorApplication.RepaintHierarchyWindow();
                 SaveFoldoutStatesToPrefs();
+                EditorApplication.RepaintHierarchyWindow();
             }
         }
         private static void OnSceneOpened(Scene scene)
@@ -304,10 +304,11 @@
                                 // Unfold the section to reveal this object
                                 foldoutStates[key] = true;
                                 ShowSubsequentObjects(sceneRootObject);
+                                SaveFoldoutStatesToPrefs();
                                 EditorApplication.RepaintHierarchyWindow();
                                 // Highlight the original selected item
                                 EditorGUIUtility.PingObject(selectedObj);
-                                SaveFoldoutStatesToPrefs();
+                                
                                 Debug.LogError($"FP_HHeader: Selection changed?");
                                 break;  // Stop after expanding the first relevant root object
                             }
@@ -482,6 +483,7 @@
                 {
                     //Debug.LogWarning($"Dirty state!");
                     SaveFoldoutStatesToPrefs();
+                    EditorApplication.RepaintHierarchyWindow();
                 }
             }
         }
