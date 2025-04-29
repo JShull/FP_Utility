@@ -201,15 +201,16 @@
                         if (!foldoutStates.ContainsKey(obj.name))
                         {
                             foldoutStates.Add(obj.name, previousState);
-                            //JOHN
-                            previousNames.Add(obj.name, key);
                         }
                         else
                         {
                             ShowSubsequentObjects(obj);
                         }
+                        //JOHN
+                        previousNames.Add(obj.name, key);
                         lastChangedObjectName = obj.name;
                         Debug.LogWarning($"FP_HHeader: Updating last changed object:{prevName}, now = {lastChangedObjectName}");
+                    
                     }
                     else
                     {
