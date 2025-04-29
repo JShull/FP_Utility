@@ -98,7 +98,7 @@
                     loopLookCount = nameCheckResults.Item2;
                     if (!nameCheckResults.Item1)
                     {
-                        Debug.LogWarning($"FP_HHeader: A Previous Name Look Failed {key} this wasn't in the cache, lets add it, loop count {loopLookCount}");
+                        Debug.LogWarning($"FP_HHeader: A Previous Name Look Failed with key: {key} this wasn't in the cache, lets add that in for a value: {obj.name}, loop count {loopLookCount}");
                         previousNames.Add(key, obj.name);
                         dirtyState = true;
                     }
@@ -199,6 +199,7 @@
                         if (!foldoutStates.ContainsKey(obj.name))
                         {
                             foldoutStates.Add(obj.name, previousState);
+                            //previousNames.Add(obj.name,obj.)
                         }
                         else
                         {
