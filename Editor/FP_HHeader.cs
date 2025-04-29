@@ -135,6 +135,7 @@
             if (previousNames.ContainsKey(key))
             {
                 var prevName = previousNames[key];
+                Debug.LogWarning($"FP_HHeader: key = {key}, value = {prevName}");
                 if (obj == null)
                 {
                     //the assumption is to use the current name of the last item changed
@@ -200,7 +201,7 @@
                         if (!foldoutStates.ContainsKey(obj.name))
                         {
                             foldoutStates.Add(obj.name, previousState);
-                            //previousNames.Add(obj.name,obj.)
+                            //previousNames.Add(obj.name,)
                         }
                         else
                         {
