@@ -207,7 +207,15 @@
                             ShowSubsequentObjects(obj);
                         }
                         //JOHN
-                        previousNames.Add(obj.name, key);
+                        if (previousNames.ContainsKey(obj.name))
+                        {
+                            //update the value
+                            previousNames[obj.name] = key;
+                        }
+                        else
+                        {
+                            previousNames.Add(obj.name, key);
+                        }
                         lastChangedObjectName = obj.name;
                         Debug.LogWarning($"FP_HHeader: Updating last changed object:{prevName}, now = {lastChangedObjectName}");
                     
