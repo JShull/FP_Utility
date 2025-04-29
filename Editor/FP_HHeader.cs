@@ -96,7 +96,7 @@
                     loopLookCount = nameCheckResults.Item2;
                     if (!nameCheckResults.Item1)
                     {
-                        Debug.LogWarning($"FP_HHeader: A Previous Name Look Failed |{key}| this wasn't in the cache, lets add it");
+                        Debug.LogWarning($"FP_HHeader: A Previous Name Look Failed {key} this wasn't in the cache, lets add it, loop count {loopLookCount}");
                         previousNames.Add(key, obj.name);
                         dirtyState = true;
                     }
@@ -137,7 +137,11 @@
                     //Debug.LogWarning($"We had our Obj return null, lets use the name of the last object changed |{lastChangedObjectName}|");
                     if (lastChangedObjectName == "") 
                     {
-                        //Debug.LogWarning($"Blank...");
+                        Debug.LogWarning($"Blank Name?");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"looking for last changed object name= {lastChangedObjectName}");
                     }
                     obj = FP_Utility_Editor.FindGameObjectByNameInactive(lastChangedObjectName);
                     if (obj != null)
