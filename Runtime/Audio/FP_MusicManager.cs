@@ -14,7 +14,7 @@ namespace FuzzPhyte.Utility.Audio
         public bool DontDestroy;
 
         [Header("Music Tracks")]
-        public List<MusicTrack> MusicTracks;
+        public List<FP_MusicTrack> MusicTracks;
 
         [Header("Audio Sources")]
         public AudioSource SourceA;
@@ -59,7 +59,7 @@ namespace FuzzPhyte.Utility.Audio
         /// Main PlayTrack w/Fade option
         /// </summary>
         /// <param name="track"></param>
-        public void PlayTrackFade(MusicTrack track)
+        public void PlayTrackFade(FP_MusicTrack track)
         {
             PlayTrack(track.name, true);
         }
@@ -67,11 +67,11 @@ namespace FuzzPhyte.Utility.Audio
         /// Main PlayTrack w/out Fade Option
         /// </summary>
         /// <param name="track"></param>
-        public void PlayTrackNoFade(MusicTrack track)
+        public void PlayTrackNoFade(FP_MusicTrack track)
         {
             PlayTrack(track.name, false);
         }
-        public virtual void PlayTrack(MusicTrack track, bool fade, float overrideVolume)
+        public virtual void PlayTrack(FP_MusicTrack track, bool fade, float overrideVolume)
         {
             DefaultVolume = overrideVolume;
             PlayTrack(track.name, fade);
@@ -114,7 +114,7 @@ namespace FuzzPhyte.Utility.Audio
             {
                 int rand=0;
                 int tempLastIndex = 0;
-                MusicTrack track;
+                FP_MusicTrack track;
                 do
                 {
                     rand = Random.Range(0, emoTracks.Count);
@@ -125,14 +125,14 @@ namespace FuzzPhyte.Utility.Audio
                 PlayClip(track.Clip, fade);
             }
         }
-        public void AddTrack(MusicTrack track)
+        public void AddTrack(FP_MusicTrack track)
         {
             if (!MusicTracks.Contains(track))
             {
                 MusicTracks.Add(track);
             }
         }
-        public void RemoveTrack(MusicTrack track)
+        public void RemoveTrack(FP_MusicTrack track)
         {
             if (MusicTracks.Contains(track))
             {
