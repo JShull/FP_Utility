@@ -61,7 +61,7 @@ namespace FuzzPhyte.Utility.Audio
         /// <param name="track"></param>
         public void PlayTrackFade(FP_MusicTrack track)
         {
-            PlayTrack(track.name, true);
+            PlayTrack(track.Clip, true);
         }
         /// <summary>
         /// Main PlayTrack w/out Fade Option
@@ -69,12 +69,25 @@ namespace FuzzPhyte.Utility.Audio
         /// <param name="track"></param>
         public void PlayTrackNoFade(FP_MusicTrack track)
         {
-            PlayTrack(track.name, false);
+            PlayTrack(track.Clip, false);
         }
         public virtual void PlayTrack(FP_MusicTrack track, bool fade, float overrideVolume)
         {
             DefaultVolume = overrideVolume;
-            PlayTrack(track.name, fade);
+            PlayTrack(track.Clip, fade);
+        }
+        public virtual void PlayTrack(AudioClip clip,bool fade = true)
+        {
+            int index = MusicTracks.FindIndex(t => t.Clip == clip);
+            if (index != -1)
+            {
+                _lastIndex = index;
+                PlayClip(clip, fade);
+            }
+            else
+            {
+                Debug.LogWarning($"Track with {clip.name} not found.");
+            }
         }
         public virtual void PlayTrack(string name, bool fade = true)
         {
