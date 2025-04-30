@@ -3,7 +3,7 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
-
+using FuzzPhyte.Utility;
 namespace FuzzPhyte.Utility.Audio
 {
     public static class FP_AudioUtils
@@ -130,5 +130,15 @@ return null;
 
             }
         }
+    }
+    [CreateAssetMenu(fileName = "Music Track", menuName = "FuzzPhyte/Audio/Music Track", order = 6)]
+    public class MusicTrack:FP_Data
+    {
+        public string Name;
+        [TextArea(2,4)]
+        public string Description;
+        public AudioClip Clip;
+        [Tooltip("Filter against this later if needed")]
+        public EmotionalState MusicEmotionalState;
     }
 }

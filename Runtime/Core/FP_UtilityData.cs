@@ -603,6 +603,7 @@ namespace FuzzPhyte.Utility
     /// <summary>
     /// Enum representing generic character motion states.
     /// </summary>
+    [Serializable]
     public enum MotionState
     {
         NA,         // Default value, no specific state
@@ -623,6 +624,7 @@ namespace FuzzPhyte.Utility
     /// <summary>
     /// Enum representing generic dialogue/conversation states focusing on vocal strength.
     /// </summary>
+    [Serializable]
     public enum DialogueState
     {
         NA,         // Default value, no specific state
@@ -635,6 +637,7 @@ namespace FuzzPhyte.Utility
     /// <summary>
     /// Enum representing generic emotional states of the character.
     /// </summary>
+    [Serializable]
     public enum EmotionalState
     {
         Neutral,    // No strong emotions
