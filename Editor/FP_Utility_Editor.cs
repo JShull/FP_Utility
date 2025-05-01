@@ -22,6 +22,14 @@ namespace FuzzPhyte.Utility.Editor
         public static Color TextHoverColor = new Color(0.01f, 0.61f, 0.98f);
         public static Color TextMenuColor = Color.white;
         public static Color TextActiveColor = new Color(0.01f, 0.8f, 1f);
+        public static Color UnityEditorDarkGrey = new Color(0.1f, 0.1f, 0.1f,1);
+        public static Color UnityEditorGrey = new Color(0.2f, 0.2f, 0.2f, 1);
+        public static Color UnityEditorMiddleGrey = new Color(0.24f, 0.24f, 0.24f, 1);
+        public static Color UnityEditorLiteGrey = new Color(0.3f, 0.3f, 0.3f, 1);
+
+        public static int HeaderOneFontSize = 28;
+        public static int HeaderTwoFontSize = 20;
+        public static int HeaderThreeFontSize = 16;
         /// <summary>
         /// Return Color for editor window to help with state of sequence
         /// </summary>
@@ -110,8 +118,41 @@ namespace FuzzPhyte.Utility.Editor
             Handles.color = boxColor;
             Handles.DrawPolyLine(points);
         }
+        public static GUIStyle ReturnButtonStyle(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
+        {
+
+            GUIStyleState normalState = new GUIStyleState()
+            {
+                textColor = colorFont,
+            };
+
+            return new GUIStyle(GUI.skin.button)
+            {
+                fontStyle = styleFont,
+                normal = normalState,
+                alignment = anchorFont,
+            };
+        }
+        public static void BeginColoredVertical(Color color, float padding = 4f)
+        {
+            Rect rect = EditorGUILayout.BeginVertical(); // Reserve rect
+            GUILayout.Space(padding); // Space to ensure height
+
+            // Draw a solid color background behind the rect
+            GUI.color = color;
+            GUI.DrawTexture(rect, EditorGUIUtility.whiteTexture);
+            GUI.color = Color.white; // Reset to avoid GUI weirdness
+
+            //GUILayout.BeginVertical(); // Real content starts here
+        }
+
+        public static void EndColoredVertical()
+        {
+            //GUILayout.EndVertical(); // End real content
+            EditorGUILayout.EndVertical(); // End container
+        }
         #endregion
-        
+
         /// <summary>
         /// Return a GUIStyle
         /// </summary>
@@ -119,7 +160,6 @@ namespace FuzzPhyte.Utility.Editor
         /// <param name="styleFont">Style of Font</param>
         /// <param name="anchorFont">Anchor of Font</param>
         /// <returns></returns>
-        [Obsolete("Use FP_Utility_Editor.ReturnStyle instead")]
         public static GUIStyle ReturnStyle(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
         {
             GUIStyleState normalState = new GUIStyleState()
@@ -133,14 +173,57 @@ namespace FuzzPhyte.Utility.Editor
                 alignment = anchorFont
             };
         }
-        [Obsolete("Use FP_Utility_Editor.ReturnStyleWrap instead")]
+        public static GUIStyle ReturnHeaderOne(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
+        {
+            GUIStyleState normalState = new GUIStyleState()
+            {
+                textColor = colorFont,
+            };
+            return new GUIStyle(GUI.skin.label)
+            {
+                fontStyle = styleFont,
+                normal = normalState,
+                alignment = anchorFont,
+                fontSize = HeaderOneFontSize,
+                font = EditorStyles.boldFont
+            };
+        }
+        public static GUIStyle ReturnHeaderTwo(Color colorFont, FontStyle styleFont,TextAnchor anchorFont)
+        {
+            GUIStyleState normalState = new GUIStyleState()
+            {
+                textColor = colorFont,
+            };
+            return new GUIStyle(GUI.skin.label)
+            {
+                fontStyle = styleFont,
+                normal = normalState,
+                alignment = anchorFont,
+                fontSize = HeaderTwoFontSize,
+                font = EditorStyles.boldFont
+            };
+        }
+        public static GUIStyle ReturnHeaderThree(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
+        {
+            GUIStyleState normalState = new GUIStyleState()
+            {
+                textColor = colorFont,
+            };
+            return new GUIStyle(GUI.skin.label)
+            {
+                fontStyle = styleFont,
+                normal = normalState,
+                alignment = anchorFont,
+                fontSize = HeaderThreeFontSize,
+                font = EditorStyles.boldFont
+            };
+        }
         public static GUIStyle ReturnStyleWrap(Color colorFont, FontStyle styleFont, TextAnchor anchorFont, bool useWordWrap)
         {
             var newStyle = ReturnStyle(colorFont, styleFont, anchorFont);
             newStyle.wordWrap = useWordWrap;
             return newStyle;
         }
-        [Obsolete("Use FP_Utility_Editor.ReturnStyleWrap instead")]
         public static GUIStyle ReturnStyleRichText(Color colorFont, FontStyle styleFont, TextAnchor anchorFont)
         {
             var newStyle = ReturnStyle(colorFont, styleFont, anchorFont);

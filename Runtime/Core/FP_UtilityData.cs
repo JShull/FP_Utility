@@ -162,6 +162,7 @@ namespace FuzzPhyte.Utility
                 alignment = anchorFont
             };
         }
+        
         public static GUIStyle ReturnStyleWrap(Color colorFont, FontStyle styleFont, TextAnchor anchorFont, bool useWordWrap)
         {
             var newStyle = ReturnStyle(colorFont, styleFont, anchorFont);
@@ -174,8 +175,10 @@ namespace FuzzPhyte.Utility
             newStyle.richText = true;
             return newStyle;
         }
+       
+
         #region Gizmo Related
-        
+
         #endregion
         #endregion
         #region Units and Conversions

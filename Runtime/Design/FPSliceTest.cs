@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace FuzzPhyte.Utility
 {
-    [ExecuteInEditMode]
+ 
     public class FPSliceTest : MonoBehaviour
     {
         public Renderer MyMatRenderer;
