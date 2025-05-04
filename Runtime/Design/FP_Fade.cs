@@ -3,7 +3,7 @@ namespace FuzzPhyte.Utility
     using UnityEngine;
     using UnityEngine.UI;
     using System.Collections;
-    public class FP_Fade : MonoBehaviour
+    public class FP_Fade : MonoBehaviour,IFPOnStartSetup
     {
         [Header("3D Object Settings")]
         [Tooltip("Optional: Reference a 3D object's MeshRenderer to fade.")]
@@ -21,8 +21,14 @@ namespace FuzzPhyte.Utility
         public float fadeDuration = 1f;
         [Tooltip("If we want to make it not linear")]
         public AnimationCurve FadeCurve;
+        [SerializeField] protected bool onStartFade;
+        [SerializeField] protected bool startFadeIn;
+        public bool SetupStart { get => onStartFade; set => onStartFade=value; }
+        public delegate void FadeHandler(MeshRenderer mesh, Image canvasImg);
+        public event FadeHandler OnFadeStarted;
+        public event FadeHandler OnFadeEnded;
 
-        protected virtual void Start()
+        public virtual void Start()
         {
             if (objectRenderer != null)
             {
@@ -39,8 +45,19 @@ namespace FuzzPhyte.Utility
             {
                 imageStartColor = canvasImage.color;
             }
+            if (SetupStart)
+            {
+                if (startFadeIn)
+                {
+                    StartFadeIn();
+                }
+                else
+                {
+                    StartFadeOut();
+                }
+            }
         }
-
+#if UNITY_EDITOR
         [ContextMenu("Start Fade Out")]
         public virtual void StartFadeOut()
         {
@@ -53,11 +70,11 @@ namespace FuzzPhyte.Utility
             StopAllCoroutines();
             StartCoroutine(FadeRoutine(0f, 1f)); // Fade to opaque
         }
-
+#endif
         protected virtual IEnumerator FadeRoutine(float startAlpha, float endAlpha)
         {
             float elapsedTime = 0f;
-
+            OnFadeStarted?.Invoke(objectRenderer, canvasImage);
             while (elapsedTime < fadeDuration)
             {
                 elapsedTime += Time.deltaTime;
@@ -95,6 +112,7 @@ namespace FuzzPhyte.Utility
                 finalColor.a = endAlpha;
                 canvasImage.color = finalColor;
             }
+            OnFadeEnded?.Invoke(objectRenderer, canvasImage);
         }
     }
 }

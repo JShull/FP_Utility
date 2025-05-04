@@ -4,6 +4,7 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
 using FuzzPhyte.Utility;
+using UnityEngine.Events;
 namespace FuzzPhyte.Utility.Audio
 {
     public static class FP_AudioUtils
@@ -15,8 +16,8 @@ namespace FuzzPhyte.Utility.Audio
             public int samples;
             public int channels;
             public float[] samplesData;
-
         }
+        
         public static IEnumerator ConvertWavToAudioClip(AudioType URLAudioType, string text, AudioClip clip)
         {
 #if UNITY_EDITOR

@@ -8,11 +8,13 @@ namespace FuzzPhyte.Utility.Audio
     /// <summary>
     /// Easily allow A & B mixing
     /// </summary>
-    public class FP_MusicManager : MonoBehaviour
+    public class FP_MusicManager : MonoBehaviour, IFPDontDestroy
     {
         public static FP_MusicManager Instance;
-        public bool DontDestroy;
+        [SerializeField]protected bool dontDestroy;
+        public bool DontDestroy { get => dontDestroy; set => dontDestroy = value; }
 
+        [SerializeField] protected FPAudioMixerController mixerController;
         [Header("Music Tracks")]
         public List<FP_MusicTrack> MusicTracks;
 
@@ -32,7 +34,7 @@ namespace FuzzPhyte.Utility.Audio
         public string CurrentTrackName => _activeSource?.clip?.name;
         public AudioClip CurrentClip => _activeSource?.clip;
 
-        protected void Awake()
+        public void Awake()
         {
             if (Instance != null && Instance != this)
             {
@@ -176,6 +178,31 @@ namespace FuzzPhyte.Utility.Audio
         public void FadeInMusic(float duration = -1f)
         {
             StartCoroutine(FadeVolume(_activeSource, 0f, DefaultVolume, duration > 0 ? duration : FadeDuration));
+        }
+        #endregion
+
+        #region Mixer Related Functions
+        public void SetMixerValue(string exposedParameter, float dbVolume)
+        {
+            if (mixerController)
+            {
+                mixerController.FadeDown(exposedParameter, dbVolume);
+            }
+            else
+            {
+                Debug.LogError($"Not managing the mixer!");
+            }
+        }
+        public void ResetMixerValue(string exposedParameter)
+        {
+            if (mixerController)
+            {
+                mixerController.RestoreVolume(exposedParameter);
+            }
+            else
+            {
+                Debug.LogError($"Not managing the mixer!");
+            }
         }
         #endregion
         protected void PlayClip(AudioClip clip, bool fade)
