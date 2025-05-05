@@ -122,6 +122,81 @@ namespace FuzzPhyte.Utility
         }
         #endregion
         #region Design & GUIStyle & Gizmo Related
+        /// <summary>
+        /// Combine Meshes based on all meshes being under one parent transform
+        /// </summary>
+        /// <param name="meshParent"></param>
+        /// <param name="whereToPutMesh"></param>
+        public static void CombineMeshes(Transform meshParent, GameObject whereToPutMesh)
+        {
+            Dictionary<Material, List<CombineInstance>> materialToMeshCombines = new();
+
+            MeshFilter[] meshFilters = meshParent.GetComponentsInChildren<MeshFilter>();
+
+            foreach (MeshFilter mf in meshFilters)
+            {
+                MeshRenderer mr = mf.GetComponent<MeshRenderer>();
+                if (mr == null || mf.sharedMesh == null)
+                {
+                    continue;
+                }
+                Material[] materials = mr.sharedMaterials;
+                Mesh mesh = mf.sharedMesh;
+
+                for (int subMeshIndex = 0; subMeshIndex < mesh.subMeshCount; subMeshIndex++)
+                {
+                    Material material = materials.Length > subMeshIndex ? materials[subMeshIndex] : materials[0];
+
+                    if (!materialToMeshCombines.ContainsKey(material))
+                    {
+                        materialToMeshCombines[material] = new List<CombineInstance>();
+                    }
+                    CombineInstance ci = new CombineInstance
+                    {
+                        mesh = mesh,
+                        subMeshIndex = subMeshIndex,
+                        transform = mf.transform.localToWorldMatrix
+                    };
+                    materialToMeshCombines[material].Add(ci);
+                }
+
+                mf.gameObject.SetActive(false);
+            }
+
+            // Final mesh and materials
+            List<CombineInstance> finalCombines = new();
+            List<Material> finalMaterials = new();
+
+            foreach (var kvp in materialToMeshCombines)
+            {
+                Mesh subMesh = new Mesh();
+                //collapse all objects using the same material into a single mesh=true/true
+                subMesh.CombineMeshes(kvp.Value.ToArray(), true, true);
+                CombineInstance ci = new CombineInstance
+                {
+                    mesh = subMesh,
+                    subMeshIndex = 0,
+                    transform = Matrix4x4.identity
+                };
+
+                finalCombines.Add(ci);
+                finalMaterials.Add(kvp.Key);
+            }
+
+            Mesh finalMesh = new Mesh();
+            //stitch all per-material meshes into a single mesh with multiple submeshes = false/false
+            finalMesh.CombineMeshes(finalCombines.ToArray(), false, false); // create submeshes
+
+            MeshFilter mfFinal = whereToPutMesh.GetComponent<MeshFilter>();
+            if (mfFinal == null) mfFinal = whereToPutMesh.AddComponent<MeshFilter>();
+            mfFinal.mesh = finalMesh;
+
+            MeshRenderer mrFinal = whereToPutMesh.GetComponent<MeshRenderer>();
+            if (mrFinal == null) mrFinal = whereToPutMesh.AddComponent<MeshRenderer>();
+            mrFinal.sharedMaterials = finalMaterials.ToArray();
+            whereToPutMesh.SetActive(true);
+        }
+
         // <summary>
         /// Quick check on Material already set to transparent
         /// </summary>
