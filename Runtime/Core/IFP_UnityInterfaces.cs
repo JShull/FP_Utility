@@ -30,14 +30,12 @@ namespace FuzzPhyte.Utility
     /// Interface for forcing OnEnable/Disable
     /// Setup delegate to have others listen in
     /// </summary>
-    public interface IFPOnEnableDisableBroadcast
+    public interface IFPOnEnableDisable
     {
         public bool UseOnEnable { get; set; }
         public bool UseOnDisable { get;set; }
         public void OnEnable();
         public void OnDisable();
-        public delegate void FPDisableEnable(GameObject go);
-        public event FPDisableEnable OnEnableEvent;
-        public event FPDisableEnable OnDisableEvent;
+        
     }
 }
