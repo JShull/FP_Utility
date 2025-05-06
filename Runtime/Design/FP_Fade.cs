@@ -57,20 +57,18 @@ namespace FuzzPhyte.Utility
                 }
             }
         }
-#if UNITY_EDITOR
-        [ContextMenu("Start Fade Out")]
+
         public virtual void StartFadeOut()
         {
             StopAllCoroutines();
             StartCoroutine(FadeRoutine(1f, 0f)); // Fade to transparent
         }
-        [ContextMenu("Start Fade In")]
+
         public virtual void StartFadeIn()
         {
             StopAllCoroutines();
             StartCoroutine(FadeRoutine(0f, 1f)); // Fade to opaque
         }
-#endif
         protected virtual IEnumerator FadeRoutine(float startAlpha, float endAlpha)
         {
             float elapsedTime = 0f;

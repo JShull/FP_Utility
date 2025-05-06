@@ -28,9 +28,9 @@ namespace FuzzPhyte.Utility
         public event OnEnableDisable OnDisableEvent;
         [Tooltip("The Color we want to flash too via emission")]
         public Color FlashColor;
-        [Tooltip("Are we already in the loop")]
-        [SerializeField]
-        private bool _flashActive = false;
+        //[Tooltip("Are we already in the loop")]
+        //[SerializeField]
+        //private bool _flashActive = false;
         [Tooltip("Time for flash to take")]
         public float FlashTime = 2f;
         private float _runningTime = 0;
@@ -107,7 +107,7 @@ namespace FuzzPhyte.Utility
         #endregion
         protected IEnumerator FlashCoroutine()
         {
-            _flashActive = true;
+            //_flashActive = true;
             _runningTime = 0f;
 
             while (_runningTime < FlashTime)
@@ -129,7 +129,7 @@ namespace FuzzPhyte.Utility
                 ResetColorLerp(_allMaterials[AllMeshes[i]], _allStartColors[AllMeshes[i]]);
             }
 
-            _flashActive = false;
+            //_flashActive = false;
             flashCoroutine = null;
         }
 #if UNITY_EDITOR
@@ -215,7 +215,7 @@ namespace FuzzPhyte.Utility
                 flashCoroutine = null;
             }
 
-            _flashActive = false;
+            //_flashActive = false;
             ResetColors();
             /*
             _flashActive = false;
