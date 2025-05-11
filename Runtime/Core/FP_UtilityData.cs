@@ -250,10 +250,46 @@ namespace FuzzPhyte.Utility
             newStyle.richText = true;
             return newStyle;
         }
-       
+
 
         #region Gizmo Related
+        public static List<FPLine> DrawGizmosSquare(Vector3 center, Transform reference, float size)
+        {
+            List<FPLine> squareG = new List<FPLine>();
+            Vector3 right = reference.right * size * 0.5f;
+            Vector3 foward = reference.forward * size * 0.5f;
 
+            Vector3 topLeft = center - right + foward;
+            Vector3 topRight = center + right + foward;
+            Vector3 bottomLeft = center - right - foward;
+            Vector3 bottomRight = center + right - foward;
+            FPLine newLineT = new FPLine()
+            {
+                StartPos = topLeft,
+                EndPos = topRight,
+            };
+
+            FPLine newLineR = new FPLine()
+            {
+                StartPos = topRight,
+                EndPos = bottomRight,
+            };
+            FPLine newLineB = new FPLine()
+            {
+                StartPos = bottomRight,
+                EndPos = bottomLeft,
+            };
+            FPLine newLineL = new FPLine()
+            {
+                StartPos = bottomLeft,
+                EndPos = topLeft,
+            };
+            squareG.Add(newLineT);
+            squareG.Add(newLineR);
+            squareG.Add(newLineB);
+            squareG.Add(newLineL);
+            return squareG;
+        }
         #endregion
         #endregion
         #region Units and Conversions
@@ -1023,6 +1059,22 @@ namespace FuzzPhyte.Utility
         Medium =2,
         High = 3,
     }
+    [Serializable]
+    public enum FPKeyboardKey
+    {
+        None = 0,
+        RegularKey = 1,
+        NumericalKey = 2,
+        Tab = 10,
+        CapsLock = 11,
+        Shift = 12,
+        Ctrl = 13,
+        Alt = 14,
+        Enter = 15,
+        Space = 20,
+        Backspace = 21,
+        Esc =99
+    }
     //keep tabs on what languages we could be using for a given object
     [Serializable]
     public struct FP_Multilingual
@@ -1030,6 +1082,12 @@ namespace FuzzPhyte.Utility
         public FP_Language Primary;
         public FP_Language Secondary;
         public FP_Language Tertiary;
+    }
+    [Serializable]
+    public struct FPLine
+    {
+        public Vector3 StartPos;
+        public Vector3 EndPos;
     }
     
     // Hold data associated with a specific audio clip
