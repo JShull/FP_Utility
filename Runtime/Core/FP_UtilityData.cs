@@ -1065,6 +1065,7 @@ namespace FuzzPhyte.Utility
         None = 0,
         RegularKey = 1,
         NumericalKey = 2,
+        PunctuationKey =3,
         Tab = 10,
         CapsLock = 11,
         Shift = 12,
