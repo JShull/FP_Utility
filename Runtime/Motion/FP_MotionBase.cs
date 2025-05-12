@@ -8,10 +8,13 @@ namespace FuzzPhyte.Utility
     {
         [SerializeField]
         protected Transform targetObject;  // The target transform to affect (can be overridden)
+        public Transform TargetObject { get=>targetObject; set=>targetObject = value; }
         [SerializeField]
         protected UnityEvent onStartMotion;
+        public UnityEvent OnStartMotion { get => onStartMotion; }
         [SerializeField]
         protected UnityEvent onEndMotion;
+        public UnityEvent OnEndMotion { get => onEndMotion; }
         [Header("Base Motion Settings")]
         [SerializeField]
         protected float lerpDuration = 3.0f;

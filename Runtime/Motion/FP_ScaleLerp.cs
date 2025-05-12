@@ -8,9 +8,11 @@ namespace FuzzPhyte.Utility
         [Header("Scale Lerp Settings")]
         [SerializeField]
         protected Vector3 startScale = Vector3.one;
+        public Vector3 StartScale { get=>startScale; set=>startScale = value; }
 
         [SerializeField]
         protected Vector3 endScale = Vector3.one * 2;
+        public Vector3 EndScale { get=>endScale; set=>endScale = value; }
 
         [SerializeField]
         protected AnimationCurve scaleCurve = AnimationCurve.Linear(0, 0, 1, 1);
