@@ -10,16 +10,17 @@ namespace FuzzPhyte.Utility
         [Header("Transform Lerp Settings")]
         [SerializeField]
         protected Transform startPoint;
-        
+        public Transform StartPosition { get => startPoint; set => startPoint = value; }
         [SerializeField]
         protected Transform endPoint;
-        
+        public Transform EndPosition { get => endPoint; set => endPoint = value; }
+
         [SerializeField]
         protected AnimationCurve movementCurve = AnimationCurve.Linear(0, 0, 1, 1);
         
         [SerializeField]
         protected bool localTransform = false;
-        
+        public bool LocalTransform { get => localTransform; set => localTransform = value; }
         [SerializeField]
         protected bool playOnStart = true;
         
