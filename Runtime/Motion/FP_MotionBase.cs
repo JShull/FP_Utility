@@ -15,6 +15,9 @@ namespace FuzzPhyte.Utility
         [SerializeField]
         protected UnityEvent onEndMotion;
         public UnityEvent OnEndMotion { get => onEndMotion; }
+        public delegate void MotionEventHandler();
+        public event MotionEventHandler OnMotionEnded;
+        public event MotionEventHandler OnMotionStarted;
         [Header("Base Motion Settings")]
         [SerializeField]
         protected float lerpDuration = 3.0f;
@@ -58,6 +61,7 @@ namespace FuzzPhyte.Utility
                 StopCoroutine(motionCoroutine);
             }
             isPaused = false;
+            OnMotionStarted?.Invoke();
             onStartMotion?.Invoke();
             motionCoroutine = StartCoroutine(MotionRoutine());
         }
@@ -91,6 +95,7 @@ namespace FuzzPhyte.Utility
                 StopCoroutine(motionCoroutine);
             }
             isPaused = true;
+            OnMotionEnded?.Invoke();
             onEndMotion?.Invoke();
         }
         public virtual void OnDisable()
