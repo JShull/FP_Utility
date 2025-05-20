@@ -22,7 +22,10 @@ namespace FuzzPhyte.Utility
         public bool UseOnEnable { get => buildOnEnable;set=>buildOnEnable = value; }
         public bool UseOnDisable { get => useOnDisable;set=>useOnDisable = value; }
         protected Coroutine flashCoroutine;
-        
+        public delegate void OnFlashEventManager(FPColorPulse cPulse);
+        public event OnFlashEventManager OnFlashStarted;
+        public event OnFlashEventManager OnFlashEnded;
+
         public delegate void OnEnableDisable(GameObject go);
         public event OnEnableDisable OnEnableEvent;
         public event OnEnableDisable OnDisableEvent;
@@ -128,7 +131,7 @@ namespace FuzzPhyte.Utility
             {
                 ResetColorLerp(_allMaterials[AllMeshes[i]], _allStartColors[AllMeshes[i]]);
             }
-
+            OnFlashEnded?.Invoke(this);
             //_flashActive = false;
             flashCoroutine = null;
         }
@@ -191,6 +194,7 @@ namespace FuzzPhyte.Utility
             {
                 StopCoroutine(flashCoroutine);
             }
+            OnFlashStarted?.Invoke(this);
             flashCoroutine = StartCoroutine(FlashCoroutine());
             /*
             if (_flashActive)
