@@ -5,9 +5,12 @@ namespace FuzzPhyte.Utility.FPSystem
     using System.Linq;
     using UnityEngine;
 
-    public class FPBootStrapper<TData> : MonoBehaviour where TData:FP_Data
+    public class FPBootStrapper<TData> : MonoBehaviour, IFPDontDestroy where TData:FP_Data
     {
         public static FPBootStrapper<TData> Instance { get; private set; }
+        //bool IFPDontDestroy.DontDestroy { get => throw new System.NotImplementedException(); set => throw new System.NotImplementedException(); }
+        public bool DontDestroy { get => dontDestroy; set=>dontDestroy = value; }
+        protected bool dontDestroy;
         [TextArea(3, 4)]
         public string Instructions = $"An editor script - FPExecutionOrder.cs - will set the execution order of this script to -50. This script will run all FPSystems in the scene. If you want to run a system after the late update loop, set the bool to true in the inspector. If you want to run all systems in the scene, set the bool to true in the inspector. If you want to run a specific list of systems, add them to the list in the inspector.";
         public bool RunAfterLateUpdateLoop;
@@ -17,6 +20,7 @@ namespace FuzzPhyte.Utility.FPSystem
         [Tooltip("If you want the bootstrapper to initialize the system data, set this to true and set the InitSystemData to the data you want to initialize.")]
         public TData InitSystemData;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        
         public static void InitializeAfterAwake()
         {
             Debug.LogWarning($"Running bootStrapper! {Time.time} and {Time.frameCount}");
@@ -36,14 +40,17 @@ namespace FuzzPhyte.Utility.FPSystem
                 }
             }
         }
-        protected virtual void Awake()
+        public virtual void Awake()
         {
             // Ensure only one instance exists
             if (Instance == null)
             {
                 Instance = this;
                 Debug.LogWarning($"FPBootStrapper instance created on {this.gameObject.name}.");
-                DontDestroyOnLoad(this.gameObject);
+                if (dontDestroy)
+                {
+                    DontDestroyOnLoad(this.gameObject);
+                }
             }
             else
             {
