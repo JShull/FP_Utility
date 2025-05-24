@@ -17,7 +17,11 @@ namespace  FuzzPhyte.Utility
 
         public virtual void Start()
         {
-            
+            if (Dropdown == null)
+            {
+                Debug.LogWarning($"Missing Drop down reference");
+                return;
+            }
             Dropdown.onValueChanged.RemoveAllListeners();
             if(UseEnum)
             {
