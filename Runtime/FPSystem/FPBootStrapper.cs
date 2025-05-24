@@ -10,7 +10,7 @@ namespace FuzzPhyte.Utility.FPSystem
         public static FPBootStrapper<TData> Instance { get; private set; }
         //bool IFPDontDestroy.DontDestroy { get => throw new System.NotImplementedException(); set => throw new System.NotImplementedException(); }
         public bool DontDestroy { get => dontDestroy; set=>dontDestroy = value; }
-        protected bool dontDestroy;
+        [SerializeField]protected bool dontDestroy;
         [TextArea(3, 4)]
         public string Instructions = $"An editor script - FPExecutionOrder.cs - will set the execution order of this script to -50. This script will run all FPSystems in the scene. If you want to run a system after the late update loop, set the bool to true in the inspector. If you want to run all systems in the scene, set the bool to true in the inspector. If you want to run a specific list of systems, add them to the list in the inspector.";
         public bool RunAfterLateUpdateLoop;
