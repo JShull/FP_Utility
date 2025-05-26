@@ -60,7 +60,7 @@ namespace FuzzPhyte.Utility.Editor
             GUILayout.Label("Select By Type:", EditorStyles.boldLabel);
 
             float viewWidth = EditorGUIUtility.currentViewWidth - 40; // Account for padding
-            float toggleWidth = 120f; // Adjust this as needed
+            float toggleWidth = 150f; // Adjust this as needed
             int itemsPerRow = Mathf.FloorToInt(viewWidth / toggleWidth);
             if (itemsPerRow < 1) itemsPerRow = 1;
 
