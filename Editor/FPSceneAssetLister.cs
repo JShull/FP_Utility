@@ -27,7 +27,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             GUILayout.Label("Scene Asset Collector", EditorStyles.boldLabel);
             GUILayout.Space(5);
-
+            
             destinationFolder = EditorGUILayout.TextField("Destination Folder", destinationFolder);
 
             if (GUILayout.Button("Scan Scene for Assets"))
@@ -40,13 +40,26 @@ namespace FuzzPhyte.Utility.Editor
                 EditorGUILayout.HelpBox("No assets scanned yet. Click the button above.", MessageType.Info);
                 return;
             }
+
             GUILayout.Space(10);
+            // === Counters ===
+            // Display counters
+            int totalAssets = sceneAssets.Count;
+            int totalSelectable = sceneAssets.Count(a => !a.IsPackageAsset);
+            int selectedAssets = sceneAssets.Count(a => a.Selected && !a.IsPackageAsset);
+            GUILayout.Label($"Total Assets: {totalAssets} | Selectable: {totalSelectable} | Selected: {selectedAssets}", EditorStyles.boldLabel);
 
             // === Header Toolbar ===
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Select All", GUILayout.Width(100)))
             {
-                foreach (var asset in sceneAssets) asset.Selected = true;
+                //foreach (var asset in sceneAssets) asset.Selected = true;
+                foreach (var asset in sceneAssets)
+                {
+                    if (asset.IsPackageAsset) continue; // Ignore package assets
+
+                    asset.Selected = true;
+                }
             }
             if (GUILayout.Button("Unselect All", GUILayout.Width(100)))
             {
