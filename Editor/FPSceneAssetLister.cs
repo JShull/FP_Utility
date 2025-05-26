@@ -203,7 +203,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
                 // Handle Mesh (or any sub-asset) as part of FBX or other parent asset
                 var mainAsset = AssetDatabase.LoadMainAssetAtPath(path);
-                if (assetRef is Mesh && mainAsset != null && mainAsset!=assetRef)
+                if ((assetRef is Mesh || assetRef is AnimationClip) && mainAsset != null && mainAsset!=assetRef)
                 {
                     assetRef = mainAsset;
                     path = AssetDatabase.GetAssetPath(assetRef);
@@ -326,12 +326,7 @@ namespace FuzzPhyte.Utility.Editor
                 string subfolderPath = Path.Combine(destinationFolder, subfolderName).Replace("\\", "/");
                 // Ensure the full subfolder path exists
                 EnsureFolderExists(subfolderPath);
-                /*
-                if (!AssetDatabase.IsValidFolder(subfolderPath))
-                {
-                    AssetDatabase.CreateFolder(destinationFolder, subfolderName);
-                }
-                */
+                
                 string assetPath = AssetDatabase.GetAssetPath(assetInfo.Asset);
                 string fileName = Path.GetFileName(assetPath);
                 string targetPath = Path.Combine(subfolderPath, fileName).Replace("\\", "/");
