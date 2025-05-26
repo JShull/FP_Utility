@@ -193,6 +193,8 @@ namespace FuzzPhyte.Utility.Editor
                 var assetRef = dep;//local reference
                 string path = AssetDatabase.GetAssetPath(assetRef);
                 string typeName = assetRef.GetType().Name;
+                
+                //check for Sprites/Texture2D
                 if (typeName == "Texture2D")
                 {
                     var importer = AssetImporter.GetAtPath(path) as TextureImporter;
@@ -201,6 +203,13 @@ namespace FuzzPhyte.Utility.Editor
                         typeName = "Sprite";
                     }
                 }
+
+                // Handle ScriptableObjects like FP_Data
+                if (typeof(ScriptableObject).IsAssignableFrom(assetRef.GetType()))
+                {
+                    typeName = "ScriptableObject";
+                }
+
                 // Handle Mesh (or any sub-asset) as part of FBX or other parent asset
                 var mainAsset = AssetDatabase.LoadMainAssetAtPath(path);
                 if ((assetRef is Mesh || assetRef is AnimationClip) && mainAsset != null && mainAsset!=assetRef)
@@ -410,7 +419,8 @@ namespace FuzzPhyte.Utility.Editor
                 { "Texture2D", "Textures" },
                 { "Sprite", "Sprites" },
                 { "Shader","Shaders" },
-                { "AudioClip", "Audio" }
+                { "AudioClip", "Audio" },
+                { "ScriptableObject","ScriptableObjects" }
             };
         }
         [System.Serializable]
