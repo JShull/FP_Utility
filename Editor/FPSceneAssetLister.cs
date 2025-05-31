@@ -13,7 +13,7 @@ namespace FuzzPhyte.Utility.Editor
         private List<SceneAssetInfo> sceneAssets = new List<SceneAssetInfo>();
         private string destinationFolder = "Assets/_FPUtility";
         private Dictionary<string, bool> typeToggles = new Dictionary<string, bool>();
-
+        private string searchQuery = string.Empty;
         private string jsonFileName = "";
         private static readonly string JsonFolderPath = "Assets/_FPUtility";
 
@@ -108,6 +108,8 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             GUILayout.Space(10);
+            searchQuery = EditorGUILayout.TextField("Search:", searchQuery);
+            GUILayout.Space(5);
             // === LIST OF ASSETS ===
 
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
@@ -115,7 +117,16 @@ namespace FuzzPhyte.Utility.Editor
             foreach (var assetInfo in sceneAssets)
             {
                 if (assetInfo.Asset == null) continue;
-
+                //=== SEARCH===
+                if (!string.IsNullOrEmpty(searchQuery))
+                {
+                    if (!assetInfo.Asset.name.ToLower().Contains(searchQuery.ToLower()) &&
+                        !AssetDatabase.GetAssetPath(assetInfo.Asset).ToLower().Contains(searchQuery.ToLower()))
+                    {
+                        continue;
+                    }
+                }
+                //
                 EditorGUILayout.BeginHorizontal();
                 //assetInfo.Selected = EditorGUILayout.Toggle(assetInfo.Selected, GUILayout.Width(20));
                 EditorGUI.BeginDisabledGroup(assetInfo.IsPackageAsset);
@@ -283,6 +294,8 @@ namespace FuzzPhyte.Utility.Editor
                             if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue != null)
                             {
                                 string path = AssetDatabase.GetAssetPath(property.objectReferenceValue);
+                                Debug.Log($"Component: {c.GetType().Name} on GameObject: {go.name} references: {property.displayName} of type {property.objectReferenceValue?.GetType().Name}");
+
                                 if (!string.IsNullOrEmpty(path) && uniqueAssets.ContainsKey(path))
                                 {
                                     if (!uniqueAssets[path].ReferencedBy.Contains(go))
