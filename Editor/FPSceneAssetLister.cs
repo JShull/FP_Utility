@@ -347,9 +347,19 @@ namespace FuzzPhyte.Utility.Editor
 
             jsonFileName = SceneManager.GetActiveScene().name + "_Assets";
         }
-        private void CollectReferencedObjects(Object obj, GameObject sceneGo, Dictionary<string, SceneAssetInfo> uniqueAssets)
+        private void CollectReferencedObjects(Object obj, GameObject sceneGo, Dictionary<string, SceneAssetInfo> uniqueAssets, HashSet<Object> visited = null)
         {
             if (obj == null) return;
+
+            // Initialize visited set
+            if (visited == null)
+            {
+                visited = new HashSet<Object>();
+            }
+
+            // Prevent infinite recursion
+            if (visited.Contains(obj)) return;
+            visited.Add(obj);
 
             var so = new SerializedObject(obj);
             var property = so.GetIterator();
@@ -367,15 +377,16 @@ namespace FuzzPhyte.Utility.Editor
                             info.ReferencedBy.Add(sceneGo);
                         }
 
-                        // If the referenced object is a ScriptableObject, go deeper
+                        // Recurse into ScriptableObjects safely
                         if (property.objectReferenceValue is ScriptableObject)
                         {
-                            CollectReferencedObjects(property.objectReferenceValue, sceneGo, uniqueAssets);
+                            CollectReferencedObjects(property.objectReferenceValue, sceneGo, uniqueAssets, visited);
                         }
                     }
                 }
             }
         }
+
 
 
         private void MoveSelectedAssets(int numFiles)
