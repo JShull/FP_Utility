@@ -288,7 +288,13 @@ namespace FuzzPhyte.Utility.Editor
 
                         var so = new SerializedObject(c);
                         var property = so.GetIterator();
+                        //new
+                        CollectReferencedObjects(c, go, uniqueAssets);
 
+                        //
+                        //recursive bit replaced
+                        //old
+                        /*
                         while (property.NextVisible(true))
                         {
                             if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue != null)
@@ -305,6 +311,7 @@ namespace FuzzPhyte.Utility.Editor
                                 }
                             }
                         }
+                        */
                     }
                 }
             }
@@ -340,6 +347,36 @@ namespace FuzzPhyte.Utility.Editor
 
             jsonFileName = SceneManager.GetActiveScene().name + "_Assets";
         }
+        private void CollectReferencedObjects(Object obj, GameObject sceneGo, Dictionary<string, SceneAssetInfo> uniqueAssets)
+        {
+            if (obj == null) return;
+
+            var so = new SerializedObject(obj);
+            var property = so.GetIterator();
+
+            while (property.NextVisible(true))
+            {
+                if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue != null)
+                {
+                    string refPath = AssetDatabase.GetAssetPath(property.objectReferenceValue);
+                    if (!string.IsNullOrEmpty(refPath) && uniqueAssets.ContainsKey(refPath))
+                    {
+                        var info = uniqueAssets[refPath];
+                        if (!info.ReferencedBy.Contains(sceneGo))
+                        {
+                            info.ReferencedBy.Add(sceneGo);
+                        }
+
+                        // If the referenced object is a ScriptableObject, go deeper
+                        if (property.objectReferenceValue is ScriptableObject)
+                        {
+                            CollectReferencedObjects(property.objectReferenceValue, sceneGo, uniqueAssets);
+                        }
+                    }
+                }
+            }
+        }
+
 
         private void MoveSelectedAssets(int numFiles)
         {
