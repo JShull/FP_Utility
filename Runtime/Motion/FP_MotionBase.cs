@@ -33,12 +33,8 @@ namespace FuzzPhyte.Utility
         protected Coroutine motionCoroutine;
 
         protected virtual void Start()
-        { 
-            if (PlayOnStart)
-            {
-                playOnSetup = true;
-                SetupMotion();
-            }
+        {
+            InternalSetup();
         }
 
         public virtual void SetupMotion()
@@ -103,6 +99,18 @@ namespace FuzzPhyte.Utility
             if (motionCoroutine != null)
             {
                 StopCoroutine(motionCoroutine);
+            }
+        }
+        public virtual void OnEnable()
+        {
+            
+        }
+        protected virtual void InternalSetup()
+        {
+            if (PlayOnStart)
+            {
+                playOnSetup = true;
+                SetupMotion();
             }
         }
 
