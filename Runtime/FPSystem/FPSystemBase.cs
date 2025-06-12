@@ -15,6 +15,7 @@ namespace FuzzPhyte.Utility.FPSystem
         /// </summary>
         public WaitForEndOfFrame EndOfFrame;
         public bool AfterLateUpdateActive=false;
+        public bool DontDestroy = true;
         //public bool AfterUpdateActive { get => AfterLateUpdateActive; set => AfterLateUpdateActive = value; }
         public static FPSystemBase<TData> Instance { get; protected set; }
         [Tooltip("Maybe some starter data for this system")]
@@ -39,7 +40,10 @@ namespace FuzzPhyte.Utility.FPSystem
             if(Instance == null)
             {
                 Instance = this;
-                DontDestroyOnLoad(this.gameObject);
+                if (DontDestroy)
+                {
+                    DontDestroyOnLoad(this.gameObject);
+                }
             }
             else
             {
