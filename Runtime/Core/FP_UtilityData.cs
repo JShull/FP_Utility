@@ -979,7 +979,9 @@ namespace FuzzPhyte.Utility
         [InspectorName("Commands & Instructions (e.g. open, close, push)")]
         CommandsAndInstructions,
         [InspectorName("Tools & Materials (e.g. hammer, scissors, wood)")]
-        ToolsAndMaterials
+        ToolsAndMaterials,
+        [InspectorName("Toys & Games (e.g. ball, puzzle, board game)")]
+        ToysAndGames, // e.g. ball, puzzle, board game
 
     }
     [Serializable]
