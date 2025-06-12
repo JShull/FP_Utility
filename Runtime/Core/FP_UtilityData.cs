@@ -918,44 +918,124 @@ namespace FuzzPhyte.Utility
     [Serializable]
     public enum FP_VocabCategory
     {
-        None,           // Default or un-categorized
-        Greetings,      // Basic conversational phrases
-        Numbers,        // Counting, phone numbers, etc.
-        TimeAndDate,    // Days, months, seasons, telling time
-        FoodAndDrink,   // Eating out, groceries, cooking
-        Clothing,       // Apparel, shopping
-        FamilyAndPeople,// Relationships, titles, occupations
-        HomeAndFurniture,// Rooms, objects, cleaning
-        Travel,         // Transportation, directions
-        Weather,        // Forecasts, seasons, conditions
-        School,         // Supplies, classrooms, schedules
-        Shopping,       // Stores, money, purchases
-        HobbiesAndSports,// Leisure activities, games
-        Health,         // Body parts, symptoms, doctor visits
-        PlacesAndCities,// Buildings, parks, landmarks
-        Nature,         // Animals, plants, landscapes
-        Technology,     // Gadgets, internet, media
-        WorkAndBusiness,// Jobs, offices, tools
-        Emotions,       // Feelings, moods, states
-        ActionsAndVerbs,// Common actions (e.g., run, walk)
-        ColorsAndShapes,// Visual descriptions
-        Grammar,          // Articles, prepositions, etc.
-        Reading_Writing, // books, meta text, table of contents, poster, printed text somewhere, journal etc.
+        [InspectorName("None")]
+        None = 0,
+        [InspectorName("Greetings (e.g. hello, how are you?)")]
+        Greetings,
+        [InspectorName("Numbers (e.g. one, two, phone numbers)")]
+        Numbers,
+        [InspectorName("Time & Date (e.g. Monday, 5:00 PM, January)")]
+        TimeAndDate,
+        [InspectorName("Food & Drink (e.g. apple, water, restaurant)")]
+        FoodAndDrink,
+        [InspectorName("Clothing (e.g. shirt, pants, shoes)")]
+        Clothing,
+        [InspectorName("Family & People (e.g. mother, friend, teacher)")]
+        FamilyAndPeople,
+        [InspectorName("Home & Furniture (e.g. kitchen, chair, lamp)")]
+        HomeAndFurniture,
+        [InspectorName("Travel (e.g. bus, airport, turn left)")]
+        Travel,
+        [InspectorName("Weather (e.g. sunny, cold, forecast)")]
+        Weather,
+        [InspectorName("School (e.g. pencil, schedule, classroom)")]
+        School,
+        [InspectorName("Shopping (e.g. store, money, price)")]
+        Shopping,
+        [InspectorName("Hobbies & Sports (e.g. soccer, drawing, game)")]
+        HobbiesAndSports,
+        [InspectorName("Health (e.g. headache, doctor, fever)")]
+        Health,
+        [InspectorName("Places & Cities (e.g. park, building, museum)")]
+        PlacesAndCities,
+        [InspectorName("Nature (e.g. tree, river, animal)")]
+        Nature,
+        [InspectorName("Technology (e.g. phone, email, internet)")]
+        Technology,
+        [InspectorName("Work & Business (e.g. office, job, meeting)")]
+        WorkAndBusiness,
+        [InspectorName("Emotions (e.g. happy, sad, nervous)")]
+        Emotions,
+        [InspectorName("Actions & Verbs (e.g. run, eat, walk)")]
+        ActionsAndVerbs,
+        [InspectorName("Colors & Shapes (e.g. red, circle, square)")]
+        ColorsAndShapes,
+        [InspectorName("Grammar (e.g. prepositions, articles, tense)")]
+        Grammar,
+        [InspectorName("Reading & Writing (e.g. book, journal, text)")]
+        ReadingAndWriting,
+        [InspectorName("Subjects & Topics (e.g. math, history, science)")]
+        SubjectsAndTopics,
+        [InspectorName("Public Places (e.g. library, museum, park)")]
+        PublicPlaces,
+        [InspectorName("Cultural Practices (e.g. holiday, tradition, custom)")]
+        CulturalPractices,
+        [InspectorName("Politeness & Requests (e.g. please, thank you)")]
+        PolitenessAndRequests,
+        [InspectorName("Disagreements & Opinions (e.g. I think, I disagree)")]
+        DisagreementsAndOpinions,
+        [InspectorName("Conflict Resolution (e.g. sorry, forgive me)")]
+        ConflictResolution,
+        [InspectorName("Commands & Instructions (e.g. open, close, push)")]
+        CommandsAndInstructions,
+        [InspectorName("Tools & Materials (e.g. hammer, scissors, wood)")]
+        ToolsAndMaterials
+
     }
     [Serializable]
     public enum FP_VocabSupport
     {
-        None=0,
+        // subjective
+
+        [InspectorName("None")]
+        None =0,
+        [InspectorName("Beauty (e.g. beautiful, ugly)")]
         Beauty = 1,
-        Age = 2,
-        Goodness = 3,
-        Size = 4,
-        Shape = 5,
-        Color =6,
-        Origin = 7,
-        Material =8,
-        Purpose=9,
-        Number = 10,
+        [InspectorName("Goodness (e.g. nice, awful)")]
+        Goodness = 2,
+        [InspectorName("Opinion (e.g. fun, boring, important)")]
+        Opinion = 3,
+
+        //descriptors
+        
+        [InspectorName("Age (e.g. old, young, new)")]
+        Age =10,
+        [InspectorName("Size (e.g. big, small, huge)")]
+        Size = 11,
+        [InspectorName("Shape (e.g. round, square, flat)")]
+        Shape = 12,
+        [InspectorName("Color (e.g. red, green, blue)")]
+        Color =13,
+        [InspectorName("Texture (e.g. soft, rough, smooth)")]
+        Texture = 14,
+        [InspectorName("Temperature (e.g. hot, cold, warm)")]
+        Temperature = 15,
+        [InspectorName("Condition (e.g. clean, broken, dirty)")]
+        Conditions = 16,
+        [InspectorName("Weight (e.g. heavy, light)")]
+        Weight = 17,
+        [InspectorName("Length (e.g. short, long)")]
+        Length = 18,
+        [InspectorName("Height (e.g. tall, short)")]
+        Height = 19,
+
+        // classifying
+
+        [InspectorName("Origin (e.g. American, French, Asian)")]
+        Origin = 30,
+        [InspectorName("Material (e.g. wooden, plastic, metal)")]
+        Material = 31,
+        [InspectorName("Purpose (e.g. cooking, sleeping, sports)")]
+        Purpose = 32,
+        [InspectorName("Type or Function (e.g. cleaning tool, kitchen knife)")]
+        TypeOrFunction = 33,
+
+        // quantifying
+
+        [InspectorName("Number (e.g. one, two, several)")]
+        Number = 50,
+        [InspectorName("Possession (e.g. my, your, their)")]
+        Possession = 51
     }
     [Serializable]
     public enum FP_VocabAction
