@@ -22,6 +22,10 @@ namespace FuzzPhyte.Utility.Editor
         private Dictionary<string, string> savedKeys = new Dictionary<string, string>();
         private Dictionary<string, string> apiKeys = new Dictionary<string, string>();
         #endregion
+        #region Polygon Parameters
+        private string polygonApiKey;
+        private bool showPolygonKey;
+        #endregion
 
         [MenuItem("FuzzPhyte/Utility/Keys Manager")]
         public static void ShowWindow()
@@ -36,6 +40,8 @@ namespace FuzzPhyte.Utility.Editor
             chatGptApiKey = EditorPrefs.GetString("ChatGptApiKey", "");
             chatGptOrganizationID = EditorPrefs.GetString("ChatGptOrganizationID", "");
             chatGptProjectID = EditorPrefs.GetString("ChatGptProjectID", "");
+            //polygon
+            polygonApiKey = EditorPrefs.GetString("PolygonApiKey", "");
         }
         private void LoadMerriamWebster()
         {
@@ -62,6 +68,9 @@ namespace FuzzPhyte.Utility.Editor
             // Merriam-Webster API Keys
             MerriamWebsterKeys();
             SpaceBetweenKeys();
+            // Polygon.io API Key
+            PolygonKeys();
+            SpaceBetweenKeys();
         }
         private void SpaceBetweenKeys()
         {
@@ -76,12 +85,12 @@ namespace FuzzPhyte.Utility.Editor
             //projectName = EditorGUILayout.TextField("Project Name", projectName);
             //word = EditorGUILayout.TextField("Word", word);
 
-           // string[] typeNames = fpWordDerivedTypes.ConvertAll(t => t == null ? "NA" : t.Name).ToArray();
+            // string[] typeNames = fpWordDerivedTypes.ConvertAll(t => t == null ? "NA" : t.Name).ToArray();
             selectedClassIndex = (MWApiKeyType)EditorGUILayout.EnumPopup("Select Merriam-Webster", selectedClassIndex);
 
             if (selectedClassIndex != MWApiKeyType.NA)
             {
-                var typeName  = selectedClassIndex.ToString();
+                var typeName = selectedClassIndex.ToString();
                 //string typeName = selectedType.Name;
 
                 if (savedKeys.ContainsKey(typeName))
@@ -167,6 +176,27 @@ namespace FuzzPhyte.Utility.Editor
             {
                 EditorPrefs.SetString("ChatGptProjectID", chatGptProjectID);
                 Debug.Log("ChatGPT Project ID saved");
+            }
+        }
+
+        private void PolygonKeys()
+        {
+            GUILayout.Label("Polygon.io API Key", EditorStyles.boldLabel);
+
+            showPolygonKey = EditorGUILayout.Toggle("Show Polygon Key", showPolygonKey);
+            if (showPolygonKey)
+            {
+                polygonApiKey = EditorGUILayout.TextField("Polygon API Key", polygonApiKey);
+            }
+            else
+            {
+                polygonApiKey = EditorGUILayout.PasswordField("Polygon API Key", polygonApiKey);
+            }
+
+            if (GUILayout.Button("Save Polygon Key"))
+            {
+                EditorPrefs.SetString("PolygonApiKey", polygonApiKey);
+                Debug.Log("Polygon.io API Key saved");
             }
         }
     }
