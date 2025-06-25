@@ -459,6 +459,31 @@ namespace FuzzPhyte.Utility
                 return false;
             }
         }
+        /// <summary>
+        /// Returns a cleaned version of the filename with all invalid characters removed.
+        /// </summary>
+        /// <param name="filename">Original filename string</param>
+        /// <returns>Sanitized filename string with invalid characters removed</returns>
+        public static string ReturnSafeFilename(string filename)
+        {
+            if (string.IsNullOrEmpty(filename))
+                return string.Empty;
+
+            char[] cleaned = new char[filename.Length];
+            int validIndex = 0;
+
+            for (int i = 0; i < filename.Length; i++)
+            {
+                char currentChar = filename[i];
+                // Use Array.BinarySearch since invalidFilenameChars is sorted
+                if (Array.BinarySearch(invalidFilenameChars, currentChar) < 0)
+                {
+                    cleaned[validIndex++] = currentChar;
+                }
+            }
+
+            return new string(cleaned, 0, validIndex);
+        }
 
         #region UnitSquare and UnitSphere
         public static readonly Vector4[] s_UnitSquare =
