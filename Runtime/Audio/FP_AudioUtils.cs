@@ -1,12 +1,11 @@
-using System;
-using System.Collections;
-using System.IO;
-using UnityEngine;
-using UnityEngine.Networking;
-using FuzzPhyte.Utility;
-using UnityEngine.Events;
 namespace FuzzPhyte.Utility.Audio
 {
+    using System;
+    using System.Collections;
+    using System.IO;
+    using UnityEngine;
+    using UnityEngine.Networking;
+
     public static class FP_AudioUtils
     {
         const int HEADER_SIZE = 44;
@@ -17,7 +16,7 @@ namespace FuzzPhyte.Utility.Audio
             public int channels;
             public float[] samplesData;
         }
-        
+
         public static IEnumerator ConvertWavToAudioClip(AudioType URLAudioType, string text, AudioClip clip)
         {
 #if UNITY_EDITOR
@@ -100,7 +99,7 @@ return null;
             File.WriteAllBytes(path, audioData);
             Debug.Log("Saved audio file to: " + path);
         }
-        public static IEnumerator GetAudioClip(string URL, AudioType audioType,string text, bool playImmediate, bool saveFile)
+        public static IEnumerator GetAudioClip(string URL, AudioType audioType, string text, bool playImmediate, bool saveFile)
         {
             var httpLink = URL;
             if (audioType != AudioType.UNKNOWN)
