@@ -113,13 +113,13 @@ namespace FuzzPhyte.Utility.Editor
         
         private static void MonitorUpdateRequests()
         {
-            bool allComplete = true;
+            //bool allComplete = true;
             
             foreach (var request in _updateRequests)
             {
                 if (!request.IsCompleted)
                 {
-                    allComplete = false;
+                    //allComplete = false;
                     continue;
                 }
 

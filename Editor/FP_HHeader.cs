@@ -32,15 +32,15 @@
 
         static FP_HHeader()
         {
-            Debug.LogWarning($"FP_HHeader: Editor Setup Initialized");
+            //Debug.LogWarning($"FP_HHeader: Editor Setup Initialized");
             //am I in the package or in the editor
             var loadedPackageManager = FP_Utility_Editor.IsPackageLoadedViaPackageManager();
             //Debug.LogWarning($"FP_HHeader: via Unity Package Manager: {loadedPackageManager}");
             var packageName = loadedPackageManager ? "utility" : "FP_Utility";
             var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
             var iconRefEditor = FP_Utility_Editor.ReturnEditorResourceIcons(packageRef);
-            Debug.LogWarning($"FP_HHeader: iconRefEditor = {iconRefEditor}");
-            Debug.LogWarning($"FP_HHeader: packageRef = {packageRef}");
+            //Debug.LogWarning($"FP_HHeader: iconRefEditor = {iconRefEditor}");
+            //Debug.LogWarning($"FP_HHeader: packageRef = {packageRef}");
             //ICON LOAD
             var closePath = Path.Combine(iconRefEditor, "HH_Close.png");
             var openPath = Path.Combine(iconRefEditor, "HH_Open.png");
@@ -820,7 +820,7 @@
             // Clear the current foldoutStates and reconstruct the dictionary
             foldoutStates.Clear();
             previousNames.Clear();
-            Debug.LogWarning($"Keys Count: {keys.Count} | Values Count: {values.Count} | Last Values Count: {lastOtherValues.Count}");
+            //Debug.LogWarning($"Keys Count: {keys.Count} | Values Count: {values.Count} | Last Values Count: {lastOtherValues.Count}");
             if(lastOtherValues.Count != keys.Count)
             {
                 Debug.LogWarning($"Last Other Values Count does not match the keys count, this is a problem: Reset everything");
@@ -861,17 +861,23 @@
             {
                 var theHeaderStyle = (FP_HHeaderData)AssetDatabase.LoadAssetAtPath(savedHeaderFileLocation, typeof(FP_HHeaderData));
                 //only load the style
+                if(theHeaderStyle == null)
+                {
+                    //Debug.LogWarning($"FP_HHeader: Header Data Style file probably wasn't created yet - you can ignore this! {savedHeaderFileLocation}");
+                    return;
+                }
                 expandedColor = theHeaderStyle.ExpandedColor;
-                headerColor=theHeaderStyle.HeaderColor;
+                headerColor = theHeaderStyle.HeaderColor;
                 collapsedColor = theHeaderStyle.CollapsedColor;
                 hhCloseIcon = theHeaderStyle.CloseIcon;
                 hhOpenIcon = theHeaderStyle.OpenIcon;
                 hhSelectAllIcon = theHeaderStyle.SelectAllIcon;
                 hhSelectAllIconActive = theHeaderStyle.SelectAllIconActive;
             }
-            catch(Exception ex)
+            //catch(Exception ex)
+            finally
             {
-                Debug.LogWarning($"FP_HHeader: Header Data Style file probably wasn't created yet - you can ignore this! {savedHeaderFileLocation} Log: {ex.Message}");
+                //Debug.LogWarning($"FP_HHeader: Header Data Style file probably wasn't created yet - you can ignore this! {savedHeaderFileLocation} Log: {ex.Message}");
             }
         }
         #endregion

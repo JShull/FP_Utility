@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [@JShull](https://github.com/jshull)
   - **Skybox Shader Transition Sample**
   - **ShaderGraph Dependency**
+
+### 0.6.0 Modified
+
+- [@JShull](https://github.com/jshull)
+  - **FPUnityDefine.cs**
+    - Fixed GetDefines and SetDefines function to use updated PlayerSettings requests that rely on UnityEditor.Build.NamedBuildTarget
   
 ## [0.5.0] - 2025-03-06
 

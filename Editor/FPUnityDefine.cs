@@ -121,11 +121,12 @@ namespace FuzzPhyte.Utility.Editor
 
         public static List<string> GetDefines()
         {
+            
             var target = EditorUserBuildSettings.activeBuildTarget;
             var buildTargetGroup = BuildPipeline.GetBuildTargetGroup(target);
-            //var buildTarget = BuildPipeline.GetBuildTargetName(target);
-            var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(buildTargetGroup);
-            //PlayerSettings.GetScriptingDefineSymbols(buildTargetGroup);
+            // new way to get the named build target
+            var namedBuildTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(buildTargetGroup);
+            var defines = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
             return defines.Split(';').ToList();
         }
 
@@ -133,8 +134,9 @@ namespace FuzzPhyte.Utility.Editor
         {
             var target = EditorUserBuildSettings.activeBuildTarget;
             var buildTargetGroup = BuildPipeline.GetBuildTargetGroup(target);
+            var namedBuildTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(buildTargetGroup);
             var defines = string.Join(";", definesList.ToArray());
-            PlayerSettings.SetScriptingDefineSymbolsForGroup(buildTargetGroup, defines);
+            PlayerSettings.SetScriptingDefineSymbols(namedBuildTarget, defines);
         }
     }
 }

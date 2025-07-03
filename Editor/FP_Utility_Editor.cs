@@ -554,28 +554,8 @@ namespace FuzzPhyte.Utility.Editor
             string genericFPGizmo = Path.Combine("Gizmos", FP_UtilityData.FP_GIZMOS_DEFAULT);
             string projectGizmosPath = Path.GetFullPath(Path.Combine(Application.dataPath, genericFPGizmo));
             Debug.Log($"Creating Directory? {projectGizmosPath}");
-            return;
-            if (!Directory.Exists(projectGizmosPath))
-            {
-                Directory.CreateDirectory(projectGizmosPath);
-            }
-
-            // 4. Copy or move the files/folders recursively
-            //    Here�s a helper method that copies directories recursively. 
-            //    We�ll define it below.
-
-            if (Directory.Exists(packageAbsolutePath))
-            {
-                CopyDirectory(packageAbsolutePath, projectGizmosPath);
-                Debug.Log("Gizmo assets copied successfully!");
-            }
-            else
-            {
-                Debug.LogWarning("Source gizmo folder not found: " + packageAbsolutePath);
-            }
-
-            // 5. Refresh the AssetDatabase so Unity will recognize the newly added files
-            AssetDatabase.Refresh();
+            //return;
+            
         }
         /// <summary>
         /// Recursively copy the contents of one directory to another.
