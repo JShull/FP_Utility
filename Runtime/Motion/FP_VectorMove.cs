@@ -23,7 +23,7 @@ namespace FuzzPhyte.Utility
         protected Vector3 targetPos;
         protected Vector3 startPos;
 
-        protected void OnEnable()
+        public override void OnEnable()
         {
             if (useLocalSpace)
             {

@@ -10,7 +10,7 @@ namespace FuzzPhyte.Utility
         public float startPhi = 0.0f;
         public float endPhi = 360.0f;
         [SerializeField] private int latitudeBands = 6; // vertical rings (theta divisions)
-        [SerializeField] private int itemsPerBand = 12; // default count for middle band
+        //[SerializeField] private int itemsPerBand = 12; // default count for middle band
         public List<GameObject> PotentialItems = new List<GameObject>();
 
         [ContextMenu("Test in Editor")]
