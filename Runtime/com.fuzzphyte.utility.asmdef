@@ -3,7 +3,8 @@
     "rootNamespace": "FuzzPhyte.Utility",
     "references": [
         "Unity.Mathematics",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

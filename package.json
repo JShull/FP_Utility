@@ -1,10 +1,10 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
-    "unity": "2022.3",
-    "unityRelease": "32f1",
+    "unity": "6000.0",
+    "unityRelease": "1f8",
     "documentationUrl": "https://github.com/jshull/FP_Utility/blob/main/README.md",
     "changelogUrl": "https://github.com/JShull/FP_Utility/blob/main/CHANGELOG.md",
     "licensesUrl": "https://github.com/jshull/FP_Utility/blob/main/LICENSE.md",
@@ -14,13 +14,19 @@
     },
     "dependencies": {
       "com.unity.mathematics": "1.2.6",
-      "com.unity.textmeshpro": "3.0.9"
+      "com.unity.textmeshpro": "3.0.9",
+      "com.unity.shadergraph":"17.1.0"
     },
     "samples": [
       {
         "displayName": "Utility Samples",
         "description": "Includes some examples of the different ScriptableObject based use cases and other misc. scripts for how you can utilize some of these base classes. Audio Example for ramping audio in and out as well.",
         "path": "Samples~/SamplesURP"
+      },
+      {
+        "displayName": "Skybox Transition Sample",
+        "description": "Showcasing a simple custom shader effect to transition between two textures on a single material.",
+        "path": "Samples~/Skybox"
       }
     ],
     "keywords": [

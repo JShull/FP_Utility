@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-07-03
+
+### 0.6.0 Added
+
+- [@JShull](https://github.com/jshull)
+  - **Skybox Shader Transition Sample**
+  - **ShaderGraph Dependency**
+  
 ## [0.5.0] - 2025-03-06
 
 ### 0.5.0 Added
