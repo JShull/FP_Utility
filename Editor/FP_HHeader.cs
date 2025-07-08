@@ -127,6 +127,7 @@
             if (dirtyState)
             {
                 SaveFoldoutStatesToPrefs();
+                EditorApplication.DirtyHierarchyWindowSorting();
                 EditorApplication.RepaintHierarchyWindow();
             }
         }
@@ -230,6 +231,7 @@
                     
                 }
                 SaveFoldoutStatesToPrefs();
+                EditorApplication.DirtyHierarchyWindowSorting();
                 EditorApplication.RepaintHierarchyWindow();
             }
         }
