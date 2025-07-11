@@ -1,6 +1,6 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "6000.0",
@@ -27,6 +27,11 @@
         "displayName": "Skybox Transition Sample",
         "description": "Showcasing a simple custom shader effect to transition between two textures on a single material.",
         "path": "Samples~/Skybox"
+      },
+      {
+        "displayName": "Apple iOS File Import Plugin",
+        "description": "Native iOS I/O: Save .json, Open .md, and save .wav files to the iOS device",
+        "path": "Samples~/iOSPlugin"
       }
     ],
     "keywords": [

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2025-07-11
+
+### 0.6.1 Added
+
+- [@JShull](https://github.com/jshull)
+  - **Sample Updates**
+    - iOS Plugin to support I/O native iOS for Markdown/Json/Wav
+
 ## [0.6.0] - 2025-07-03
 
 ### 0.6.0 Added
