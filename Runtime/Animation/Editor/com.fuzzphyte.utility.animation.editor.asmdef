@@ -3,7 +3,9 @@
     "rootNamespace": "FuzzPhyte.Utility.Animation.Editor",
     "references": [
         "GUID:dfa2f16c4edec5b479a837fbe339bee9",
-        "GUID:8729f3cadef284ac4bc6fd994d431e7a"
+        "GUID:8729f3cadef284ac4bc6fd994d431e7a",
+        "GUID:f06555f75b070af458a003d92f9efb00",
+        "GUID:02f771204943f4a40949438e873e3eff"
     ],
     "includePlatforms": [
         "Editor"

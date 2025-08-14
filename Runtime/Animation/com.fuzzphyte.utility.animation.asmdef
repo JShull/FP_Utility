@@ -3,7 +3,10 @@
     "rootNamespace": "FuzzPhyte.Utility.Animation",
     "references": [
         "com.fuzzphyte.utility",
-        "Unity.Animation.Rigging"
+        "Unity.Animation.Rigging",
+        "Unity.Splines",
+        "Unity.Mathematics",
+        "Unity.Timeline"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

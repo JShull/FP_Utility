@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2025-08-12
+
+### 0.6.2 Added
+
+- [@JShull](https://github.com/jshull)
+  - **Follow Spline** Timeline system that allows us to control a spline following system via timeline markers and parameters.
+    - FPSplineCommandMarker.cs
+    - FPSplineFollowBehaviour.cs
+    - FPSplineFollowClip.cs
+    - FPSplineFollower.cs
+    - FPSplineFollowerReceiver.cs
+  - **Sample Updates**
+    - FPSplineFollow under the FollowSpline Folder
+
 ## [0.6.1] - 2025-07-11
 
 ### 0.6.1 Added
