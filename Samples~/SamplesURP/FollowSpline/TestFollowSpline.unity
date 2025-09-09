@@ -808,7 +808,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: com.fuzzphyte.utility.animation::FuzzPhyte.Utility.Animation.FPSplineFollower
   TheSpline: {fileID: 510633556}
   TheTarget: {fileID: 1313903414}
-  t: 0.125
+  t: 0
   TimelineControl: 1
   SpeedMultiplier: 1
   NormalizedSpeedPerSecond: 0.2
@@ -823,7 +823,7 @@ Transform:
   m_GameObject: {fileID: 1313903412}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 1.1811632}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1007,6 +1007,8 @@ PlayableDirector:
   - key: {fileID: -15852626378154404, guid: 8f9a5a769f4a8564ebd569974902ac8c, type: 2}
     value: {fileID: 1241923218385265177}
   - key: {fileID: -3192060627613951989, guid: 8f9a5a769f4a8564ebd569974902ac8c, type: 2}
+    value: {fileID: 1313903413}
+  - key: {fileID: 0}
     value: {fileID: 1313903413}
   m_ExposedReferences:
     m_References: []

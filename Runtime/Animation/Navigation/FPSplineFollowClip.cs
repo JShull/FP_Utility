@@ -71,7 +71,5 @@ namespace FuzzPhyte.Utility.Animation
 #endif
     }
 
-    [TrackBindingType(typeof(FPSplineFollower))]
-    [TrackClipType(typeof(FPSplineFollowClip))]
-    public class FPSplineFollowTrack : TrackAsset { }
+    
 }
