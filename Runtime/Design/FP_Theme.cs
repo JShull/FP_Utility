@@ -38,6 +38,9 @@ namespace FuzzPhyte.Utility
 
         [Tooltip("Texture icon used in the theme.")]
         public Texture TexIcon;
+        [Tooltip("Secondary icon displayed in some UI use cases")]
+        public Sprite SecondaryIcon;
+        public Texture TexSecIcon;
 
         [Tooltip("Background image used in the theme.")]
         public Sprite BackgroundImage;
