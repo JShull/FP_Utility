@@ -15,7 +15,7 @@
         protected FPSplineFollower follower;
         protected float progress01;
         protected double lastPlayableTime = double.NaN;
-        private double _finiteClipDuration = double.NaN;
+        //private double _finiteClipDuration = double.NaN;
 
         protected float ApplyLoop(float p)
         {

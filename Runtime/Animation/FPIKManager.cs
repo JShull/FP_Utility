@@ -74,6 +74,7 @@
         public Color InteriorConeColor = new Color(1f, 1f, .2f,0.3f);
         public Color RightHandTargetColor = new Color(1f, 0f, 0f, .25f);
         public Color LeftHandTargetColor;
+        public Color HeadTargetColor = Color.aliceBlue;
         public int ConeSegments = 16;
         #endregion
         
@@ -215,7 +216,7 @@
        
         protected virtual void OnDrawGizmos()
         {
-            if (ShowHeadIKGizmo && ConeSegments > 1)
+            if (ShowHeadIKGizmo && ConeSegments > 1 && RelativePivotPos!=null && TrackingLookAtPosition!=null)
             {
                 //show head gizmo
                 if (coneMesh == null)
@@ -240,8 +241,10 @@
                 {
                     return;
                 }
-                Gizmos.color = InteriorConeColor;
-                Gizmos.DrawWireSphere(TrackingLookAtPosition.position, 0.75f);
+                Gizmos.color = HeadTargetColor;
+                Gizmos.DrawWireSphere(TrackingLookAtPosition.position, 0.5f);
+                
+                Gizmos.DrawLine(RelativePivotPos.position, TrackingLookAtPosition.position);
             }
             if (ShowRightHandGizmo && RightHandTarget!=null)
             {
