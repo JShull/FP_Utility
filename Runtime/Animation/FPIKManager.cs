@@ -116,6 +116,7 @@
             if (!IKActive || IKAnimator == null || TrackingLookAtPosition == null || RelativePivotPos == null)
                 return;
 
+            //Debug.Log($"Animator Index{layerIndex}");
             if (layerIndex != AnimatorLayer) return;
             if (UseHeadIK)
             {
@@ -201,6 +202,7 @@
             var coneFinalWeight = Mathf.Lerp(IKAnimator.GetLayerWeight(layerIndex), IKScaleWeight * normalizedAngle, Time.deltaTime * HeadIKSpeed);
             measuredWeight = (coneFinalWeight + normalizedDistance) * 0.5f;
             // 7) Apply LookAt weight & position
+            //Debug.LogWarning($"Look weight? {measuredWeight}");
             IKAnimator.SetLookAtWeight(measuredWeight);
 
             if (measuredWeight > 0f)
@@ -241,7 +243,7 @@
                 Gizmos.color = InteriorConeColor;
                 Gizmos.DrawWireSphere(TrackingLookAtPosition.position, 0.75f);
             }
-            if (ShowRightHandGizmo)
+            if (ShowRightHandGizmo && RightHandTarget!=null)
             {
                 //right hand tracking addition
                 var rightHandDist = Vector3.Distance(rightHandPos, RightHandTarget.position);
@@ -255,7 +257,7 @@
                     //Gizmos.DrawRay(IKAnimator.GetIKPosition(AvatarIKGoal.RightHand), toTarget.normalized);
                 }
             }
-            if (ShowLeftHandGizmo)
+            if (ShowLeftHandGizmo && LeftHandTarget!=null)
             {
                 var leftHandDist = Vector3.Distance(leftHandPos, LeftHandTarget.position);
 
