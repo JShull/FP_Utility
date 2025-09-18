@@ -11,6 +11,7 @@ namespace FuzzPhyte.Utility.Animation.Editor
         private SerializedProperty ikAnimator;
         private SerializedProperty hipRelativeForward;
         private SerializedProperty gizmoActive;
+        private SerializedProperty headIKMode;
 
         // Hand IK properties
         private SerializedProperty useHandIK;
@@ -19,9 +20,12 @@ namespace FuzzPhyte.Utility.Animation.Editor
         private SerializedProperty useLeftHandIK;
         private SerializedProperty leftHandTarget, leftHandHint, leftHandWeightScale;
         private SerializedProperty handIKSpeed, reachProximityMax;
+        private SerializedProperty rightArmConstraint;
 
         // Head IK properties
         private SerializedProperty useHeadIK;
+        private SerializedProperty headAimConstraint;
+        private SerializedProperty maintainOffset, handRTOffsetPOS, handRTOffsetROT;
         private SerializedProperty trackingLookAtPosition, relativePivotPos;
         private SerializedProperty maxAngleDropoff, minAngleFullTracking, headIKSpeed;
         private SerializedProperty showLargeConeGizmo, showInteriorConeGizmo;
@@ -38,10 +42,14 @@ namespace FuzzPhyte.Utility.Animation.Editor
             showInteriorConeGizmo = serializedObject.FindProperty("ShowInteriorConeGizmo");
             showRightHandGizmo = serializedObject.FindProperty("ShowRightHandGizmo");
             showLeftHandGizmo = serializedObject.FindProperty("ShowLeftHandGizmo");
+            headIKMode = serializedObject.FindProperty("IKProvider");
             // Hand IK
             useHandIK = serializedObject.FindProperty("UseHandIK");
             handIKSpeed = serializedObject.FindProperty("HandIKSpeed");
             reachProximityMax = serializedObject.FindProperty("ReachProximityMax");
+            rightArmConstraint = serializedObject.FindProperty("RightArmConstraint");
+            handRTOffsetPOS = serializedObject.FindProperty("UseRtRigOffsetPos");
+            handRTOffsetROT = serializedObject.FindProperty("UseRtRigOffsetRot");
 
             useRightHandIK = serializedObject.FindProperty("UseRightHandIK");
             rightHandTarget = serializedObject.FindProperty("RightHandTarget");
@@ -55,6 +63,8 @@ namespace FuzzPhyte.Utility.Animation.Editor
 
             // Head IK
             useHeadIK = serializedObject.FindProperty("UseHeadIK");
+            headAimConstraint = serializedObject.FindProperty("HeadAimConstraint");
+            maintainOffset = serializedObject.FindProperty("MaintainOffset");
             headIKSpeed = serializedObject.FindProperty("HeadIKSpeed");
             trackingLookAtPosition = serializedObject.FindProperty("TrackingLookAtPosition");
             relativePivotPos = serializedObject.FindProperty("RelativePivotPos");
@@ -91,6 +101,12 @@ namespace FuzzPhyte.Utility.Animation.Editor
                     EditorGUILayout.PropertyField(useRightHandIK);
                     if (useRightHandIK.boolValue)
                     {
+                        if ((HeadIKProvider)headIKMode.enumValueIndex == HeadIKProvider.AnimationRigging)
+                        {
+                            EditorGUILayout.PropertyField(rightArmConstraint);
+                            EditorGUILayout.PropertyField(handRTOffsetPOS);
+                            EditorGUILayout.PropertyField(handRTOffsetROT);
+                        }
                         EditorGUILayout.PropertyField(showRightHandGizmo);
                         EditorGUILayout.PropertyField(rightHandTarget);
                         EditorGUILayout.PropertyField(rightHandHint);
@@ -102,7 +118,7 @@ namespace FuzzPhyte.Utility.Animation.Editor
                     }
 
                         // Left Hand IK
-                        EditorGUILayout.PropertyField(useLeftHandIK);
+                    EditorGUILayout.PropertyField(useLeftHandIK);
                     if (useLeftHandIK.boolValue)
                     {
                         EditorGUILayout.PropertyField(showLeftHandGizmo);
@@ -127,6 +143,12 @@ namespace FuzzPhyte.Utility.Animation.Editor
 
                 if (useHeadIK.boolValue)
                 {
+                    EditorGUILayout.PropertyField(headIKMode);
+                    if((HeadIKProvider)headIKMode.enumValueIndex == HeadIKProvider.AnimationRigging)
+                    {
+                        EditorGUILayout.PropertyField(headAimConstraint);
+                        EditorGUILayout.PropertyField(maintainOffset);
+                    }
                     EditorGUILayout.PropertyField(gizmoActive);
                     if (gizmoActive.boolValue)
                     {
