@@ -46,7 +46,6 @@ namespace FuzzPhyte.Utility.Animation
             return playable;
         }
 #if UNITY_EDITOR
-        // Optional: try to auto-fill finiteDurationHint in the editor from the actual TimelineClip
         // when you adjust the clip.
         private void OnValidate()
         {
@@ -70,6 +69,4 @@ namespace FuzzPhyte.Utility.Animation
         }
 #endif
     }
-
-    
 }
