@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2025-09-20
+
+### 0.6.3 Removed
+
+- [@JShull](https://github.com/jshull)
+  - Anything previously under the Animation sub folder was moved to a new Unity package to clean up dependency issues associated with further development
+  - **Follow Spline** system was moved to a new package
+    - FPSplineCommandMarker.cs
+    - FPSplineFollowBehaviour.cs
+    - FPSplineFollowClip.cs
+    - FPSplineFollower.cs
+    - FPSplineFollowerReceiver.cs
+  - **IK** system was moved to a new package
+    - FPIKManager.cs
+  - **Injection** script was moved to a new package
+    - FPAnimationInjector.cs
+
 ## [0.6.2] - 2025-08-12
 
 ### 0.6.2 Added
