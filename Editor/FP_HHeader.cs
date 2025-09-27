@@ -98,7 +98,7 @@
                     loopLookCount = nameCheckResults.Item2;
                     if (!nameCheckResults.Item1)
                     {
-                        Debug.LogWarning($"FP_HHeader: A Previous Name Look Failed with key: {key} this wasn't in the cache, lets add that in for a value: {obj.name}, loop count {loopLookCount}");
+                        //Debug.LogWarning($"FP_HHeader: A Previous Name Look Failed with key: {key} this wasn't in the cache, lets add that in for a value: {obj.name}, loop count {loopLookCount}");
                         previousNames.Add(key, obj.name);
                         dirtyState = true;
                     }
@@ -107,7 +107,7 @@
                 {
                     // we didn't find the object anymore, so we need to confirm that it wasn't in the previousName
                     //Debug.LogError($"We didn't find the gameobject, was looking for {key} which an object should be in the Hierarchy, maybe the name changed?");
-                    Debug.LogWarning($"FP_HHeader: Key {key}, index {i}, obj = null");
+                    //Debug.LogWarning($"FP_HHeader: Key {key}, index {i}, obj = null");
                     var nameCheckResults = PreviousNameCheck(key, null,loopLookCount);
                     loopLookCount = nameCheckResults.Item2;
                     if (!nameCheckResults.Item1)
@@ -116,7 +116,7 @@
                         foldoutStates.Remove(key);
                         if (previousNames.ContainsKey(key))
                         {
-                            Debug.LogWarning($"FP_HHeader: Removing a key, {key} because this object failed to come back.");
+                            //Debug.LogWarning($"FP_HHeader: Removing a key, {key} because this object failed to come back.");
                             previousNames.Remove(key);
                         }
                         dirtyState = true;
