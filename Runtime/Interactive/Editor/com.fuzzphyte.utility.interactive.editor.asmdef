@@ -1,0 +1,19 @@
+{
+    "name": "com.fuzzphyte.utility.interactive.editor",
+    "rootNamespace": "FuzzPhyte.Utility.Interactive.Editor",
+    "references": [
+        "com.fuzzphyte.utility.interactive",
+        "com.fuzzphyte.utility"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

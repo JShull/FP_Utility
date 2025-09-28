@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b81091840011614794da6de6d110737, type: 3}
+  m_Name: FPVariantConfigTest
+  m_EditorClassIdentifier: com.fuzzphyte.utility.interactive::FuzzPhyte.Utility.Interactive.FPVariantConfig
+  UniqueID: 
+  basePrefab: {fileID: 6884889580763917351, guid: d75ba601d44bedf45a903483885c301a, type: 3}
+  visualMesh: {fileID: -8545447256379345787, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
+  visualMaterials:
+  - {fileID: 2100000, guid: 8dea6d7a77b46c247896e42479fa1cef, type: 2}
+  colliders:
+  - name: Box
+    type: 1
+    isTrigger: 0
+    material: {fileID: 0}
+    localPosition: {x: 0, y: 0, z: 0}
+    localEuler: {x: 0, y: 0, z: 0}
+    localScale: {x: 0.35550168, y: 0.12402667, z: 0.38529515}
+    radius: 0
+    height: 0
+    direction: 0
+    fitToVisual: 0
+    meshForMeshCollider: {fileID: -8545447256379345787, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
+    convex: 0
+  variantName: PlaneVariant
+  saveFolder: Assets/_FPUtility/Variants
