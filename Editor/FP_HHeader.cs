@@ -884,12 +884,12 @@
         }
         #endregion
         #region Menu Functions
-        [MenuItem("FuzzPhyte/Utility/Header/Enable FP_HHeader",false,20)]
+        [MenuItem("FuzzPhyte/Header/Enable FP_HHeader",false,priority = FP_UtilityData.ORDER_SUBMENU_LVL7)]
         private static void ToggleHeaderMenuMain() => ToggleHeaderSystem();
-        [MenuItem("FuzzPhyte/Utility/Header/Enable FP_HHeader", true)]
+        [MenuItem("FuzzPhyte/Header/Enable FP_HHeader", true, priority = FP_UtilityData.ORDER_SUBMENU_LVL7)]
         private static bool ValidateHeaderMenuMain()
         {
-            ValidateHeaderMenu("FuzzPhyte/Utility/Header/Enable FP_HHeader");
+            ValidateHeaderMenu("FuzzPhyte/Header/Enable FP_HHeader");
             return true;
         }
 

@@ -17,10 +17,10 @@ namespace FuzzPhyte.Utility.Editor
         private string jsonFileName = "";
         private static readonly string JsonFolderPath = "Assets/_FPUtility";
 
-        [MenuItem("FuzzPhyte/Utility/Scene Asset Tool",priority =150)]
+        [MenuItem("FuzzPhyte/Utility/Scene/Asset Tool",priority = FP_UtilityData.ORDER_MENU)]
         public static void ShowWindow()
         {
-            GetWindow<FPSceneAssetLister>("Scene Asset Tool");
+            GetWindow<FPSceneAssetLister>("FP Scene Asset Tool");
         }
 
         private void OnGUI()

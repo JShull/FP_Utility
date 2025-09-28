@@ -512,7 +512,7 @@ namespace FuzzPhyte.Utility.Editor
             var companyNamePackage = "com.fuzzphyte." + packageName;
             return Path.Combine("Packages", companyNamePackage, "Editor");
         }
-        [MenuItem("FuzzPhyte/Utility/Move Icons & Assets")]
+        [MenuItem("FuzzPhyte/Utility/Editor/Move Icon Assets")]
         public static void MoveAssetsFromPackagesToGizmos()
         {
             // 1. Identify your source folders in Packages.

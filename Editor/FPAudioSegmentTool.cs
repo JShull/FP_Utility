@@ -65,7 +65,7 @@
         private float regionLengthSec = 0.10f; // default 100ms quick region
         private bool regionStartFollowsPlayhead = true; // convenience toggle
 
-        [MenuItem("FuzzPhyte/Audio/Audio Segment Tool", priority = FuzzPhyte.Utility.FP_UtilityData.ORDER_SUBMENU_LVL3)]
+        [MenuItem("FuzzPhyte/Audio/Audio Segment Tool", priority = FuzzPhyte.Utility.FP_UtilityData.ORDER_SUBMENU_LVL6)]
         public static void ShowWindow()
         {
             var win = GetWindow<FPAudioSegmentTool>("FP Audio Segment Tool");

@@ -24,7 +24,7 @@ namespace FuzzPhyte.Utility.Editor
         private enum EditorTarget { Default, VisualStudio, VSCode, JetBrainsRider }
         private EditorTarget selectedEditor = EditorTarget.Default;
 
-        [MenuItem("FuzzPhyte/Utility/Action-Event Scanner")]
+        [MenuItem("FuzzPhyte/Utility/Editor/Action-Event Scanner",priority = FP_UtilityData.ORDER_MENU,secondaryPriority = FP_UtilityData.ORDER_SUBMENU_LVL6)]
         public static void ShowWindow()
         {
             var window = GetWindow<FPEventActionScannerWindow>("FP Action-Event Scanner");
