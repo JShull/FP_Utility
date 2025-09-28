@@ -9,6 +9,7 @@ namespace FuzzPhyte.Utility
     using Unity.Mathematics;
     using TMPro;
     using UnityEngine.EventSystems;
+    using System.Linq;
   
     /// <summary>
     /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
@@ -561,7 +562,7 @@ namespace FuzzPhyte.Utility
                 Rotation = worldRotation
             };
         }
-
+        
         /// <summary>
         /// Return the top level parent of a transform
         /// </summary>
@@ -792,6 +793,7 @@ namespace FuzzPhyte.Utility
     }
     #endregion
     #region Enums and Data Classes
+    #region FP Enums
     [Serializable]
     public enum UnitOfMeasure
     {
@@ -1183,6 +1185,33 @@ namespace FuzzPhyte.Utility
         Backspace = 21,
         Esc =99
     }
+
+    [Serializable]
+    public enum FPColliderType 
+    { 
+        NA = 0, 
+        Box = 1, 
+        Capsule = 2, 
+        Mesh = 3, 
+        Sphere = 4 
+    }
+    [Serializable]
+    public enum FPSearchScope
+    { 
+        NA = 0,
+        IncludeChildren = 1,
+        SelfOnly = 2, 
+       
+    }
+    [Serializable]
+    public enum FPBoundsCombine 
+    { 
+        NA = 0,
+        EncapsulateAll = 1,
+        FirstMatch = 2,
+        LargestByBoundsVolume = 3
+    }
+    #endregion
     //keep tabs on what languages we could be using for a given object
     [Serializable]
     public struct FP_Multilingual

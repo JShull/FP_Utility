@@ -3,7 +3,8 @@
     "rootNamespace": "FuzzPhyte.Utility.Interactive.Editor",
     "references": [
         "com.fuzzphyte.utility.interactive",
-        "com.fuzzphyte.utility"
+        "com.fuzzphyte.utility",
+        "com.fuzzphyte.utility.editor"
     ],
     "includePlatforms": [
         "Editor"

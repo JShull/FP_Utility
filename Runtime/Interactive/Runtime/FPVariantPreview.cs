@@ -17,7 +17,7 @@ namespace FuzzPhyte.Utility.Interactive
         public MeshFilter meshFilter;
         public MeshRenderer meshRenderer;
 
-        public void EnsureVisual()
+        public virtual void EnsureVisual()
         {
             if (meshFilter == null)
             {
@@ -31,8 +31,7 @@ namespace FuzzPhyte.Utility.Interactive
             
         }
 
-
-        public void RebuildColliders()
+        public virtual void RebuildColliders()
         {
             // Clear existing
             var existing = colliderRoot.GetComponentsInChildren<Collider>(true);
@@ -53,19 +52,19 @@ namespace FuzzPhyte.Utility.Interactive
 
                 switch (spec.type)
                 {
-                    case FPVariantColliderType.Box:
+                    case FPColliderType.Box:
                         var bc = go.AddComponent<BoxCollider>();
                         bc.isTrigger = spec.isTrigger;
                         bc.material = spec.material;
                         bc.size = spec.localScale == Vector3.zero ? Vector3.one : spec.localScale;
                         break;
-                    case FPVariantColliderType.Sphere:
+                    case FPColliderType.Sphere:
                         var sc = go.AddComponent<SphereCollider>();
                         sc.isTrigger = spec.isTrigger;
                         sc.material = spec.material;
                         sc.radius = Mathf.Max(0.001f, spec.radius);
                         break;
-                    case FPVariantColliderType.Capsule:
+                    case FPColliderType.Capsule:
                         var cc = go.AddComponent<CapsuleCollider>();
                         cc.isTrigger = spec.isTrigger;
                         cc.material = spec.material;
@@ -73,7 +72,7 @@ namespace FuzzPhyte.Utility.Interactive
                         cc.height = Mathf.Max(cc.radius * 2f, spec.height);
                         cc.direction = Mathf.Clamp(spec.direction, 0, 2);
                         break;
-                    case FPVariantColliderType.Mesh:
+                    case FPColliderType.Mesh:
                         var mc = go.AddComponent<MeshCollider>();
                         mc.convex = spec.convex;
                         mc.isTrigger = spec.isTrigger;

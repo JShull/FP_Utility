@@ -11,5 +11,7 @@ namespace FuzzPhyte.Utility.Interactive
         public Transform ColliderRoot;
         [Tooltip("RigidBody Parent")]
         public Transform RigidBodyRoot;
+        [Tooltip("AudioSources Parent")]
+        public Transform AudioRoot;
     }
 }

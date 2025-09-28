@@ -14,21 +14,51 @@ MonoBehaviour:
   m_EditorClassIdentifier: com.fuzzphyte.utility.interactive::FuzzPhyte.Utility.Interactive.FPVariantConfig
   UniqueID: 
   basePrefab: {fileID: 6884889580763917351, guid: d75ba601d44bedf45a903483885c301a, type: 3}
-  visualMesh: {fileID: -8545447256379345787, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
-  visualMaterials:
-  - {fileID: 2100000, guid: 8dea6d7a77b46c247896e42479fa1cef, type: 2}
+  MeshSets:
+  - Mesh: {fileID: -8545447256379345787, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
+    Materials:
+    - {fileID: -2016472646743187717, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
+    NameHint: body
+    UseSkinned: 0
+    LocalPositionOffset: {x: 0, y: 0.06189905, z: -0.0063227294}
+    LocalEulerOffset: {x: -0, y: 0, z: 0}
+    LocalScaleOverride: {x: 0, y: 0, z: 0}
+  - Mesh: {fileID: -8685304320331179267, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
+    Materials:
+    - {fileID: -2016472646743187717, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
+    NameHint: landingGear
+    UseSkinned: 0
+    LocalPositionOffset: {x: 0, y: 0.0130004, z: 0.06912403}
+    LocalEulerOffset: {x: -0, y: 0, z: 0}
+    LocalScaleOverride: {x: 0, y: 0, z: 0}
+  - Mesh: {fileID: 376102375382210051, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
+    Materials:
+    - {fileID: -2016472646743187717, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
+    NameHint: propellerL
+    UseSkinned: 0
+    LocalPositionOffset: {x: -0.057439134, y: 0.018152202, z: 0.06655487}
+    LocalEulerOffset: {x: -0, y: 0, z: 0}
+    LocalScaleOverride: {x: 0, y: 0, z: 0}
+  - Mesh: {fileID: -2564423107879867638, guid: 147ae308eec018b40a7b312ae58f44c7, type: 3}
+    Materials:
+    - {fileID: 2100000, guid: 91ff3830fc4055a4fb0d0d2be32101a7, type: 2}
+    NameHint: ThumbStick
+    UseSkinned: 0
+    LocalPositionOffset: {x: 0, y: 0.1, z: 0}
+    LocalEulerOffset: {x: -0, y: 0, z: 0}
+    LocalScaleOverride: {x: 0, y: 0, z: 0}
   colliders:
   - name: Box
     type: 1
     isTrigger: 0
     material: {fileID: 0}
-    localPosition: {x: 0, y: 0, z: 0}
+    localPosition: {x: 0, y: 0.058784004, z: -0.0063227415}
     localEuler: {x: 0, y: 0, z: 0}
-    localScale: {x: 0.35550168, y: 0.12402667, z: 0.38529515}
+    localScale: {x: 0.34344983, y: 0.11803618, z: 0.3748455}
     radius: 0
     height: 0
     direction: 0
-    fitToVisual: 0
+    fitToVisual: 1
     meshForMeshCollider: {fileID: -8545447256379345787, guid: c344041f408f27a40a18c859f5ec4d1e, type: 3}
     convex: 0
   variantName: PlaneVariant

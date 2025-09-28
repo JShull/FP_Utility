@@ -152,7 +152,47 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.EndVertical(); // End container
         }
         #endregion
+        #region Editor Scene Hierarchy Related
+        
+        /// <summary>
+        /// Focuses the Scene view on the given GameObject.
+        /// </summary>
+        /// <param name="target">The GameObject to focus on.</param>
+        /// <param name="padding">Extra space around the bounds (default 1.1f = 10% padding).</param>
+        public static void FocusOnObject(GameObject target, float padding = 1.1f)
+        {
+            if (target == null) return;
 
+            Renderer[] renderers = target.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0)
+            {
+                // fallback to just transform
+                FocusOnBounds(new Bounds(target.transform.position, Vector3.one * 0.5f), padding);
+                return;
+            }
+
+            Bounds combinedBounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+            {
+                combinedBounds.Encapsulate(renderers[i].bounds);
+            }
+
+            FocusOnBounds(combinedBounds, padding);
+        }
+        /// <summary>
+        /// Focus and move the SceneView on a particular passed bounds
+        /// </summary>
+        /// <param name="bounds"></param>
+        /// <param name="padding"></param>
+        public static void FocusOnBounds(Bounds bounds, float padding = 1.1f)
+        {
+            if (SceneView.lastActiveSceneView == null) return;
+
+            bounds.Expand(bounds.size * (padding - 1f));
+            SceneView.lastActiveSceneView.Frame(bounds, false);
+        }
+        #endregion
+        #region GUIStyle Area
         /// <summary>
         /// Return a GUIStyle
         /// </summary>
@@ -230,6 +270,60 @@ namespace FuzzPhyte.Utility.Editor
             newStyle.richText = true;
             return newStyle;
         }
+
+        static readonly GUIContent _tmpGC = new GUIContent();
+        /// Single-line fit (no wrapping). Returns true if the text will fit in availableWidth.
+        public static bool WillTextFitSingleLine(string text, float availableWidth, GUIStyle style = null, float extraPad = 6f)
+        {
+            style ??= GUI.skin.button;        // or EditorStyles.miniButton, etc.
+            _tmpGC.text = text;
+            float required = style.CalcSize(_tmpGC).x + extraPad;
+            return required <= availableWidth;
+        }
+
+        /// Wrapped fit: returns true if the text fits on ONE line for the given width.
+        public static bool WillTextFitOneLineWrapped(string text, float availableWidth, GUIStyle style = null)
+        {
+            style ??= GUI.skin.button;
+            var s = new GUIStyle(style) { wordWrap = true };
+            _tmpGC.text = text;
+            float h = s.CalcHeight(_tmpGC, availableWidth);
+            // one-line if it doesn't exceed roughly one lineHeight
+            return h <= style.lineHeight + 1f;
+        }
+
+        /// Picks full or fallback label based on fit.
+        public static string ChooseLabelThatFits(string full, string fallback, float availableWidth, GUIStyle style = null)
+        {
+            return WillTextFitSingleLine(full, availableWidth, style) ? full : fallback;
+        }
+
+        public static bool ButtonFullText(string text, float height = 24f, GUIStyle style = null, float pad = 10f)
+        {
+            style ??= GUI.skin.button;
+            var content = new GUIContent(text);
+            float w = style.CalcSize(content).x + pad;   // text width + padding
+            return GUILayout.Button(content, style, GUILayout.MinWidth(w), GUILayout.Height(height));
+        }
+        /// <summary>
+        /// float colWidth = EditorGUIUtility.currentViewWidth - 40f;
+        /// if (ButtonWrapped("Apply Edits To Data", colWidth))
+        /// </summary>
+        /// <param name="text"></param>
+        /// <param name="maxWidth"></param>
+        /// <param name="minHeight"></param>
+        /// <param name="style"></param>
+        /// <param name="pad"></param>
+        /// <returns></returns>
+        public static bool ButtonWrapped(string text, float maxWidth, float minHeight = 24f, GUIStyle style = null, float pad = 6f)
+        {
+            var s = new GUIStyle(style ?? GUI.skin.button) { wordWrap = true, alignment = TextAnchor.MiddleCenter };
+            var content = new GUIContent(text);
+            float h = Mathf.Max(minHeight, s.CalcHeight(content, maxWidth - pad));
+            return GUILayout.Button(content, s, GUILayout.MaxWidth(maxWidth), GUILayout.Height(h));
+        }
+        #endregion
+        #region Asset Related
         /// <summary>
         /// Create a Folder at a local Asset Directory
         /// </summary>
@@ -353,6 +447,33 @@ namespace FuzzPhyte.Utility.Editor
             // Debug.Log("ExampleAsset created at " + assetPath);
             return assetPath;
         }
+        private static void CopyDirectory(string sourceDir, string destDir)
+        {
+            // Make sure destination folder exists
+            if (!Directory.Exists(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            // Copy all files
+            string[] files = Directory.GetFiles(sourceDir);
+            foreach (string file in files)
+            {
+                string fileName = Path.GetFileName(file);
+                string destPath = Path.Combine(destDir, fileName);
+                File.Copy(file, destPath, overwrite: true);
+            }
+
+            // Recursively copy subdirectories
+            string[] dirs = Directory.GetDirectories(sourceDir);
+            foreach (string dir in dirs)
+            {
+                string dirName = Path.GetFileName(dir);
+                string destSubDir = Path.Combine(destDir, dirName);
+                CopyDirectory(dir, destSubDir);
+            }
+        }
+#endregion
         /// <summary>
         /// Pass a string and the Editor will attempt at creating a new layer 
         /// </summary>
@@ -560,32 +681,7 @@ namespace FuzzPhyte.Utility.Editor
         /// <summary>
         /// Recursively copy the contents of one directory to another.
         /// </summary>
-        private static void CopyDirectory(string sourceDir, string destDir)
-        {
-            // Make sure destination folder exists
-            if (!Directory.Exists(destDir))
-            {
-                Directory.CreateDirectory(destDir);
-            }
-
-            // Copy all files
-            string[] files = Directory.GetFiles(sourceDir);
-            foreach (string file in files)
-            {
-                string fileName = Path.GetFileName(file);
-                string destPath = Path.Combine(destDir, fileName);
-                File.Copy(file, destPath, overwrite: true);
-            }
-
-            // Recursively copy subdirectories
-            string[] dirs = Directory.GetDirectories(sourceDir);
-            foreach (string dir in dirs)
-            {
-                string dirName = Path.GetFileName(dir);
-                string destSubDir = Path.Combine(destDir, dirName);
-                CopyDirectory(dir, destSubDir);
-            }
-        }
+        
 
         public static string ReturnEditorResourceIcons(string editorPath)
         {

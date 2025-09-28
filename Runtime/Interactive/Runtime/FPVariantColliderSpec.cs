@@ -2,13 +2,12 @@ namespace FuzzPhyte.Utility.Interactive
 {
     using UnityEngine;
     using System;
-    [Serializable]
-    public enum FPVariantColliderType { NA = 0, Box=1, Capsule = 2, Mesh = 3,Sphere = 4}
+    
     [Serializable]
     public struct FPVariantColliderSpec
     {
         public string name; // Label in the UI
-        public FPVariantColliderType type; // Box/Sphere/Capsule/Mesh
+        public FPColliderType type; // Box/Sphere/Capsule/Mesh
         public bool isTrigger; // Optional trigger
         public PhysicsMaterial material; // Optional physics material
         public Vector3 localPosition; // Relative to visual root
