@@ -112,13 +112,35 @@ namespace FuzzPhyte.Utility.Interactive.Editor
                 }else if(spec.type == FPColliderType.Capsule)
                 {
                     // CapsuleBoundsHandle gives nice native gizmos (direction: 0=X,1=Y,2=Z)
-                    var cbh = new CapsuleBoundsHandle(spec.direction)
+                    PrimitiveBoundsHandle.Axes capAxes = PrimitiveBoundsHandle.Axes.None;
+                    switch(spec.direction)
                     {
+                        case 0:
+                            capAxes = PrimitiveBoundsHandle.Axes.None;
+                            break;
+                        case 1:
+                            capAxes = PrimitiveBoundsHandle.Axes.X;
+                            break;
+                        case 2:
+                            capAxes = PrimitiveBoundsHandle.Axes.Y;
+                            break;
+                        case 4:
+                            capAxes = PrimitiveBoundsHandle.Axes.Z;
+                            break;
+                        case 7:capAxes = PrimitiveBoundsHandle.Axes.All;
+                            break;
+                        default:
+                            capAxes = PrimitiveBoundsHandle.Axes.None;
+                            break;
+                    }
+                    var cbh = new CapsuleBoundsHandle()
+                    {
+                        axes= capAxes,
                         center = pos,
                         height = Mathf.Max(spec.height, Mathf.Max(0.001f, spec.radius) * 2f),
                         radius = Mathf.Max(0.001f, spec.radius)
                     };
-
+                    
                     EditorGUI.BeginChangeCheck();
                     cbh.DrawHandle();
                     if (EditorGUI.EndChangeCheck())

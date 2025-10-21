@@ -393,6 +393,13 @@ namespace FuzzPhyte.Utility.Interactive.Editor
             if (root == null)
             {
                 root = baseInstance.AddComponent<FPInteractiveItemRoot>();
+                //set visuals root and collider root to empty objects nested under
+                var visuals = new GameObject("Visuals_Root");
+                visuals.transform.SetParent(root.transform, false);
+                root.VisualRoot = visuals.transform;
+                var colliders = new GameObject("Collider_Root");
+                colliders.transform.SetParent(root.transform, false);
+                root.ColliderRoot = colliders.transform;
             }
 
 
@@ -417,6 +424,12 @@ namespace FuzzPhyte.Utility.Interactive.Editor
                 preview.workingMaterials?.Clear();
             }else if (inlineMeshSets!=null && inlineMeshSets.Count > 0)
             {
+                if (preview.visualsRoot == null)
+                {
+                    var visuals = new GameObject("Visuals_Root").transform;
+                    visuals.transform.SetParent(root.transform, false);
+                    preview.visualsRoot = visuals;
+                }
                 Apply(preview.visualsRoot.gameObject, inlineMeshSets, "Visuals", destroyExtras: true);
                 preview.workingMesh = FindFirstMeshInVisuals(preview.visualsRoot);
                 preview.workingMaterials?.Clear();

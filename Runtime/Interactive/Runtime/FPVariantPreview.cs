@@ -34,6 +34,12 @@ namespace FuzzPhyte.Utility.Interactive
         public virtual void RebuildColliders()
         {
             // Clear existing
+            if (colliderRoot == null)
+            {
+                var cr = new GameObject("Collider_Root");
+                cr.transform.SetParent(visualsRoot, false);
+                colliderRoot = cr.transform;
+            }
             var existing = colliderRoot.GetComponentsInChildren<Collider>(true);
             foreach (var col in existing)
             {
