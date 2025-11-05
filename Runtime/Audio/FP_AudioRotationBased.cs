@@ -103,7 +103,7 @@ namespace FuzzPhyte.Utility.Audio
 
             // Accumulate absolute rotation to decide when to fire a grain
             _angleAccumulator += Mathf.Abs(dAngle);
-            Debug.Log($"angle = {angle}, _angleAccumulator: {_angleAccumulator}, _smoothedSpeed: {_smoothedSpeed}");
+            //Debug.Log($"angle = {angle}, _angleAccumulator: {_angleAccumulator}, _smoothedSpeed: {_smoothedSpeed}");
             if (_angleAccumulator >= AngleStepDegrees && _smoothedSpeed >= MinSpeedDegPerSec)
             {
                 // Optional minimum interval between grains
