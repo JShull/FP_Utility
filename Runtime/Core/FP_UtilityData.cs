@@ -717,7 +717,6 @@ namespace FuzzPhyte.Utility
     }
     #region Generic Enums for Players and NPCs
     [Serializable]
-    [SerializeField]
     /// <summary>
     /// Enum representing generic roles in the context of the player and various projects.
     /// </summary>
