@@ -38,4 +38,8 @@ namespace FuzzPhyte.Utility
         public void OnDisable();
         
     }
+    public interface IFPAfterSceneLoadBootstrap
+    {
+        public void InitializeAfterSceneLoad();
+    }
 }

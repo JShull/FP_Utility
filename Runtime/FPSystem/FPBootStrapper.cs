@@ -5,7 +5,7 @@ namespace FuzzPhyte.Utility.FPSystem
     using System.Linq;
     using UnityEngine;
 
-    public class FPBootStrapper<TData> : MonoBehaviour, IFPDontDestroy where TData:FP_Data
+    public class FPBootStrapper<TData> : MonoBehaviour, IFPAfterSceneLoadBootstrap, IFPDontDestroy where TData:FP_Data
     {
         public static FPBootStrapper<TData> Instance { get; private set; }
         //bool IFPDontDestroy.DontDestroy { get => throw new System.NotImplementedException(); set => throw new System.NotImplementedException(); }
@@ -19,6 +19,7 @@ namespace FuzzPhyte.Utility.FPSystem
         public bool ProcessSystemDataOnInit;
         [Tooltip("If you want the bootstrapper to initialize the system data, set this to true and set the InitSystemData to the data you want to initialize.")]
         public TData InitSystemData;
+        /*
         #if !UNITY_WEBGL
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         
@@ -42,6 +43,7 @@ namespace FuzzPhyte.Utility.FPSystem
             }
         }
         #endif
+        */
         public virtual void Awake()
         {
             // Ensure only one instance exists
@@ -60,6 +62,30 @@ namespace FuzzPhyte.Utility.FPSystem
                 Debug.LogWarning($"Destroying duplicate FPBootStrapper instance on {this.gameObject.name}.");
                 return;
             }
+        }
+        public virtual void InitializeAfterSceneLoad()
+        {
+            Debug.LogWarning($"Running FPBootStrapper<{typeof(TData).Name}>! {Time.time} and {Time.frameCount}");
+            // you should consider adding the attribute above this function -->  [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+            // If you care about WEBGL, keep the old #if – purely optional here.
+#if !UNITY_WEBGL
+            var majorFPSystems =
+                Object.FindObjectsByType<FPSystemBase<TData>>(FindObjectsSortMode.InstanceID).ToList();
+
+            Debug.LogWarning($"Major Systems Found: {majorFPSystems.Count}");
+
+            foreach (var initializer in majorFPSystems)
+            {
+                if (ProcessSystemDataOnInit)
+                {
+                    initializer.Initialize(initializer.AfterLateUpdateActive, InitSystemData);
+                }
+                else
+                {
+                    initializer.Initialize(initializer.AfterLateUpdateActive);
+                }
+            }
+#endif
         }
     }
 }

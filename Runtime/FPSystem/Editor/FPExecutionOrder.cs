@@ -9,6 +9,7 @@ namespace FuzzPhyte.Utility.FPSystem.Editor
         static FPExecutionOrder()
         {
             SetScriptExecutionOrder("FPBootStrapper",-50);
+            SetScriptExecutionOrder("FPGlobalBootstrap", -40);
         }
         private static void SetScriptExecutionOrder(string scriptName, int desiredOrder)
         {

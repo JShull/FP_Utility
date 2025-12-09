@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2025-12-09
+
+### 0.6.4 Added
+
+- [@JShull](https://github.com/jshull)
+  - FPGlobalBootstrap.cs
+    - Will update after the FPBootstrapper.cs classes are implemented to go 'find' all of them and run their code for OnSceneLoad
+
+### 0.6.4 Modified
+
+- [@JShull](https://github.com/jshull)
+  - FPBootstrapper.cs
+    - Removed the '[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]' requirement on InitializeAfterAwake as this won't work on generics
+  - FPExecutionOrder.cs
+    - Added in the FPGlobalBootstrap.cs
+
 ## [0.6.3] - 2025-09-20
 
 ### 0.6.3 Removed
