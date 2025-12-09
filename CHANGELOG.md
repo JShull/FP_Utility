@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [@JShull](https://github.com/jshull)
   - FPGlobalBootstrap.cs
     - Will update after the FPBootstrapper.cs classes are implemented to go 'find' all of them and run their code for OnSceneLoad
+  - FPDebugHelp.cs
+    - Editor script for various editor searches, this one currently has a way to look for Runtime Generics that would return InGenericTypeChain = true which can cause issues.
+    - Run it from FuzzPhyte/Utility/Editor/Debug
 
 ### 0.6.4 Modified
 
