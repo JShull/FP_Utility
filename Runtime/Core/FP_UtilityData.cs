@@ -42,6 +42,7 @@ namespace FuzzPhyte.Utility
         private readonly static char[] invalidFilenameChars;
         private readonly static char[] invalidPathChars;
         private readonly static char[] parseTextImagefileChars;
+        public static Color FPActiveColor  = new Color(0.01f, 0.8f, 1f);
 
         static FP_UtilityData()
         {

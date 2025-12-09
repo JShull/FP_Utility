@@ -562,7 +562,7 @@ namespace FuzzPhyte.Utility.Editor
         }        
         public static GUID ReturnGUIDFromInstance(int instanceID, out bool success)
         {
-            GameObject obj = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
+            GameObject obj = EditorUtility.EntityIdToObject(instanceID) as GameObject;
             //GetHashCode
             var getGlobalID = GlobalObjectId.GetGlobalObjectIdSlow(instanceID).assetGUID;
             if (getGlobalID.ToString() == "GlobalObjectId_V1-0-00000000000000000000000000000000-0-0")

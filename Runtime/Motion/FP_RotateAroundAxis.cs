@@ -198,9 +198,9 @@ namespace FuzzPhyte.Utility
                 ? targetObject.TransformDirection(rotationAxis.normalized)
                 : rotationAxis.normalized;
 
-            Gizmos.color = Color.magenta;
+            Gizmos.color = FP_UtilityData.FPActiveColor;
             Vector3 origin = targetObject.position;
-            Gizmos.DrawLine(origin - worldAxis * 0.75f, origin + worldAxis * 0.75f);
+            Gizmos.DrawLine(origin, origin + worldAxis * 2.5f);
 
             if (orbitAroundPivot)
             {
