@@ -407,6 +407,7 @@ namespace FuzzPhyte.Utility
             }
             return (false, measure);
         }
+
         #endregion
         /// <summary>
         /// If we need to take a string function and return a Unity Action on said target
@@ -1306,6 +1307,27 @@ namespace FuzzPhyte.Utility
         TechnologyStrands,
         Career
     }
+    /// <summary>
+    /// Reads Pointer Position and confirms that point is in that area 
+    /// of the screen based on size of screen and location
+    /// </summary>
+    [Serializable]
+    public struct FP_ScreenRegion
+    {
+        [Tooltip("Normalized rect (0..1) in screen space. (0,0)=bottom-left.")]
+        public Rect NormalizedRect;
+
+        [Tooltip("Optional name for debugging.")]
+        public string Name;
+
+        public bool ContainsScreenPoint(Vector2 screenPoint, Vector2 screenSize)
+        {
+            float x01 = (screenSize.x <= 0f) ? 0f : screenPoint.x / screenSize.x;
+            float y01 = (screenSize.y <= 0f) ? 0f : screenPoint.y / screenSize.y;
+            return NormalizedRect.Contains(new Vector2(x01, y01));
+        }
+    }
+
     #endregion
     /// <summary>
     /// Hold my custom list of items that are serializable so I can save editor prefs and other items

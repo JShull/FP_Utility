@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-01-07
+
+### 0.7.0 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP_ScreenRegionAsset.cs
+    - A scriptable object that holds FP_ScreenRegion struct data in an array
+  - FP_ScreenRegionGameViewDebug.cs
+    - An editor only script that debugs and shows you your screen region you've confined some operation to
+
+### 0.7.0 Modified
+
+- [@JShull](https://github.com/jshull)
+  - FP_UtilityData.cs
+    - Includes a new struct for 'FP_ScreenRegion'
+
 ## [0.6.4] - 2025-12-09
 
 ### 0.6.4 Added

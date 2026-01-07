@@ -1,10 +1,10 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "0.6.4",
+    "version": "0.7.0",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "6000.3",
-    "unityRelease": "0f1",
+    "unityRelease": "2f1",
     "documentationUrl": "https://github.com/jshull/FP_Utility/blob/main/README.md",
     "changelogUrl": "https://github.com/JShull/FP_Utility/blob/main/CHANGELOG.md",
     "licensesUrl": "https://github.com/jshull/FP_Utility/blob/main/LICENSE.md",
