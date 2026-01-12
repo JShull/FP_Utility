@@ -1,0 +1,193 @@
+namespace FuzzPhyte.Utility
+{
+    using System;
+    using UnityEngine;
+
+    internal sealed class FPMeshViewCache : IDisposable
+    {
+        private ComputeBuffer _vertexBuffer;
+        private ComputeBuffer _normalLineBuffer;
+        private Mesh _wireframeMesh;
+
+        private int _vertexCount;
+        private int _normalLineVertexCount;
+
+        public static FPMeshViewCache Build(Mesh mesh)
+        {
+            var cache = new FPMeshViewCache();
+            cache.BuildVertexBuffer(mesh);
+            cache.BuildNormalLines(mesh);
+            cache.BuildWireframeMeshWithBarycentric(mesh);
+            return cache;
+        }
+
+        public void DrawVertices(Matrix4x4 localToWorld, Material mat)
+        {
+            if (_vertexBuffer == null || mat == null) return;
+
+            mat.SetMatrix("_LocalToWorld", localToWorld);
+            mat.SetBuffer("_Vertices", _vertexBuffer);
+
+            // Assumes vertex shader uses SV_VertexID to index into _Vertices
+            mat.SetPass(0);
+            Graphics.DrawProceduralNow(MeshTopology.Points, _vertexCount);
+        }
+
+        public void DrawNormals(Matrix4x4 localToWorld, Material mat)
+        {
+            if (_normalLineBuffer == null || mat == null) return;
+
+            mat.SetMatrix("_LocalToWorld", localToWorld);
+            mat.SetBuffer("_Lines", _normalLineBuffer);
+
+            mat.SetPass(0);
+            Graphics.DrawProceduralNow(MeshTopology.Lines, _normalLineVertexCount);
+        }
+
+        public void DrawWireframe(Matrix4x4 localToWorld, Material mat)
+        {
+            if (_wireframeMesh == null || mat == null) return;
+            Graphics.DrawMesh(_wireframeMesh, localToWorld, mat, 0);
+        }
+
+        private void BuildVertexBuffer(Mesh mesh)
+        {
+            var verts = mesh.vertices;
+            _vertexCount = verts.Length;
+
+            // Packed as float3
+            _vertexBuffer = new ComputeBuffer(_vertexCount, sizeof(float) * 3);
+            _vertexBuffer.SetData(verts);
+        }
+
+        private void BuildNormalLines(Mesh mesh)
+        {
+            var verts = mesh.vertices;
+            var norms = mesh.normals;
+            if (norms == null || norms.Length != verts.Length) return;
+
+            // Each normal line is 2 vertices => pos, pos+normal*scale
+            var scale = 0.05f;
+            var lineVerts = new Vector3[verts.Length * 2];
+            for (int i = 0; i < verts.Length; i++)
+            {
+                lineVerts[i * 2 + 0] = verts[i];
+                lineVerts[i * 2 + 1] = verts[i] + norms[i] * scale;
+            }
+
+            _normalLineVertexCount = lineVerts.Length;
+            _normalLineBuffer = new ComputeBuffer(_normalLineVertexCount, sizeof(float) * 3);
+            _normalLineBuffer.SetData(lineVerts);
+        }
+
+        // In FPMeshViewCache
+        private void BuildWireframeMeshWithBarycentric(Mesh src, int maxTriangleCap = 200_000)
+        {
+            if (src == null) return;
+
+            int[] srcTris = src.triangles;
+            int triCount = srcTris.Length / 3;
+
+            // Performance guard: you can tune this cap for mobile/Web/VR.
+            if (triCount > maxTriangleCap)
+            {
+                _wireframeMesh = null;
+                return;
+            }
+
+            Vector3[] srcVerts = src.vertices;
+            Vector3[] srcNormals = src.normals;
+            Vector4[] srcTangents = src.tangents;
+            Vector2[] srcUv0 = src.uv;
+
+            bool hasNormals = srcNormals != null && srcNormals.Length == srcVerts.Length;
+            bool hasTangents = srcTangents != null && srcTangents.Length == srcVerts.Length;
+            bool hasUv0 = srcUv0 != null && srcUv0.Length == srcVerts.Length;
+
+            int newVertCount = triCount * 3;
+
+            var newVerts = new Vector3[newVertCount];
+            var newNormals = hasNormals ? new Vector3[newVertCount] : null;
+            var newTangents = hasTangents ? new Vector4[newVertCount] : null;
+            var newUv0 = hasUv0 ? new Vector2[newVertCount] : null;
+
+            // Store barycentric in vertex colors:
+            var newColors = new Color[newVertCount];
+
+            // Indices become sequential (0..N-1)
+            var newIndices = new int[newVertCount];
+
+            for (int t = 0; t < triCount; t++)
+            {
+                int i0 = srcTris[t * 3 + 0];
+                int i1 = srcTris[t * 3 + 1];
+                int i2 = srcTris[t * 3 + 2];
+
+                int o = t * 3;
+
+                newVerts[o + 0] = srcVerts[i0];
+                newVerts[o + 1] = srcVerts[i1];
+                newVerts[o + 2] = srcVerts[i2];
+
+                if (hasNormals)
+                {
+                    newNormals[o + 0] = srcNormals[i0];
+                    newNormals[o + 1] = srcNormals[i1];
+                    newNormals[o + 2] = srcNormals[i2];
+                }
+
+                if (hasTangents)
+                {
+                    newTangents[o + 0] = srcTangents[i0];
+                    newTangents[o + 1] = srcTangents[i1];
+                    newTangents[o + 2] = srcTangents[i2];
+                }
+
+                if (hasUv0)
+                {
+                    newUv0[o + 0] = srcUv0[i0];
+                    newUv0[o + 1] = srcUv0[i1];
+                    newUv0[o + 2] = srcUv0[i2];
+                }
+
+                // Barycentric: (1,0,0), (0,1,0), (0,0,1)
+                newColors[o + 0] = new Color(1, 0, 0, 1);
+                newColors[o + 1] = new Color(0, 1, 0, 1);
+                newColors[o + 2] = new Color(0, 0, 1, 1);
+
+                newIndices[o + 0] = o + 0;
+                newIndices[o + 1] = o + 1;
+                newIndices[o + 2] = o + 2;
+            }
+
+            _wireframeMesh = new Mesh
+            {
+                name = $"{src.name}_FPWireBary"
+            };
+
+            // Use 32-bit indices if needed
+            if (newVertCount > 65535)
+                _wireframeMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+
+            _wireframeMesh.vertices = newVerts;
+            if (hasNormals) _wireframeMesh.normals = newNormals;
+            if (hasTangents) _wireframeMesh.tangents = newTangents;
+            if (hasUv0) _wireframeMesh.uv = newUv0;
+
+            _wireframeMesh.colors = newColors;
+            _wireframeMesh.SetIndices(newIndices, MeshTopology.Triangles, 0, true);
+
+            _wireframeMesh.RecalculateBounds();
+        }
+
+        public void Dispose()
+        {
+            _vertexBuffer?.Dispose();
+            _normalLineBuffer?.Dispose();
+            if (_wireframeMesh != null)
+            {
+                GameObject.Destroy(_wireframeMesh);  
+            }
+        }
+    }
+}

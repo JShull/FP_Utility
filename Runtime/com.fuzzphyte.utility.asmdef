@@ -4,7 +4,10 @@
     "references": [
         "Unity.Mathematics",
         "Unity.TextMeshPro",
-        "Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary"
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Core.ShaderLibrary"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
