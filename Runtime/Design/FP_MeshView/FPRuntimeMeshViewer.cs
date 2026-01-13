@@ -16,24 +16,55 @@ namespace FuzzPhyte.Utility
 
     public sealed class FPRuntimeMeshViewer:MonoBehaviour
     {
+        public static FPRuntimeMeshViewer Active { get; private set; }
         [SerializeField] private MeshViewMode mode = MeshViewMode.Default;
         [SerializeField] private Renderer[] targetRenderers = null;
         // Assign these in inspector or load via Resources/Addressables
         [Header("Override Materials (URP)")]
         [SerializeField] private Material wireframeMat;
+        public Material WireframeMat => wireframeMat;
         [SerializeField] private Material vertexMat;
+        public Material VertexMat => vertexMat;
         [SerializeField] private Material normalsMat;
+        public Material NormalsMat => normalsMat;
         [SerializeField] private Material surfaceDebugMat;
+        public Material SurfaceDebugMat => surfaceDebugMat;
 
         private readonly Dictionary<Mesh, FPMeshViewCache> _cache = new();
-
+        public bool TryGetCache(Mesh mesh, out FPMeshViewCache cache) => _cache.TryGetValue(mesh, out cache);
         private readonly List<Renderer> _targets = new();
-
+        public void SetMode(MeshViewMode newMode) => mode = newMode;
+        public MeshViewMode GetMode => mode;
+        public Renderer[] GetTargets => _targets.ToArray();
+#region Unity Methods
         public void Awake()
         {
+            //Temp setup
             if (targetRenderers != null)
+            {
                 SetTargets(targetRenderers);
+            } 
         }
+        private void OnEnable()
+        {
+            Active = this;
+        }
+        private void OnDisable() 
+        { 
+            if (Active == this)
+            {
+                Active = null;
+            }
+        }
+        private void OnDestroy()
+        {
+            foreach (var kvp in _cache)
+            {
+                kvp.Value.Dispose();
+            }  
+            _cache.Clear();
+        }
+        #endregion
         public void SetTargets(IEnumerable<Renderer> renderers)
         {
             _targets.Clear();
@@ -45,12 +76,15 @@ namespace FuzzPhyte.Utility
                 var mesh = GetMeshFromRenderer(r);
                 if (mesh == null) continue;
                 if (!_cache.ContainsKey(mesh))
+                {
                     _cache[mesh] = FPMeshViewCache.Build(mesh);
+                }
             }
         }
 
-        public void SetMode(MeshViewMode newMode) => mode = newMode;
+       
 
+        /*
         private void OnRenderObject()
         {
             // Simple placeholder rendering hook.
@@ -95,13 +129,9 @@ namespace FuzzPhyte.Utility
                 }
             }
         }
+        */
 
-        private void OnDestroy()
-        {
-            foreach (var kvp in _cache)
-                kvp.Value.Dispose();
-            _cache.Clear();
-        }
+       
         private static Mesh GetMeshFromRenderer(Renderer r)
         {
             if (r is MeshRenderer mr)
@@ -118,6 +148,5 @@ namespace FuzzPhyte.Utility
             return null;
         }
 
-        
     }
 }

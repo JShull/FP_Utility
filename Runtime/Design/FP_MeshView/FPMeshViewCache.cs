@@ -2,16 +2,14 @@ namespace FuzzPhyte.Utility
 {
     using System;
     using UnityEngine;
-
-    internal sealed class FPMeshViewCache : IDisposable
+    using UnityEngine.Rendering;
+    public sealed class FPMeshViewCache : IDisposable
     {
         private ComputeBuffer _vertexBuffer;
         private ComputeBuffer _normalLineBuffer;
         private Mesh _wireframeMesh;
-
         private int _vertexCount;
         private int _normalLineVertexCount;
-
         public static FPMeshViewCache Build(Mesh mesh)
         {
             var cache = new FPMeshViewCache();
@@ -20,36 +18,26 @@ namespace FuzzPhyte.Utility
             cache.BuildWireframeMeshWithBarycentric(mesh);
             return cache;
         }
-
-        public void DrawVertices(Matrix4x4 localToWorld, Material mat)
+        public void DrawVertices(RasterCommandBuffer cmd, Matrix4x4 localToWorld, Material mat)
         {
             if (_vertexBuffer == null || mat == null) return;
 
             mat.SetMatrix("_LocalToWorld", localToWorld);
             mat.SetBuffer("_Vertices", _vertexBuffer);
-
-            // Assumes vertex shader uses SV_VertexID to index into _Vertices
-            mat.SetPass(0);
-            Graphics.DrawProceduralNow(MeshTopology.Points, _vertexCount);
+            cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Points, _vertexCount, 1);
         }
-
-        public void DrawNormals(Matrix4x4 localToWorld, Material mat)
+        public void DrawNormals(RasterCommandBuffer cmd, Matrix4x4 localToWorld, Material mat)
         {
             if (_normalLineBuffer == null || mat == null) return;
-
             mat.SetMatrix("_LocalToWorld", localToWorld);
             mat.SetBuffer("_Lines", _normalLineBuffer);
-
-            mat.SetPass(0);
-            Graphics.DrawProceduralNow(MeshTopology.Lines, _normalLineVertexCount);
+            cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Lines, _normalLineVertexCount, 1);
         }
-
-        public void DrawWireframe(Matrix4x4 localToWorld, Material mat)
+        public void DrawWireframe(RasterCommandBuffer cmd, Matrix4x4 localToWorld, Material mat)
         {
             if (_wireframeMesh == null || mat == null) return;
-            Graphics.DrawMesh(_wireframeMesh, localToWorld, mat, 0);
+            cmd.DrawMesh(_wireframeMesh, localToWorld, mat, 0, 0);
         }
-
         private void BuildVertexBuffer(Mesh mesh)
         {
             var verts = mesh.vertices;
@@ -59,7 +47,6 @@ namespace FuzzPhyte.Utility
             _vertexBuffer = new ComputeBuffer(_vertexCount, sizeof(float) * 3);
             _vertexBuffer.SetData(verts);
         }
-
         private void BuildNormalLines(Mesh mesh)
         {
             var verts = mesh.vertices;
@@ -80,7 +67,6 @@ namespace FuzzPhyte.Utility
             _normalLineBuffer.SetData(lineVerts);
         }
 
-        // In FPMeshViewCache
         private void BuildWireframeMeshWithBarycentric(Mesh src, int maxTriangleCap = 200_000)
         {
             if (src == null) return;
