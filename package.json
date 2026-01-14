@@ -34,6 +34,11 @@
         "displayName": "Apple iOS File Import Plugin",
         "description": "Native iOS I/O: Save .json, Open .md, and save .wav files to the iOS device",
         "path": "Samples~/iOSPlugin"
+      },
+      {
+        "displayName": "URP FP Render Settings",
+        "description": "Base URP settings for Mesh/Vertex Render Features",
+        "path": "Samples~/URPSettings"
       }
     ],
     "keywords": [
