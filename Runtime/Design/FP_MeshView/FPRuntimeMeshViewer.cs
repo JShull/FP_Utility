@@ -81,56 +81,6 @@ namespace FuzzPhyte.Utility
                 }
             }
         }
-
-       
-
-        /*
-        private void OnRenderObject()
-        {
-            // Simple placeholder rendering hook.
-            // In production URP, prefer a ScriptableRendererFeature pass.
-            if (mode == MeshViewMode.Default) return;
-
-            foreach (var r in _targets)
-            {
-                var mesh = GetMeshFromRenderer(r);
-                if (mesh == null) continue;
-
-                if (!_cache.TryGetValue(mesh, out var cache)) continue;
-
-                var matrix = r.localToWorldMatrix;
-
-                switch (mode)
-                {
-                    case MeshViewMode.Vertices:
-                        cache.DrawVertices(matrix, vertexMat);
-                        break;
-
-                    case MeshViewMode.Wireframe:
-                        cache.DrawWireframe(matrix, wireframeMat);
-                        break;
-
-                    case MeshViewMode.WireframeAndVertices:
-                        cache.DrawWireframe(matrix, wireframeMat);
-                        cache.DrawVertices(matrix, vertexMat);
-                        break;
-
-                    case MeshViewMode.Normals:
-                        cache.DrawNormals(matrix, normalsMat);
-                        break;
-
-                    case MeshViewMode.SurfaceWorldNormals:
-                    case MeshViewMode.SurfaceUV0:
-                    case MeshViewMode.SurfaceVertexColor:
-                        // easiest: draw mesh again with an override debug material
-                        // (better in URP via renderer feature)
-                        Graphics.DrawMesh(mesh, matrix, surfaceDebugMat, r.gameObject.layer);
-                        break;
-                }
-            }
-        }
-        */
-
        
         private static Mesh GetMeshFromRenderer(Renderer r)
         {
