@@ -14,6 +14,7 @@ namespace FuzzPhyte.Utility
 
         private static ComputeBuffer s_FallbackVertices;
         private static readonly int FPVerticesID = Shader.PropertyToID("_FPVertices");
+        private static readonly int LocalToWorldID = Shader.PropertyToID("_LocalToWorld");
 
         private static void EnsureFallback()
         {
@@ -32,20 +33,25 @@ namespace FuzzPhyte.Utility
         }
         public void DrawVertices(RasterCommandBuffer cmd, Matrix4x4 localToWorld, Material mat)
         {
-            if (_vertexBuffer == null || mat == null) return;
-            EnsureFallback();
-            //
-            // Always bind a buffer so Metal is satisfied
-            var bufferToBind = _vertexBuffer != null ? _vertexBuffer : s_FallbackVertices;
-            mat.SetMatrix("_LocalToWorld", localToWorld);
-            mat.SetBuffer(FPVerticesID, bufferToBind);
-
-    // If no real data, do not draw
-    if ( _vertexCount <= 0) return;
-
-    int quadVertexCount = _vertexCount * 6;
-    cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Triangles, quadVertexCount, 1);
+            if (mat == null) return;
             
+            EnsureFallback();
+            
+            // always bind resources
+            mat.SetMatrix(LocalToWorldID, localToWorld);
+            mat.SetBuffer(FPVerticesID, _vertexBuffer?? s_FallbackVertices);
+            // if no real buffer, do not draw
+            if (_vertexBuffer == null || _vertexCount <= 0) return;
+            
+            int quadVertexCount = _vertexCount * 6;
+            cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Triangles, quadVertexCount, 1);
+            //var bufferToBind = _vertexBuffer != null ? _vertexBuffer : s_FallbackVertices;
+
+
+
+            //int quadVertexCount = _vertexCount * 6;
+
+
             //
             //mat.SetMatrix("_LocalToWorld", localToWorld);
             //mat.SetBuffer("_FPVertices", _vertexBuffer);
