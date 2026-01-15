@@ -35,7 +35,9 @@ namespace FuzzPhyte.Utility
         private readonly List<Renderer> _targets = new();
         public void SetMode(MeshViewMode newMode) => mode = newMode;
         public MeshViewMode GetMode => mode;
-        public Renderer[] GetTargets => _targets.ToArray();
+        //public IReadOnlyList<Renderer> Targets => _targets;
+
+        public IReadOnlyList<Renderer>GetTargets => _targets.ToArray();
 #region Unity Methods
         public void Awake()
         {
@@ -58,11 +60,7 @@ namespace FuzzPhyte.Utility
         }
         private void OnDestroy()
         {
-            foreach (var kvp in _cache)
-            {
-                kvp.Value.Dispose();
-            }  
-            _cache.Clear();
+            ResetCacheAndClear();
         }
         #endregion
         public void SetTargets(IEnumerable<Renderer> renderers)
@@ -96,6 +94,63 @@ namespace FuzzPhyte.Utility
                 return smr.sharedMesh;
             }
             return null;
+        }
+        public void SetMeshModeType(MeshViewMode incomingMeshMode,IEnumerable<Renderer> renderers = null)
+        {
+            // JOHN for now we are going to use Vertices/Wireframe and WireframeAndVertices as the same
+            // JOHN default will just be a clear
+            switch (incomingMeshMode)
+            {
+                case MeshViewMode.Default:
+                    mode = MeshViewMode.Default;
+                    ResetCacheAndClear();
+                    //hide all overlays
+                    break;
+                case MeshViewMode.Vertices:
+                    mode = MeshViewMode.Vertices;
+                    if(renderers != null)
+                    {
+                        SetTargets(renderers);
+                    }
+                    //show vertices/wireframe
+                    break;
+                case MeshViewMode.Wireframe:
+                    mode = MeshViewMode.Wireframe;
+                    if(renderers != null)
+                    {
+                        SetTargets(renderers);
+                    }
+                    //show wireframe/vertices
+                    break;
+                case MeshViewMode.WireframeAndVertices:
+                    mode = MeshViewMode.WireframeAndVertices;
+                    if(renderers != null)
+                    {
+                        SetTargets(renderers);
+                    }
+                    //show wireframe & vertices
+                    break;
+                case MeshViewMode.Normals:
+                    mode = MeshViewMode.Normals;
+                    break;
+                case MeshViewMode.SurfaceWorldNormals:
+                    mode = MeshViewMode.SurfaceWorldNormals;
+                    break;
+                case MeshViewMode.SurfaceUV0:
+                    mode = MeshViewMode.SurfaceUV0;
+                    break;
+                case MeshViewMode.SurfaceVertexColor:
+                    mode = MeshViewMode.SurfaceVertexColor;
+                    break;
+            }
+        }
+        private void ResetCacheAndClear()
+        {
+             foreach (var kvp in _cache)
+            {
+                kvp.Value.Dispose();
+            }  
+            _cache.Clear();
         }
 
     }

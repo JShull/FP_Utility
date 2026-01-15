@@ -10,6 +10,18 @@ namespace FuzzPhyte.Utility
         private Mesh _wireframeMesh;
         private int _vertexCount;
         private int _normalLineVertexCount;
+        #region Fallback Method for Metal
+
+        private static ComputeBuffer s_FallbackVertices;
+        private static readonly int FPVerticesID = Shader.PropertyToID("_FPVertices");
+
+        private static void EnsureFallback()
+        {
+            if (s_FallbackVertices != null) return;
+            s_FallbackVertices = new ComputeBuffer(1, sizeof(float) * 3);
+            s_FallbackVertices.SetData(new Vector3[] { Vector3.zero });
+        }
+        #endregion
         public static FPMeshViewCache Build(Mesh mesh)
         {
             var cache = new FPMeshViewCache();
@@ -21,10 +33,28 @@ namespace FuzzPhyte.Utility
         public void DrawVertices(RasterCommandBuffer cmd, Matrix4x4 localToWorld, Material mat)
         {
             if (_vertexBuffer == null || mat == null) return;
-
+            EnsureFallback();
+            //
+            // Always bind a buffer so Metal is satisfied
+            var bufferToBind = _vertexBuffer != null ? _vertexBuffer : s_FallbackVertices;
             mat.SetMatrix("_LocalToWorld", localToWorld);
-            mat.SetBuffer("_Vertices", _vertexBuffer);
-            cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Points, _vertexCount, 1);
+            mat.SetBuffer(FPVerticesID, bufferToBind);
+
+    // If no real data, do not draw
+    if ( _vertexCount <= 0) return;
+
+    int quadVertexCount = _vertexCount * 6;
+    cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Triangles, quadVertexCount, 1);
+            
+            //
+            //mat.SetMatrix("_LocalToWorld", localToWorld);
+            //mat.SetBuffer("_FPVertices", _vertexBuffer);
+
+            //int quadVertexCount = _vertexCount * 6;
+            //cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Triangles, quadVertexCount, 1);
+
+            //
+            //cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Points, _vertexCount, 1);
         }
         public void DrawNormals(RasterCommandBuffer cmd, Matrix4x4 localToWorld, Material mat)
         {

@@ -92,7 +92,7 @@ namespace FuzzPhyte.Utility
             private static void ExecuteDraws(FPRuntimeMeshViewer viewer, MeshViewMode mode, RasterCommandBuffer cmd)
             {
                 var targets = viewer.GetTargets;
-                for (int i = 0; i < targets.Length; i++)
+                for (int i = 0; i < targets.Count; i++)
                 {
                     var r = targets[i];
                     if (r == null) continue;
