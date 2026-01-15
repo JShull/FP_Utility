@@ -1,6 +1,7 @@
 namespace FuzzPhyte.Utility
 {
     using System.Collections.Generic;
+    using System.Linq;
     using UnityEngine;
     public enum MeshViewMode
     {
@@ -37,7 +38,7 @@ namespace FuzzPhyte.Utility
         public MeshViewMode GetMode => mode;
         //public IReadOnlyList<Renderer> Targets => _targets;
 
-        public IReadOnlyList<Renderer>GetTargets => _targets.ToArray();
+        public IReadOnlyList<Renderer>GetTargets => _targets;
 #region Unity Methods
         public void Awake()
         {
@@ -63,11 +64,10 @@ namespace FuzzPhyte.Utility
             ResetCacheAndClear();
         }
         #endregion
-        public void SetTargets(IEnumerable<Renderer> renderers)
+        public void SetTargets(IEnumerable<Renderer> renderers, bool showRenderers=true)
         {
             _targets.Clear();
             _targets.AddRange(renderers);
-
             // Prewarm caches
             foreach (var r in _targets)
             {
@@ -95,6 +95,8 @@ namespace FuzzPhyte.Utility
             }
             return null;
         }
+       
+        
         public void SetMeshModeType(MeshViewMode incomingMeshMode,IEnumerable<Renderer> renderers = null)
         {
             // JOHN for now we are going to use Vertices/Wireframe and WireframeAndVertices as the same
@@ -152,6 +154,7 @@ namespace FuzzPhyte.Utility
             }  
             _cache.Clear();
         }
+
 
     }
 }

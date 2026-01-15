@@ -4,6 +4,7 @@ Shader "FuzzPhyte/WireframeBarycentricURP"
     {
         _LineWidth ("Line Width (pixels-ish)", Range(0.25, 5.0)) = 1.25
         _Opacity ("Opacity", Range(0,1)) = 1
+        _LineColor ("Line Color", Color) = (1,1,1,1)
     }
 
     SubShader
@@ -29,6 +30,7 @@ Shader "FuzzPhyte/WireframeBarycentricURP"
 
             float _LineWidth;
             float _Opacity;
+            float4 _LineColor;
 
             struct Attributes
             {
@@ -52,14 +54,13 @@ Shader "FuzzPhyte/WireframeBarycentricURP"
 
             half4 frag (Varyings i) : SV_Target
             {
-                // distance to the nearest edge
                 float e = min(i.bary.x, min(i.bary.y, i.bary.z));
-
-                // anti-aliased edge thickness
                 float fw = fwidth(e);
                 float a = 1.0 - smoothstep(0.0, fw * _LineWidth, e);
 
-                return half4(1,1,1, a * _Opacity);
+                half4 c = (half4)_LineColor;
+                c.a *= (a * _Opacity);
+                return c;
             }
             ENDHLSL
         }

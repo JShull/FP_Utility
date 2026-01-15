@@ -4,6 +4,7 @@ Shader "FuzzPhyte/VertexDotsURP"
     {
         _Size("Dot Size (world units)", Range(0.0005, 0.10)) = 0.01
         _Opacity("Opacity", Range(0,1)) = 1
+        _Color("Dot Color",Color) = (1,1,1,1)
     }
 
     SubShader
@@ -29,6 +30,7 @@ Shader "FuzzPhyte/VertexDotsURP"
             float4x4 _LocalToWorld;
             float _Size;
             float _Opacity;
+            float4 _Color;
 
             struct Attributes
             {
@@ -71,7 +73,9 @@ Shader "FuzzPhyte/VertexDotsURP"
 
             half4 frag(Varyings i) : SV_Target
             {
-                return half4(1, 1, 1, _Opacity);
+                half4 c = (half4)_Color;
+                c.a *= _Opacity;
+                return c;
             }
             ENDHLSL
         }
