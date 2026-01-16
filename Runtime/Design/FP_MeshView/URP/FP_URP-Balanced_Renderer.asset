@@ -69,7 +69,8 @@ MonoBehaviour:
   m_RendererFeatures:
   - {fileID: -1878332245247344467}
   - {fileID: -7527590919937277804}
-  m_RendererFeatureMap: adc0de57c6d2eee594c0aef2f09f8897
+  - {fileID: 5586124592449824836}
+  m_RendererFeatureMap: adc0de57c6d2eee594c0aef2f09f889744a80b64b8e6854d
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -98,3 +99,19 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 1
+--- !u!114 &5586124592449824836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8709213230a0df34f836918d42ec7646, type: 3}
+  m_Name: FPRuntimeMeasurementFeature
+  m_EditorClassIdentifier: com.fuzzphyte.utility::FuzzPhyte.Utility.FPRuntimeMeasurementFeature
+  m_Active: 1
+  settings:
+    passEvent: 500
+    drawInSceneView: 1
