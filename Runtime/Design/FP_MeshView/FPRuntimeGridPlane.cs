@@ -18,7 +18,7 @@ namespace FuzzPhyte.Utility
         public float SpacingInUnits = 1f;
 
         [Min(0.0001f)]
-        public float MajorSpacingInUnits = 1.0f; // optional: e.g. 1 m major line, 12 in, etc.
+        public float MajorSpacingInUnits = 1.0f;
         public bool UseMajorSpacing = false;
 
         [Tooltip("For Units=Custom: meters per custom unit.")]
