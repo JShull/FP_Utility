@@ -9,6 +9,8 @@ namespace FuzzPhyte.Utility
         [Header("Materials")]
         [SerializeField] private Material pointMat;
         [SerializeField] private Material lineMat;
+        [SerializeField] private UnitOfMeasure _units;
+        public UnitOfMeasure Units=> _units;
         public Material PointMat => pointMat;
         public Material LineMat => lineMat;
 
@@ -43,7 +45,7 @@ namespace FuzzPhyte.Utility
             _points = new ComputeBuffer(2, sizeof(float) * 3);
             _linePoints = new ComputeBuffer(2, sizeof(float) * 3);
             // initialize safe values
-            SetMeasurement(Vector3.zero, Vector3.zero, false);
+            SetMeasurement(Vector3.zero, Vector3.zero, false,UnitOfMeasure.Meter);
         }
 
         void OnDestroy()
@@ -52,8 +54,9 @@ namespace FuzzPhyte.Utility
             _linePoints?.Dispose();
         }
 
-        public void SetMeasurement(Vector3 a, Vector3 b, bool enabled)
+        public void SetMeasurement(Vector3 a, Vector3 b, bool enabled, UnitOfMeasure units)
         {
+            _units = units;
             _a = a; _b = b; _hasMeasurement = enabled;
             _twoPoints[0] = _a;
             _twoPoints[1] = _b;
@@ -62,7 +65,7 @@ namespace FuzzPhyte.Utility
         }
         public void ClearMeasurement()
         {
-            SetMeasurement(Vector3.zero, Vector3.zero, false);
+            SetMeasurement(Vector3.zero, Vector3.zero, false, UnitOfMeasure.Meter);
         }
     }
 }

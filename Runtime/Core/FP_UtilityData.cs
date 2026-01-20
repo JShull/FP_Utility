@@ -407,6 +407,114 @@ namespace FuzzPhyte.Utility
             }
             return (false, measure);
         }
+        public static float GetMetersPerUnit(UnitOfMeasure unit, float customValue = 1f)
+        {
+            switch (unit)
+            {
+                case UnitOfMeasure.Millimeter: return 0.001f;
+                case UnitOfMeasure.Centimeter: return 0.01f;
+                case UnitOfMeasure.Meter: return 1f;
+                case UnitOfMeasure.Kilometer: return 1000f;
+                case UnitOfMeasure.Inch: return 0.0254f;
+                case UnitOfMeasure.Feet: return 0.3048f;
+                case UnitOfMeasure.Miles: return 1609.34f;
+                case UnitOfMeasure.NauticalMiles: return 1852f;
+                case UnitOfMeasure.Custom: return customValue;
+            }
+            return 1f;
+        }
+        public static string GetUnitAbbreviation(UnitOfMeasure unit)
+        {
+            switch (unit)
+            {
+                case UnitOfMeasure.Millimeter:
+                    return "mm";
+
+                case UnitOfMeasure.Centimeter:
+                    return "cm";
+
+                case UnitOfMeasure.Meter:
+                    return "m";
+
+                case UnitOfMeasure.Kilometer:
+                    return "km";
+
+                case UnitOfMeasure.Inch:
+                    return "in";
+
+                case UnitOfMeasure.Feet:
+                    return "ft";
+
+                case UnitOfMeasure.Miles:
+                    return "mi";
+
+                case UnitOfMeasure.NauticalMiles:
+                    return "nmi";
+
+                case UnitOfMeasure.Custom:
+                    return "u"; // or "custom" / user-defined label
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Convert Units FROM to TO
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="from"></param>
+        /// <param name="to"></param>
+        /// <param name="customFrom"></param>
+        /// <param name="customTo"></param>
+        /// <returns></returns>
+        public static (bool, float) ConvertValue(float value,UnitOfMeasure from,UnitOfMeasure to,float customFrom = 1f,float customTo = 1f)
+        {
+            var (okFrom, meters) = ReturnValueInMeters(value, from, customFrom);
+            if (!okFrom) return (false, value);
+
+            return ReturnValueFromMeters(meters, to, customTo);
+        }
+
+        /// <summary>
+        /// Will give you the unit size based on a Unity Meter world
+        /// </summary>
+        /// <param name="meters"></param>
+        /// <param name="units"></param>
+        /// <param name="customValue"></param>
+        /// <returns></returns>
+        public static (bool, float) ReturnValueFromMeters(float meters,UnitOfMeasure units,float customValue = 1f)
+        {
+            switch (units)
+            {
+                case UnitOfMeasure.Millimeter:
+                    return (true, meters * 1000f);
+
+                case UnitOfMeasure.Centimeter:
+                    return (true, meters * 100f);
+
+                case UnitOfMeasure.Meter:
+                    return (true, meters);
+
+                case UnitOfMeasure.Kilometer:
+                    return (true, meters / 1000f);
+
+                case UnitOfMeasure.Inch:
+                    return (true, meters * 39.37f);
+
+                case UnitOfMeasure.Feet:
+                    return (true, meters * 3.28084f);
+
+                case UnitOfMeasure.Miles:
+                    return (true, meters / 1609.34f);
+
+                case UnitOfMeasure.NauticalMiles:
+                    return (true, meters / 1852f);
+
+                case UnitOfMeasure.Custom:
+                    return (true, meters * customValue);
+            }
+            return (false, meters);
+        }
 
         #endregion
         /// <summary>

@@ -70,7 +70,8 @@ MonoBehaviour:
   - {fileID: -1878332245247344467}
   - {fileID: -7527590919937277804}
   - {fileID: 5586124592449824836}
-  m_RendererFeatureMap: adc0de57c6d2eee594c0aef2f09f889744a80b64b8e6854d
+  - {fileID: 2560459625892324925}
+  m_RendererFeatureMap: adc0de57c6d2eee594c0aef2f09f889744a80b64b8e6854d3da60abf76948823
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -99,6 +100,23 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 1
+--- !u!114 &2560459625892324925
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97004499c37ea3c4d90af65e98041f25, type: 3}
+  m_Name: FPRuntimeGridFeature
+  m_EditorClassIdentifier: com.fuzzphyte.utility::FuzzPhyte.Utility.FPRuntimeGridFeature
+  m_Active: 1
+  settings:
+    passEvent: 300
+    drawInSceneView: 1
+    gridMaterial: {fileID: 2100000, guid: 8bb52ad0320cf2d4b82fd037c9e20f1b, type: 2}
 --- !u!114 &5586124592449824836
 MonoBehaviour:
   m_ObjectHideFlags: 0
