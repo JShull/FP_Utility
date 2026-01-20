@@ -19,6 +19,8 @@ namespace FuzzPhyte.Utility
     {
         public static FPRuntimeMeshViewer Active { get; private set; }
         [SerializeField] private MeshViewMode mode = MeshViewMode.Default;
+        [Range(3,1000000)]
+        [SerializeField] private int MaxTriangleCap = 500000;
         [SerializeField] private Renderer[] targetRenderers = null;
         // Assign these in inspector or load via Resources/Addressables
         [Header("Override Materials (URP)")]
@@ -34,6 +36,7 @@ namespace FuzzPhyte.Utility
         private readonly Dictionary<Mesh, FPMeshViewCache> _cache = new();
         public bool TryGetCache(Mesh mesh, out FPMeshViewCache cache) => _cache.TryGetValue(mesh, out cache);
         private readonly List<Renderer> _targets = new();
+        private IEnumerable<Renderer> _previousTargets;
         public void SetMode(MeshViewMode newMode) => mode = newMode;
         public MeshViewMode GetMode => mode;
         //public IReadOnlyList<Renderer> Targets => _targets;
@@ -66,6 +69,7 @@ namespace FuzzPhyte.Utility
         #endregion
         public void SetTargets(IEnumerable<Renderer> renderers, bool showRenderers=true)
         {
+            ResetCacheAndClear(); //release old buffers and clear cache
             _targets.Clear();
             _targets.AddRange(renderers);
             // Prewarm caches
@@ -75,7 +79,7 @@ namespace FuzzPhyte.Utility
                 if (mesh == null) continue;
                 if (!_cache.ContainsKey(mesh))
                 {
-                    _cache[mesh] = FPMeshViewCache.Build(mesh);
+                    _cache[mesh] = FPMeshViewCache.Build(mesh, MaxTriangleCap);
                 }
             }
         }
@@ -95,10 +99,28 @@ namespace FuzzPhyte.Utility
             }
             return null;
         }
-       
-        
+
+        #region Testing Methods
+        [ContextMenu("Test Normals")]
+        public void CheckNormals()
+        {
+            if (_previousTargets.Count() > 0)
+            {
+                SetMeshModeType(MeshViewMode.Normals, _previousTargets);
+            }
+            
+        }
+        #endregion
+        public void UpdateVertexSizing(float dotSize = 0.025f)
+        {
+            if (vertexMat != null)
+            {
+                vertexMat.SetFloat("_Size", dotSize);
+            }
+        }
         public void SetMeshModeType(MeshViewMode incomingMeshMode,IEnumerable<Renderer> renderers = null)
         {
+            _previousTargets = renderers;
             // JOHN for now we are going to use Vertices/Wireframe and WireframeAndVertices as the same
             // JOHN default will just be a clear
             switch (incomingMeshMode)
@@ -134,6 +156,10 @@ namespace FuzzPhyte.Utility
                     break;
                 case MeshViewMode.Normals:
                     mode = MeshViewMode.Normals;
+                    if (renderers != null)
+                    {
+                        SetTargets(renderers);
+                    }
                     break;
                 case MeshViewMode.SurfaceWorldNormals:
                     mode = MeshViewMode.SurfaceWorldNormals;
@@ -148,13 +174,11 @@ namespace FuzzPhyte.Utility
         }
         private void ResetCacheAndClear()
         {
-             foreach (var kvp in _cache)
+            foreach (var kvp in _cache)
             {
                 kvp.Value.Dispose();
             }  
             _cache.Clear();
         }
-
-
     }
 }

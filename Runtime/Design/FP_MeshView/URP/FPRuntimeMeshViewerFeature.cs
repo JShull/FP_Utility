@@ -81,7 +81,8 @@ namespace FuzzPhyte.Utility
 
                     // Optional but useful while you're bringing it up
                     builder.AllowPassCulling(false);
-
+                    // render graph code becomes pattern matches to our other features
+                    builder.AllowGlobalStateModification(true);
                     builder.SetRenderFunc((PassData data, RasterGraphContext ctx) =>
                     {
                         ExecuteDraws(data.viewer, data.mode, ctx.cmd);

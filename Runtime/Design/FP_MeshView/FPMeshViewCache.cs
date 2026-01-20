@@ -14,7 +14,7 @@ namespace FuzzPhyte.Utility
 
         private static ComputeBuffer s_FallbackVertices;
         private static readonly int FPVerticesID = Shader.PropertyToID("_FPVertices");
-        private static readonly int LocalToWorldID = Shader.PropertyToID("_LocalToWorld");
+        //private static readonly int LocalToWorldID = Shader.PropertyToID("_LocalToWorld");
 
         private static void EnsureFallback()
         {
@@ -23,16 +23,31 @@ namespace FuzzPhyte.Utility
             s_FallbackVertices.SetData(new Vector3[] { Vector3.zero });
         }
         #endregion
-        public static FPMeshViewCache Build(Mesh mesh)
+        public static FPMeshViewCache Build(Mesh mesh, int triangleCapSize)
         {
             var cache = new FPMeshViewCache();
             cache.BuildVertexBuffer(mesh);
             cache.BuildNormalLines(mesh);
-            cache.BuildWireframeMeshWithBarycentric(mesh);
+            cache.BuildWireframeMeshWithBarycentric(mesh, triangleCapSize);
             return cache;
         }
         public void DrawVertices(RasterCommandBuffer cmd, Matrix4x4 localToWorld, Material mat)
         {
+            if (mat == null) return;
+
+            EnsureFallback();
+
+            // Bind per-draw data as globals (buffer is fine as global)
+            cmd.SetGlobalBuffer(FPVerticesID, _vertexBuffer ?? s_FallbackVertices);
+
+            if (_vertexBuffer == null || _vertexCount <= 0) return;
+
+            int quadVertexCount = _vertexCount * 6;
+
+            // IMPORTANT: use localToWorld as the draw matrix so unity_ObjectToWorld is correct
+            cmd.DrawProcedural(localToWorld, mat, 0, MeshTopology.Triangles, quadVertexCount, 1);
+            // old draw vertices only worked for one singular mesh renderer
+            /*
             if (mat == null) return;
             
             EnsureFallback();
@@ -45,22 +60,7 @@ namespace FuzzPhyte.Utility
             
             int quadVertexCount = _vertexCount * 6;
             cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Triangles, quadVertexCount, 1);
-            //var bufferToBind = _vertexBuffer != null ? _vertexBuffer : s_FallbackVertices;
-
-
-
-            //int quadVertexCount = _vertexCount * 6;
-
-
-            //
-            //mat.SetMatrix("_LocalToWorld", localToWorld);
-            //mat.SetBuffer("_FPVertices", _vertexBuffer);
-
-            //int quadVertexCount = _vertexCount * 6;
-            //cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Triangles, quadVertexCount, 1);
-
-            //
-            //cmd.DrawProcedural(Matrix4x4.identity, mat, 0, MeshTopology.Points, _vertexCount, 1);
+            */
         }
         public void DrawNormals(RasterCommandBuffer cmd, Matrix4x4 localToWorld, Material mat)
         {
@@ -114,6 +114,7 @@ namespace FuzzPhyte.Utility
             if (triCount > maxTriangleCap)
             {
                 _wireframeMesh = null;
+                Debug.LogError($"Triangle Cap hit? {src.name}");
                 return;
             }
 
@@ -204,11 +205,29 @@ namespace FuzzPhyte.Utility
 
         public void Dispose()
         {
-            _vertexBuffer?.Dispose();
-            _normalLineBuffer?.Dispose();
+            if (_vertexBuffer != null)
+            {
+                _vertexBuffer.Release();
+                _vertexBuffer = null;
+            }
+
+            if (_normalLineBuffer != null)
+            {
+                _normalLineBuffer.Release();
+                _normalLineBuffer = null;
+            }
+
             if (_wireframeMesh != null)
             {
-                GameObject.Destroy(_wireframeMesh);  
+#if UNITY_EDITOR
+                if (!Application.isPlaying)
+                    GameObject.DestroyImmediate(_wireframeMesh);
+                else
+                    GameObject.Destroy(_wireframeMesh);
+#else
+    GameObject.Destroy(_wireframeMesh);
+#endif
+                _wireframeMesh = null;
             }
         }
     }
