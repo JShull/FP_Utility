@@ -1,5 +1,6 @@
 namespace FuzzPhyte.Utility
 {
+    using System.Collections;
     using UnityEngine;
 
     public sealed class FPRuntimeMeasurementOverlay : MonoBehaviour
@@ -45,7 +46,7 @@ namespace FuzzPhyte.Utility
             _points = new ComputeBuffer(2, sizeof(float) * 3);
             _linePoints = new ComputeBuffer(2, sizeof(float) * 3);
             // initialize safe values
-            SetMeasurement(Vector3.zero, Vector3.zero, false,UnitOfMeasure.Meter);
+            StartCoroutine(YieldFrameBufferSetup());
         }
 
         void OnDestroy()
@@ -60,8 +61,28 @@ namespace FuzzPhyte.Utility
             _a = a; _b = b; _hasMeasurement = enabled;
             _twoPoints[0] = _a;
             _twoPoints[1] = _b;
-            _points.SetData(_twoPoints);
-            _linePoints.SetData(_twoPoints);
+            if (_points != null)
+            {
+                _points.SetData(_twoPoints);
+            }
+            else
+            {
+                _points = new ComputeBuffer(2, sizeof(float) * 3);
+            }
+            if (_linePoints != null)
+            {
+                _linePoints.SetData(_twoPoints);
+            }
+            else
+            {
+                _linePoints = new ComputeBuffer(2, sizeof(float) * 3);
+            }
+           
+        }
+        IEnumerator YieldFrameBufferSetup()
+        {
+            yield return new WaitForEndOfFrame();
+            SetMeasurement(Vector3.zero, Vector3.zero, false,UnitOfMeasure.Meter);
         }
         public void ClearMeasurement()
         {
