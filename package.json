@@ -39,6 +39,10 @@
         "displayName": "URP FP Render Settings",
         "description": "Base URP settings for Mesh/Vertex Render Features",
         "path": "Samples~/URPSettings"
+      },{
+        "displayName": "URP Profiles",
+        "description": "URP Profiles for URP FP Render Environments",
+        "path": "Samples~/URPProfiles"
       }
     ],
     "keywords": [
