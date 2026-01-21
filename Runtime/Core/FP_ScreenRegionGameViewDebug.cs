@@ -1,7 +1,6 @@
-namespace FuzzPhyte.Utility.Editor
+namespace FuzzPhyte.Utility
 {
     using UnityEngine;
-    using UnityEditor;
     [ExecuteAlways]
     [DisallowMultipleComponent]
     public sealed class FP_ScreenRegionGameViewDebug : MonoBehaviour
@@ -110,8 +109,8 @@ namespace FuzzPhyte.Utility.Editor
             if (Application.isPlaying) return;
 
             // Repaint GameView/SceneView so changes show immediately.
-            EditorApplication.QueuePlayerLoopUpdate();
-            SceneView.RepaintAll();
+            UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+            UnityEditor.SceneView.RepaintAll();
             UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
 #endif
         }
