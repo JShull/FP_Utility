@@ -1,6 +1,5 @@
-namespace FuzzPhyte.Utility
+namespace FuzzPhyte.Utility.Editor
 {
-#if UNITY_EDITOR
     using UnityEngine;
     using UnityEditor;
     [ExecuteAlways]
@@ -118,5 +117,4 @@ namespace FuzzPhyte.Utility
         }
     }
 
-#endif
 }
