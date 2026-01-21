@@ -37,16 +37,18 @@ namespace FuzzPhyte.Utility
 
         public ComputeBuffer PointsBuffer => _points;
         public ComputeBuffer LineBuffer => _linePoints;
+        private bool _commandBuffersInitialized = false;
 
         void OnEnable() => Active = this;
         void OnDisable() { if (Active == this) Active = null; }
 
         void Awake()
         {
-            _points = new ComputeBuffer(2, sizeof(float) * 3);
-            _linePoints = new ComputeBuffer(2, sizeof(float) * 3);
-            // initialize safe values
-            StartCoroutine(YieldFrameBufferSetup());
+            if (!_commandBuffersInitialized)
+            {
+                InitializeCommandBuffers();
+                _commandBuffersInitialized = true;
+            }
         }
 
         void OnDestroy()
@@ -79,13 +81,21 @@ namespace FuzzPhyte.Utility
             }
            
         }
-        IEnumerator YieldFrameBufferSetup()
+        private void InitializeCommandBuffers()
         {
-            yield return new WaitForEndOfFrame();
+            _points = new ComputeBuffer(2, sizeof(float) * 3);
+            _linePoints = new ComputeBuffer(2, sizeof(float) * 3);
+            // initialize safe values
             SetMeasurement(Vector3.zero, Vector3.zero, false,UnitOfMeasure.Meter);
         }
         public void ClearMeasurement()
         {
+            if (!_commandBuffersInitialized)
+            {
+                InitializeCommandBuffers();
+                _commandBuffersInitialized = true;
+                return;
+            }
             SetMeasurement(Vector3.zero, Vector3.zero, false, UnitOfMeasure.Meter);
         }
     }
