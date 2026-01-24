@@ -19,31 +19,7 @@ namespace FuzzPhyte.Utility.FPSystem
         public bool ProcessSystemDataOnInit;
         [Tooltip("If you want the bootstrapper to initialize the system data, set this to true and set the InitSystemData to the data you want to initialize.")]
         public TData InitSystemData;
-        /*
-        #if !UNITY_WEBGL
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         
-        public static void InitializeAfterAwake()
-        {
-            Debug.LogWarning($"Running bootStrapper! {Time.time} and {Time.frameCount}");
-            
-            //var MajorFPSystems = Object.FindObjectsOfType<FPSystemBase<TData>>().ToList();
-            var MajorFPSystems=Object.FindObjectsByType<FPSystemBase<TData>>(FindObjectsSortMode.InstanceID).ToList();
-            Debug.LogWarning($"Major Systems Found: {MajorFPSystems.Count}");
-            foreach (var initializer in MajorFPSystems)
-            {
-                if (Instance.ProcessSystemDataOnInit)
-                {
-                    initializer.Initialize(initializer.AfterLateUpdateActive,Instance.InitSystemData);
-                }
-                else
-                {
-                    initializer.Initialize(initializer.AfterLateUpdateActive);
-                }
-            }
-        }
-        #endif
-        */
         public virtual void Awake()
         {
             // Ensure only one instance exists
