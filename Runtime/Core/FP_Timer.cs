@@ -23,6 +23,7 @@ namespace FuzzPhyte.Utility
         protected static FP_Timer _instance;
         public bool DontDestroy=false;
         public static FP_Timer CCTimer { get { return _instance; } }
+        protected PriorityQueue<TimerData> timers = new PriorityQueue<TimerData>();
         public virtual void Awake()
         {
             if (_instance != null && _instance != this)
@@ -38,12 +39,18 @@ namespace FuzzPhyte.Utility
                 DontDestroyOnLoad(this.gameObject);
             }
         }
-        protected PriorityQueue<TimerData> timers = new PriorityQueue<TimerData>();
+        
         protected virtual void Update()
         {
             while (timers.Count > 0 && timers.Peek().time <= Time.time)
             {
                 TimerData timerData = timers.Dequeue();
+
+                //Guard: timerData or callback might be null
+                if(timerData == null || timerData.onFinish == null)
+                {
+                    continue;
+                }
                 Debug.LogWarning($"Timer Finished with Action: {timerData.onFinish.Method.Name}");
                 timerData.onFinish();
             }
@@ -144,6 +151,47 @@ namespace FuzzPhyte.Utility
             };
             timers.Enqueue(timerData);
             return timerData;
+        }
+        /// <summary>
+        /// Cancles a timer by handle (the TimerData returned from StartTimer)
+        /// Returns true if the timer was found and removed
+        /// </summary>
+        /// <param name="handle"></param>
+        /// <returns></returns>
+        public virtual bool CancelTimer(TimerData handle)
+        {
+            if (handle == null) return false;
+            return timers.Remove(handle);
+        }
+        /// <summary>
+        /// Cancels all scheduled timers
+        /// </summary>
+        public virtual void CancelAllTimers()
+        {
+            timers.ResetAndClear();
+        }
+        /// <summary>
+        /// Returns true if the timer handle is currently scheduled
+        /// </summary>
+        /// <param name="handle"></param>
+        /// <returns></returns>
+        public virtual bool IsScheduled(TimerData handle)
+        {
+            if(handle== null) return false;
+            return timers.Contains(handle);
+        }
+        /// <summary>
+        /// Returns remaining seconds for a scheduled timer handle
+        /// if not scheduled or null, returns 0f
+        /// </summary>
+        /// <param name="handle"></param>
+        /// <returns></returns>
+        public virtual float GetRemainingSeconds(TimerData handle)
+        {
+            if (handle == null) return 0f;
+            if (!IsScheduled(handle)) return 0f;
+
+            return Mathf.Max(0f, handle.time - Time.time);
         }
         #endregion
     }
