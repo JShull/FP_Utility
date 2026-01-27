@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-27
+
+### 0.8.0 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP_TickSystem.cs
+    - Way to centralize management of various uses of our own tick system that's just bootstrapped to Unity
+    - still relies on Update/FixedUpdate/LateUpdate and/or your own interval (which uses one of those three as a base)
+  - FP_BinderBase.cs
+    - Binder Base class: Interface solution for Bind/UnBind/ResetBind/IsBound
+
+### 0.8.0 Modified
+
+- [@JShull](https://github.com/jshull)
+  - FP_Timer.cs
+    - Works now with updates associated with Priority Queue
+  - PriorityQueue.cs
+    - Better Error catching for Queue/Dequeue and managing Down/up Heap (better code broken up)
+  - FPBootStrapper.cs
+    - cleaning up code that was already commented out
+  - FP_ScreenRegionGameViewDebug.cs
+    - Removing UnityEditor dependency and instead using Unity Code compilation to manage #Unity_Editor needs
+
 ## [0.7.0] - 2026-01-07
 
 ### 0.7.0 Added
