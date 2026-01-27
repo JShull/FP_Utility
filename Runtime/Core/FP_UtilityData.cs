@@ -825,6 +825,73 @@ namespace FuzzPhyte.Utility
         T StartTimer(float time, FP_Data param, Action<FP_Data> onFinish);
         T StartTimer(float time, GameObject param, Action<GameObject> onFinish);
     }
+
+    [Serializable]
+    public enum FPTickMode
+    {
+        Update,
+        PhysicsUpdate,
+        LateUpdate,
+        UserInterval,
+    }
+    [Serializable]
+    public struct FPTickGroupConfig
+    {
+        public int GroupId;
+        public FPTickMode Mode;
+
+        
+        public bool UseUnscaledTime;
+        /// <summary>
+        /// if false, group won't tick (but the object remains registered)
+        /// </summary>
+        public bool Enabled;
+
+        /// <summary>
+        /// If Mode == UserInterval, choose which Unity loop accumulates time.
+        /// Common choices:
+        /// - Update: UI-ish timers
+        /// - PhysicsUpdate: physics-ish stepping
+        /// - LateUpdate: presentation-ish stepping
+        /// </summary>
+        public FPTickMode IntervalDriver;
+        /// <summary>
+        /// Only used if Mode == FixedInterval
+        /// </summary>
+        public float Interval;
+    }
+    /// <summary>
+    /// Implement to receieve ticks from FP_TickSystem
+    /// Tick Cadence is controlled by the system (group frequency & mode), not per-monobehaviour update but one update for all registered
+    /// </summary>
+    public interface IFPTickable
+    {
+        /// <summary>
+        /// Determines which tick stream this object belongs to (e.g., Simulation, UI, Networking).
+        /// </summary>
+        int TickGroup { get; }
+
+        /// <summary>
+        /// Higher runs earlier within a group on that tick step.
+        /// </summary>
+        int TickPriority { get; }
+
+        /// <summary>
+        /// Called when the tickable is registered.
+        /// </summary>
+        void OnTickRegistered();
+
+        /// <summary>
+        /// Called when the tickable is unregistered.
+        /// </summary>
+        void OnTickUnregistered();
+
+        /// <summary>
+        /// Called by FP_TickSystem when this object's group steps.
+        /// dt is the step size (interval) in seconds.
+        /// </summary>
+        void Tick(float dt);
+    }
     #region Generic Enums for Players and NPCs
     [Serializable]
     /// <summary>
