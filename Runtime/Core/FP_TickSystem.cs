@@ -229,6 +229,10 @@ namespace FuzzPhyte.Utility
             }
         }
 
+        public void MarkGroupDirty(int groupId)
+        {
+            _dirtyGroups.Add(groupId);
+        }
         public void SetGroupConfig(FPTickGroupConfig cfg)
         {
             if (cfg.Mode == FPTickMode.UserInterval)
