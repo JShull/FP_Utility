@@ -5,7 +5,6 @@ namespace FuzzPhyte.Utility
 {
     /// <summary>
     /// This PriorityQueue class implements a binary heap data structure
-    /// 
     /// <typeparam name="T"></typeparam>
     public class PriorityQueue<T> where T : IComparable<T>
     {
@@ -22,6 +21,9 @@ namespace FuzzPhyte.Utility
         public void Enqueue(T item)
         {
             data.Add(item);
+            HeapifyUp(data.Count - 1);
+            //OLD
+            /*
             int ci = data.Count - 1;
             while (ci > 0)
             {
@@ -35,13 +37,45 @@ namespace FuzzPhyte.Utility
                 data[pi] = tmp;
                 ci = pi;
             }
+            */
         }
         /// <summary>
         /// The Dequeue method removes and returns the item with the highest priority, and reorders the items to maintain the binary heap property. 
         /// </summary>
         /// <returns></returns>
+
+        /// <summary>
+        /// Safe version of Dequeue.
+        /// </summary>
+        public bool TryDequeue(out T item)
+        {
+            if (data.Count== 0)
+            {
+                item = default;
+                return false;
+            }
+            item = Dequeue();
+            return true;
+        }
         public T Dequeue()
         {
+            if (data.Count == 0)
+            {
+                throw new InvalidOperationException("Cannot Dequeue from an empty Priority Queue.");
+            }
+            T frontItem = data[0];
+            int lastIndex = data.Count - 1;
+            if(lastIndex == 0)
+            {
+                data.RemoveAt(0);
+                return frontItem;
+            }
+            data[0] = data[lastIndex];
+            data.RemoveAt(lastIndex);
+            HeapifyDown(0);
+            return frontItem;
+            /*
+            //OLD
             int li = data.Count - 1;
             T frontItem = data[0];
             data[0] = data[li];
@@ -71,23 +105,82 @@ namespace FuzzPhyte.Utility
                 pi = ci;
             }
             return frontItem;
+            */
         }
 
+        /// <summary>
+        /// Safe version of Peek
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        public bool TryPeek(out T item)
+        {
+            if (data.Count == 0)
+            {
+                item = default;
+                return false;
+            }
+            item = data[0];
+            return true;
+        }
         /// <summary>
         /// The Peek method returns the item with the highest priority without removing it
         /// </summary>
         /// <returns></returns>
         public T Peek()
         {
-            T frontItem = data[0];
-            return frontItem;
+            if (data.Count == 0)
+            {
+                throw new InvalidOperationException("Cannot peek an empty Priority Queue.");
+            }
+            return data[0];
         }
+        
 
-        public int Count
+        /// <summary>
+        /// Removes the first occurence of the given item from the queue.
+        /// Returns true if an item was removed
+        /// Complexity: O(n) to find + O(log n) to restore heap
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        public bool Remove(T item)
         {
-            get { return data.Count; }
+            int index = data.IndexOf(item);
+            if (index < 0) return false;
+            return RemoveAt(index);
         }
+        /// <summary>
+        /// Removes the item at the given index (heap index)
+        /// Returns true if successful, false if index out of range
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        public bool RemoveAt(int index)
+        {
+            if (index < 0 || index >= data.Count) return false;
 
+            int lastIndex = data.Count - 1;
+
+            // If removing last element, just pop.
+            if (index == lastIndex)
+            {
+                data.RemoveAt(lastIndex);
+                return true;
+            }
+
+            // Swap with last and remove.
+            data[index] = data[lastIndex];
+            data.RemoveAt(lastIndex);
+
+            // Fix heap: try down first; if no movement, then up.
+            int movedTo = HeapifyDown(index);
+            HeapifyUp(movedTo);
+
+            return true;
+        }
+        public int Count => data.Count;
+        
         /// <summary>
         ///  method iterates through all the nodes in the priority queue and compares the value 
         ///  of each node with the values of its children. If it finds a node that violates the 
@@ -145,5 +238,56 @@ namespace FuzzPhyte.Utility
         {
             data.Clear();
         }
+        #region Heap Helpers
+        /// <summary>
+        /// Works up the heap from a start index
+        /// </summary>
+        /// <param name="childIndex"></param>
+        private void HeapifyUp(int childIndex)
+        {
+            int ci = childIndex;
+            while(ci > 0)
+            {
+                int pi = (ci - 1) / 2;
+                if (data[ci].CompareTo(data[pi]) >= 0) break;
+
+                Swap(ci, pi);
+                ci = pi;
+            }
+        }
+        /// <summary>
+        /// Works down the heap from a start index. Returns final index the element moved to
+        /// </summary>
+        /// <param name="startIndex"></param>
+        /// <returns></returns>
+        private int HeapifyDown(int startIndex)
+        {
+            int li = data.Count - 1;
+            int pi = startIndex;
+
+            while (true)
+            {
+                int ci = pi * 2 + 1;
+                if (ci > li) break;
+
+                int rc = ci + 1;
+                if (rc <= li && data[rc].CompareTo(data[ci]) < 0)
+                    ci = rc;
+
+                if (data[pi].CompareTo(data[ci]) <= 0) break;
+
+                Swap(pi, ci);
+                pi = ci;
+            }
+
+            return pi;
+        }
+        private void Swap(int a, int b)
+        {
+            T tmp = data[a];
+            data[a] = data[b];
+            data[b] = tmp;
+        }
+        #endregion
     }
 }
