@@ -45,6 +45,14 @@ namespace FuzzPhyte.Utility
             if (dontDestroyOnLoad) DontDestroyOnLoad(gameObject);
 
             RebuildConfigCache();
+            foreach (var cfg in _configByGroup.Values)
+            {
+                if (!_tickablesByGroup.ContainsKey(cfg.GroupId))
+                    _tickablesByGroup[cfg.GroupId] = new List<IFPTickable>();
+
+                if (!_accumulatorByGroup.ContainsKey(cfg.GroupId))
+                    _accumulatorByGroup[cfg.GroupId] = 0f;
+            }
         }
         private void RebuildConfigCache()
         {
@@ -68,12 +76,6 @@ namespace FuzzPhyte.Utility
                 }
 
                 _configByGroup[cfg.GroupId] = cfg;
-
-                if (!_tickablesByGroup.ContainsKey(cfg.GroupId))
-                    _tickablesByGroup[cfg.GroupId] = new List<IFPTickable>();
-
-                if (!_accumulatorByGroup.ContainsKey(cfg.GroupId))
-                    _accumulatorByGroup[cfg.GroupId] = 0f;
             }
         }
 
@@ -101,6 +103,7 @@ namespace FuzzPhyte.Utility
         #endregion
         private void DispatchNonIntervalGroups(FPTickMode callbackMode)
         {
+            
             foreach (var kvp in _configByGroup)
             {
                 int groupId = kvp.Key;
@@ -109,10 +112,18 @@ namespace FuzzPhyte.Utility
                 if (!cfg.Enabled) continue;
                 if (cfg.Mode != callbackMode) continue;
                 if (cfg.Mode == FPTickMode.UserInterval) continue;
-
-                if (!_tickablesByGroup.TryGetValue(groupId, out var list) || list.Count == 0)
+                //Debug.Log($"Interval Groups Driven by {callbackMode}");
+                if (!_tickablesByGroup.TryGetValue(groupId, out var list))
+                {
+                    //Debug.LogError($"[TickSystem] No list for group {groupId}");
                     continue;
+                }
 
+                if (list.Count == 0)
+                {
+                    //Debug.LogError($"[TickSystem] Empty list for group {groupId}");
+                    continue;
+                }
                 SortIfDirty(groupId, list);
                 float dt = GetDtForCallback(cfg, callbackMode);
                 Dispatch(list, dt);
@@ -129,6 +140,7 @@ namespace FuzzPhyte.Utility
                 if (cfg.Mode != FPTickMode.UserInterval) continue;
                 if (cfg.IntervalDriver != callbackMode) continue;
 
+                Debug.Log($"Interval Groups Driven by {callbackMode}");
                 if (!_tickablesByGroup.TryGetValue(groupId, out var list) || list.Count == 0)
                     continue;
 
@@ -183,7 +195,6 @@ namespace FuzzPhyte.Utility
         public void Register(IFPTickable tickable)
         {
             if (tickable == null) return;
-
             int group = tickable.TickGroup;
 
             if (!_configByGroup.ContainsKey(group))
@@ -200,7 +211,14 @@ namespace FuzzPhyte.Utility
                 };
 
                 groupConfigs.Add(cfg);
-                RebuildConfigCache();
+                // DON"T REBUILD
+                _configByGroup[cfg.GroupId] = cfg;
+
+                if (!_tickablesByGroup.ContainsKey(cfg.GroupId))
+                    _tickablesByGroup[cfg.GroupId] = new List<IFPTickable>();
+
+                if (!_accumulatorByGroup.ContainsKey(cfg.GroupId))
+                    _accumulatorByGroup[cfg.GroupId] = 0f;
             }
 
             if (!_tickablesByGroup.TryGetValue(group, out var list))
@@ -208,7 +226,6 @@ namespace FuzzPhyte.Utility
                 list = new List<IFPTickable>();
                 _tickablesByGroup[group] = list;
             }
-
             if (!list.Contains(tickable))
             {
                 list.Add(tickable);
