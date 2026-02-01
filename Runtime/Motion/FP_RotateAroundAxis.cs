@@ -32,15 +32,16 @@ namespace FuzzPhyte.Utility
         [SerializeField] protected float totalAngle = 360f;
         [SerializeField] protected AnimationCurve rotationCurve = AnimationCurve.Linear(0, 0, 1, 1);
 
-       
-
         // Cached orbit center for this run (prevents 0,0,0 jumps)
         [Space]
+        [Header("Cached Values and Debugging")]
         // Baselines
         [SerializeField] protected Quaternion _startWorldRotation;
         [SerializeField] protected Vector3 _startPosition;
         [SerializeField] protected Vector3 _cachedOrbitCenter;
         [SerializeField] protected bool _hasCachedOrbit;
+        [Space]
+        [SerializeField] protected bool _debugShowGizmos = true;
 
         public override void SetupMotion()
         {
@@ -193,7 +194,7 @@ namespace FuzzPhyte.Utility
         public override void OnDrawGizmos()
         {
             if (!targetObject) return;
-
+            if (!_debugShowGizmos) return;
             Vector3 worldAxis = useLocalAxis
                 ? targetObject.TransformDirection(rotationAxis.normalized)
                 : rotationAxis.normalized;
