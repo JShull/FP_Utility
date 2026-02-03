@@ -108,8 +108,32 @@ namespace FuzzPhyte.Utility
                 }
             }
         }
-    
-        
+
+        /// <summary>
+        /// Draws a wireframe plane using Debug.DrawLine.
+        /// Plane is aligned to local XZ (Y = 0) and transformed via TRS.
+        /// </summary>
+        /// <param name="pos">Center of the plane</param>
+        /// <param name="rot">Rotation (normal = rot * Vector3.up)</param>
+        /// <param name="scale">Width (x) and depth (y)</param>
+        /// <param name="c">Line color</param>
+        /// <param name="time">Duration</param>
+        public void DrawPlane(Vector3 pos, Quaternion rot, Vector2 scale, Color c, float time)
+        {
+            Matrix4x4 m = new Matrix4x4();
+            m.SetTRS(pos, rot, new Vector3(scale.x, 1f, scale.y));
+
+            var point1 = m.MultiplyPoint(new Vector3(-0.5f, 0f, -0.5f));
+            var point2 = m.MultiplyPoint(new Vector3(0.5f, 0f, -0.5f));
+            var point3 = m.MultiplyPoint(new Vector3(0.5f, 0f, 0.5f));
+            var point4 = m.MultiplyPoint(new Vector3(-0.5f, 0f, 0.5f));
+
+            Debug.DrawLine(point1, point2, c, time);
+            Debug.DrawLine(point2, point3, c, time);
+            Debug.DrawLine(point3, point4, c, time);
+            Debug.DrawLine(point4, point1, c, time);
+        }
+
     }
-    
+
 }
