@@ -1,6 +1,6 @@
 ---
 name: fuzzphyte-skills
-description: Architectural conventions, patterns, and coding standards for FuzzPhyte FP_ Unity libraries
+description: Architectural conventions, patterns, and coding standards for FuzzPhyte FP_ Unity libraries; use when generating or validating Unity C# code to ensure consistency across packages.
 compatibility: Unity Editor (6000.0). Intended for Unity Package Manager libraries written in C#, using ScriptableObjects, custom Editor tooling, and optional ECS patterns.
 license: Dual-licensed. Educational use under the MIT License; business/commercial use under the GNU General Public License v3.0. See the repository root README and LICENSE file for full terms.
 metadata:
