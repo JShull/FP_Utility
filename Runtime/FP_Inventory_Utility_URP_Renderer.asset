@@ -1,5 +1,43 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-2446556444777686079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db402767dea9d31459f041929d7b2c6a, type: 3}
+  m_Name: FPRuntimeCutawayRevealFeature
+  m_EditorClassIdentifier: com.fuzzphyte.utility::FuzzPhyte.Utility.FPRuntimeCutawayFeature
+  m_Active: 0
+  settings:
+    passEvent: 500
+    revealLayer:
+      serializedVersion: 2
+      m_Bits: 262144
+    revealMaterial: {fileID: 2100000, guid: c03e1cbe72ed0df48a5e12862c40f5d8, type: 2}
+--- !u!114 &-487527310515065048
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d28d403e640d3440828ec20c9104e0a, type: 3}
+  m_Name: FPRuntimeCutawayGeometryFeature
+  m_EditorClassIdentifier: com.fuzzphyte.utility::FuzzPhyte.Utility.FPRuntimeCutawayGeometryFeature
+  m_Active: 1
+  settings:
+    passEvent: 250
+    targetLayers:
+      serializedVersion: 2
+      m_Bits: 1048576
+    cutMaterial: {fileID: 2100000, guid: c251b9ee4cca480498634b554ea08942, type: 2}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -29,7 +67,9 @@ MonoBehaviour:
   - {fileID: 4535340438415910147}
   - {fileID: 3058576825800252361}
   - {fileID: 7281017869013199389}
-  m_RendererFeatureMap: 6e8958e3b7d8056f03a53e7719c4f03ec9db10046b3f722a1daacde52c5f0b65
+  - {fileID: -487527310515065048}
+  - {fileID: -2446556444777686079}
+  m_RendererFeatureMap: 6e8958e3b7d8056f03a53e7719c4f03ec9db10046b3f722a1daacde52c5f0b6528af727e7ef43bf9c15b153ae0150cde
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
