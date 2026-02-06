@@ -77,9 +77,9 @@ namespace FuzzPhyte.Utility
 
                     ShaderTagId[] shaderTags =
                     {
-                    new ShaderTagId("UniversalForward"),
-                    new ShaderTagId("SRPDefaultUnlit"),
-                };
+                        new ShaderTagId("UniversalForward"),
+                        new ShaderTagId("SRPDefaultUnlit"),
+                    };
 
                     var desc = new RendererListDesc(shaderTags,
                         renderingData.cullResults,
@@ -127,7 +127,7 @@ namespace FuzzPhyte.Utility
                 var mat = data.material;
                 mat.SetVector(VC_Center, data.volume.Center);
                 mat.SetFloat(VC_Radius, data.volume.sphereRadius);
-                //mat.SetVector(VC_Extents, data.volume
+                mat.SetVector(VC_Extents, data.volume.boxExtents);
                 mat.SetInt(VC_UseSphere, data.volume.useSphere ? 1 : 0);
 
                 // draw it
