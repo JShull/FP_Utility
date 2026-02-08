@@ -133,6 +133,12 @@ namespace FuzzPhyte.Utility
             Debug.DrawLine(point3, point4, c, time);
             Debug.DrawLine(point4, point1, c, time);
         }
+        public void DrawPlane(Plane plane, Vector2 scale, Color c, float time)
+        {
+            // plane normal is forward, so we can use that to create a rotation
+            Quaternion rot = Quaternion.LookRotation(plane.normal, Vector3.up);
+            DrawPlane(plane.normal * -plane.distance, rot, scale, c, time);
+        }
 
     }
 
