@@ -3,7 +3,7 @@ namespace FuzzPhyte.Utility
     using System.Collections.Generic;
     using System.Collections;
     using UnityEngine;
-    using System.Linq;
+    using UnityEngine.Events;
     using System;
     public class FPColorPulse : MonoBehaviour, IFPOnEnableDisable
     {
@@ -31,13 +31,16 @@ namespace FuzzPhyte.Utility
         public event OnEnableDisable OnDisableEvent;
         [Tooltip("The Color we want to flash too via emission")]
         public Color FlashColor;
-        //[Tooltip("Are we already in the loop")]
-        //[SerializeField]
-        //private bool _flashActive = false;
+
         [Tooltip("Time for flash to take")]
         public float FlashTime = 2f;
         private float _runningTime = 0;
 
+        [Space]
+        [Header("Unity Events")]
+        public UnityEvent AfterBuild;
+        public UnityEvent AfterFinishPulse;
+        public UnityEvent BeforePulse;
         #region Unity Methods
         /// <summary>
         /// Do you want to build this list
@@ -56,6 +59,7 @@ namespace FuzzPhyte.Utility
                 }
                 BuildMeshList(RootItem);
                 OnEnableEvent?.Invoke(RootItem);
+                AfterBuild?.Invoke();
             }
         }
         /// <summary>
@@ -112,7 +116,7 @@ namespace FuzzPhyte.Utility
         {
             //_flashActive = true;
             _runningTime = 0f;
-
+            BeforePulse?.Invoke();
             while (_runningTime < FlashTime)
             {
                 float ratio = (_runningTime / FlashTime);
@@ -132,6 +136,7 @@ namespace FuzzPhyte.Utility
                 ResetColorLerp(_allMaterials[AllMeshes[i]], _allStartColors[AllMeshes[i]]);
             }
             OnFlashEnded?.Invoke(this);
+            AfterFinishPulse?.Invoke();
             //_flashActive = false;
             flashCoroutine = null;
         }
