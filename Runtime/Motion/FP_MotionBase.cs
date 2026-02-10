@@ -3,7 +3,22 @@ namespace FuzzPhyte.Utility
     using System.Collections;
     using UnityEngine;
     using UnityEngine.Events;
-
+    using System.Collections.Generic;
+    [System.Serializable]
+    public struct FP_MotionEntry
+    {
+        public FP_MotionBase motion;
+        public AnimationCurve overrideCurve;
+        public float overrideDuration;
+        [Tooltip("This can be used by motion needs")]
+        public Vector3 overrideParameterData;
+    }
+    [System.Serializable]
+    public class FP_MotionBlock
+    {
+        [Tooltip("All motions in this block will run in parallel")]
+        public List<FP_MotionEntry> Motions = new List<FP_MotionEntry>();
+    }
     public abstract class FP_MotionBase : MonoBehaviour, IFPMotionController
     {
         [SerializeField]
@@ -29,14 +44,15 @@ namespace FuzzPhyte.Utility
         [SerializeField]
         protected bool playOnSetup = true;
         protected bool isPaused = true;
-        
+
+        public bool IsRunning => motionCoroutine != null && !isPaused;
         protected Coroutine motionCoroutine;
 
         protected virtual void Start()
         {
             InternalSetup();
         }
-
+        [ContextMenu("Test: SetupMotion")]
         public virtual void SetupMotion()
         {
             if (targetObject == null)
@@ -49,7 +65,7 @@ namespace FuzzPhyte.Utility
                 StartMotion();
             }
         }
-
+        [ContextMenu("Test: StartMotion")]
         public virtual void StartMotion()
         {
             if (motionCoroutine != null)
@@ -104,6 +120,11 @@ namespace FuzzPhyte.Utility
         public virtual void OnEnable()
         {
             
+        }
+        public virtual void SetOverrideCurve(AnimationCurve curve,float duration, Vector4 motionData)
+        {
+            //motionCurve = curve != null ? curve : motionCurve;
+            //lerpDuration = duration > 0f ? duration : lerpDuration;
         }
         protected virtual void InternalSetup()
         {
