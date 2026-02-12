@@ -2020,7 +2020,7 @@
     "m_ObjectId": "024e6e7b0ca542f982d1258f360fe405",
     "m_Title": "Normal Map",
     "m_Position": {
-        "x": 4987.56005859375,
+        "x": 4988.0,
         "y": -527.0
     }
 }
@@ -3213,13 +3213,13 @@
     "m_RefNameGeneratedByDisplayName": "_UseSphere",
     "m_DefaultReferenceName": "_UseSphere",
     "m_OverrideReferenceName": "",
-    "m_GeneratePropertyBlock": true,
+    "m_GeneratePropertyBlock": false,
     "m_UseCustomSlotLabel": false,
     "m_CustomSlotLabel": "",
     "m_DismissedVersion": 0,
     "m_Precision": 0,
-    "overrideHLSLDeclaration": false,
-    "hlslDeclarationOverride": 0,
+    "overrideHLSLDeclaration": true,
+    "hlslDeclarationOverride": 1,
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
@@ -3589,13 +3589,13 @@
     "m_RefNameGeneratedByDisplayName": "_BoxExtents",
     "m_DefaultReferenceName": "_BoxExtents",
     "m_OverrideReferenceName": "",
-    "m_GeneratePropertyBlock": true,
+    "m_GeneratePropertyBlock": false,
     "m_UseCustomSlotLabel": false,
     "m_CustomSlotLabel": "",
     "m_DismissedVersion": 0,
     "m_Precision": 0,
     "overrideHLSLDeclaration": true,
-    "hlslDeclarationOverride": 2,
+    "hlslDeclarationOverride": 1,
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
@@ -7118,13 +7118,13 @@
     "m_RefNameGeneratedByDisplayName": "_SphereRadius",
     "m_DefaultReferenceName": "_SphereRadius",
     "m_OverrideReferenceName": "",
-    "m_GeneratePropertyBlock": true,
+    "m_GeneratePropertyBlock": false,
     "m_UseCustomSlotLabel": false,
     "m_CustomSlotLabel": "",
     "m_DismissedVersion": 0,
     "m_Precision": 0,
-    "overrideHLSLDeclaration": false,
-    "hlslDeclarationOverride": 0,
+    "overrideHLSLDeclaration": true,
+    "hlslDeclarationOverride": 1,
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
@@ -7263,8 +7263,8 @@
         "m_Expanded": true,
         "m_Position": {
             "serializedVersion": "2",
-            "x": 5355.0,
-            "y": -837.0,
+            "x": 5305.0,
+            "y": -811.9999389648438,
             "width": 131.0,
             "height": 34.0
         }
@@ -8173,7 +8173,7 @@
     "m_ObjectId": "9e304ca3a2104314abb3da2fc91fb062",
     "m_Title": "Sphere Inner Outer",
     "m_Position": {
-        "x": 648.9998168945313,
+        "x": 649.0,
         "y": -2026.0
     }
 }
@@ -8449,8 +8449,8 @@
     "m_ObjectId": "a48c87c1310542c28200161431661207",
     "m_Title": "Specular",
     "m_Position": {
-        "x": 5033.5595703125,
-        "y": 463.0002136230469
+        "x": 5034.0,
+        "y": 463.0
     }
 }
 
@@ -9776,8 +9776,8 @@
     "m_ObjectId": "bc47728695534c36841e8d13960db638",
     "m_Title": "Height Map",
     "m_Position": {
-        "x": 4068.5595703125,
-        "y": -554.9999389648438
+        "x": 4069.0,
+        "y": -555.0
     }
 }
 
@@ -10350,8 +10350,8 @@
     "m_ObjectId": "cd156638b51b4cd49146f098307bd0c4",
     "m_Title": "Base Map",
     "m_Position": {
-        "x": 4993.56005859375,
-        "y": -896.0
+        "x": 4994.0,
+        "y": -871.0
     }
 }
 
@@ -10849,8 +10849,8 @@
     "m_ObjectId": "d9166fae625741468945b3cde0a3a81d",
     "m_Title": "Ambient Occlusion",
     "m_Position": {
-        "x": 5044.5595703125,
-        "y": -41.99995422363281
+        "x": 5045.0,
+        "y": -42.0
     }
 }
 
@@ -11999,13 +11999,13 @@
     "m_RefNameGeneratedByDisplayName": "_VolumeCenter",
     "m_DefaultReferenceName": "_VolumeCenter",
     "m_OverrideReferenceName": "",
-    "m_GeneratePropertyBlock": true,
+    "m_GeneratePropertyBlock": false,
     "m_UseCustomSlotLabel": false,
     "m_CustomSlotLabel": "",
     "m_DismissedVersion": 0,
     "m_Precision": 0,
-    "overrideHLSLDeclaration": false,
-    "hlslDeclarationOverride": 0,
+    "overrideHLSLDeclaration": true,
+    "hlslDeclarationOverride": 1,
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],

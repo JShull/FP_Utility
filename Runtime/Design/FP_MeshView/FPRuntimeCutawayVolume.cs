@@ -15,6 +15,7 @@ namespace FuzzPhyte.Utility
         private static readonly int VolumeCenterID = Shader.PropertyToID("_VolumeCenter");
         private static readonly int SphereRadiusID = Shader.PropertyToID("_SphereRadius");
         private static readonly int BoxExtentsID = Shader.PropertyToID("_BoxExtents");
+        private static readonly int UseSphereID = Shader.PropertyToID("_UseSphere");
         void OnEnable()
         {
             Active = this;
@@ -28,10 +29,10 @@ namespace FuzzPhyte.Utility
 
         void LateUpdate()
         {
-            // Push globals every frame
-            Shader.SetGlobalVector(VolumeCenterID, Center);
-            Shader.SetGlobalFloat(SphereRadiusID, sphereRadius);
-            Shader.SetGlobalVector(BoxExtentsID, boxExtents);
+            //Shader.SetGlobalVector(VolumeCenterID, transform.position);
+            //Shader.SetGlobalFloat(SphereRadiusID, sphereRadius);
+            //Shader.SetGlobalVector(BoxExtentsID, boxExtents);
+            //Shader.SetGlobalInt(UseSphereID, useSphere ? 1 : 0);
         }
         private void OnDrawGizmos()
         {
@@ -43,7 +44,6 @@ namespace FuzzPhyte.Utility
             {
                 Gizmos.DrawWireCube(Center, boxExtents * 2f);
             }
-               
         }
     }
 }

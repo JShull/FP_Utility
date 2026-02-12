@@ -36,8 +36,7 @@ MonoBehaviour:
     passEvent: 250
     targetLayers:
       serializedVersion: 2
-      m_Bits: 1048576
-    cutMaterial: {fileID: 2100000, guid: c251b9ee4cca480498634b554ea08942, type: 2}
+      m_Bits: 1572865
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -91,7 +90,7 @@ MonoBehaviour:
     failOperation: 0
     zFailOperation: 0
   m_ShadowTransparentReceive: 1
-  m_RenderingMode: 0
+  m_RenderingMode: 2
   m_DepthPrimingMode: 0
   m_CopyDepthMode: 1
   m_DepthAttachmentFormat: 0

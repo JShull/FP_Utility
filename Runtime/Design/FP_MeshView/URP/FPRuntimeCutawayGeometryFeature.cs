@@ -1,6 +1,7 @@
 namespace FuzzPhyte.Utility
 {
     using UnityEngine;
+    using System.Collections.Generic;
     using UnityEngine.Rendering;
     using UnityEngine.Rendering.Universal;
     using UnityEngine.Rendering.RenderGraphModule;
@@ -16,7 +17,6 @@ namespace FuzzPhyte.Utility
         {
             public RenderPassEvent passEvent = RenderPassEvent.BeforeRenderingOpaques;
             public LayerMask targetLayers;
-            public Material cutMaterial;
         }
 
         [SerializeField] private Settings settings;
@@ -28,15 +28,11 @@ namespace FuzzPhyte.Utility
             {
                 renderPassEvent = settings.passEvent
             };
+            //settings.cutMaterials ??= new List<Material>();
         }
 
-        public override void AddRenderPasses(
-            ScriptableRenderer renderer,
-            ref RenderingData renderingData)
+        public override void AddRenderPasses(ScriptableRenderer renderer,ref RenderingData renderingData)
         {
-            if (settings.cutMaterial == null) return;
-            if (FPRuntimeCutawayVolume.Active == null) return;
-
             renderer.EnqueuePass(_pass);
         }
 
@@ -54,9 +50,7 @@ namespace FuzzPhyte.Utility
             public Pass(Settings s) => _settings = s;
 
             // New RenderGraph implementation
-            public override void RecordRenderGraph(
-                RenderGraph renderGraph,
-                ContextContainer frameData)
+            public override void RecordRenderGraph(RenderGraph renderGraph,ContextContainer frameData)
             {
                 var volume = FPRuntimeCutawayVolume.Active;
                 if (volume == null) return;
@@ -68,10 +62,9 @@ namespace FuzzPhyte.Utility
                            out var passData,
                            Profiler))
                 {
+                    builder.AllowGlobalStateModification(true);
                     passData.volume = volume;
-                    passData.material = _settings.cutMaterial;
-
-                    // Setup renderer list
+                 
                     var cameraData = frameData.Get<UniversalCameraData>();
                     var renderingData = frameData.Get<UniversalRenderingData>();
 
@@ -80,22 +73,14 @@ namespace FuzzPhyte.Utility
                         new ShaderTagId("UniversalForward"),
                         new ShaderTagId("SRPDefaultUnlit"),
                     };
-
-                    var desc = new RendererListDesc(shaderTags,
-                        renderingData.cullResults,
-                        cameraData.camera)
+                    var desc = new RendererListDesc(shaderTags,renderingData.cullResults,cameraData.camera)
                     {
                         sortingCriteria = SortingCriteria.CommonOpaque,
                         renderQueueRange = RenderQueueRange.opaque,
-                        layerMask = _settings.targetLayers,
-                        overrideMaterial = _settings.cutMaterial,
-                        overrideMaterialPassIndex = 0
+                        layerMask = _settings.targetLayers
                     };
 
-                    // tell render graph to make this list
                     passData.rendererList = renderGraph.CreateRendererList(desc);
-
-                    // we intend to draw it
                     builder.UseRendererList(passData.rendererList);
 
                     // Targets
@@ -116,21 +101,17 @@ namespace FuzzPhyte.Utility
             private sealed class PassData
             {
                 public FPRuntimeCutawayVolume volume;
-                public Material material;
+                public List<Material> materials;
                 public RendererListHandle rendererList;
             }
 
-            private void ExecuteCutGeometry(
-                PassData data,
-                RasterGraphContext ctx)
+            private void ExecuteCutGeometry(PassData data,RasterGraphContext ctx)
             {
-                var mat = data.material;
-                mat.SetVector(VC_Center, data.volume.Center);
-                mat.SetFloat(VC_Radius, data.volume.sphereRadius);
-                mat.SetVector(VC_Extents, data.volume.boxExtents);
-                mat.SetInt(VC_UseSphere, data.volume.useSphere ? 1 : 0);
+                ctx.cmd.SetGlobalVector(VC_Center, data.volume.Center);
+                ctx.cmd.SetGlobalFloat(VC_Radius, data.volume.sphereRadius);
+                ctx.cmd.SetGlobalVector(VC_Extents, data.volume.boxExtents);
+                ctx.cmd.SetGlobalInt(VC_UseSphere, data.volume.useSphere ? 1 : 0);
 
-                // draw it
                 ctx.cmd.DrawRendererList(data.rendererList);
             }
         }

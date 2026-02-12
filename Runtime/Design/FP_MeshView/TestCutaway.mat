@@ -132,13 +132,13 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _UseSphere: 1
+    - _UseSphere: 0
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _BoxExtents: {r: 1, g: 1, b: 1, a: 0}
+    - _BoxExtents: {r: 0.2, g: 0.2, b: 1, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _CrossFillColor: {r: 1, g: 0.3882353, b: 0.2784314, a: 1}
     - _EdgeColor: {r: 0.282353, g: 0.8196079, b: 0.8000001, a: 1}
@@ -146,6 +146,6 @@ Material:
     - _Offset: {r: 0, g: 0, b: 0, a: 0}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
     - _Tiling: {r: 1, g: 1, b: 0, a: 0}
-    - _VolumeCenter: {r: 0, g: 0, b: 0, a: 0}
+    - _VolumeCenter: {r: 3.538, g: -0.981, b: -4.912, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

@@ -120,7 +120,7 @@ Material:
     - _Smoothness: 0.342
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
-    - _SphereRadius: 1
+    - _SphereRadius: 2
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
@@ -132,7 +132,7 @@ Material:
     - _ZWriteControl: 0
     m_Colors:
     - _BaseColor: {r: 1, g: 0.3820755, b: 0.3820755, a: 1}
-    - _BoxExtents: {r: 1, g: 1, b: 1, a: 0}
+    - _BoxExtents: {r: 0.2, g: 0.2, b: 1, a: 0}
     - _BoxSize: {r: 1, g: 1, b: 1, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _CrossFillColor: {r: 0.27843142, g: 0.43628073, b: 1, a: 1}
@@ -141,7 +141,7 @@ Material:
     - _Offset: {r: 0, g: 0, b: 0, a: 0}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
     - _Tiling: {r: 1, g: 1, b: 0, a: 0}
-    - _VolumeCenter: {r: -2.044, g: -0.092, b: -2.91, a: 0}
+    - _VolumeCenter: {r: 3.44, g: -0.981, b: -4.912, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &8932762848022866911
