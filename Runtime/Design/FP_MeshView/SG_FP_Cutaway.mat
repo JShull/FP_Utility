@@ -141,7 +141,7 @@ Material:
     - _Offset: {r: 0, g: 0, b: 0, a: 0}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
     - _Tiling: {r: 1, g: 1, b: 0, a: 0}
-    - _VolumeCenter: {r: -1.922, g: -0.176, b: -2.823, a: 0}
+    - _VolumeCenter: {r: -2.044, g: -0.092, b: -2.91, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &8932762848022866911
