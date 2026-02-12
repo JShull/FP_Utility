@@ -11,7 +11,10 @@ namespace FuzzPhyte.Utility
         public float sphereRadius = 2f;
         public Vector3 boxExtents = Vector3.one;
         public Vector3 Center => transform.position;
-
+        private Vector3 startPos;
+        private Vector3 startExtents;
+        private float sphereRadiuStart;
+        private bool useSphereStart;
         private static readonly int VolumeCenterID = Shader.PropertyToID("_VolumeCenter");
         private static readonly int SphereRadiusID = Shader.PropertyToID("_SphereRadius");
         private static readonly int BoxExtentsID = Shader.PropertyToID("_BoxExtents");
@@ -19,20 +22,23 @@ namespace FuzzPhyte.Utility
         void OnEnable()
         {
             Active = this;
+            startPos = transform.position;
+            startExtents = boxExtents;
+            sphereRadiuStart = sphereRadius;
+            useSphereStart = useSphere;
         }
 
         void OnDisable()
         {
             if (Active == this)
+            {
+                this.transform.position = startPos;
+                useSphere = useSphereStart;
+                sphereRadius = sphereRadiuStart;
+                boxExtents = startExtents;
+                ResetGlobals();
                 Active = null;
-        }
-
-        void LateUpdate()
-        {
-            //Shader.SetGlobalVector(VolumeCenterID, transform.position);
-            //Shader.SetGlobalFloat(SphereRadiusID, sphereRadius);
-            //Shader.SetGlobalVector(BoxExtentsID, boxExtents);
-            //Shader.SetGlobalInt(UseSphereID, useSphere ? 1 : 0);
+            }  
         }
         private void OnDrawGizmos()
         {
@@ -44,6 +50,13 @@ namespace FuzzPhyte.Utility
             {
                 Gizmos.DrawWireCube(Center, boxExtents * 2f);
             }
+        }
+        private void ResetGlobals()
+        {
+            Shader.SetGlobalVector(VolumeCenterID, startPos);
+            Shader.SetGlobalFloat(SphereRadiusID, sphereRadiuStart);
+            Shader.SetGlobalVector(BoxExtentsID, startExtents);
+            Shader.SetGlobalInt(UseSphereID, useSphereStart ? 1 : 0);
         }
     }
 }

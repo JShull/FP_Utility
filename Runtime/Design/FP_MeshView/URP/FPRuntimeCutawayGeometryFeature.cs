@@ -114,6 +114,7 @@ namespace FuzzPhyte.Utility
 
                 ctx.cmd.DrawRendererList(data.rendererList);
             }
+
         }
     }
 }

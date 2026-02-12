@@ -137,7 +137,7 @@ Material:
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 0}
     - _BoxExtents: {r: 0.2, g: 0.2, b: 1, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _CrossFillColor: {r: 1, g: 0.3882353, b: 0.2784314, a: 1}
