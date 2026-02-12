@@ -1,6 +1,5 @@
 namespace FuzzPhyte.Utility
 {
-    using Unity.Mathematics;
     using UnityEngine;
 
     public sealed class FPRuntimeCutawayVolume : MonoBehaviour
