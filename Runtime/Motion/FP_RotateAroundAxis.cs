@@ -32,6 +32,13 @@ namespace FuzzPhyte.Utility
         [SerializeField] protected float totalAngle = 360f;
         [SerializeField] protected AnimationCurve rotationCurve = AnimationCurve.Linear(0, 0, 1, 1);
 
+        [Header("Reverse Behavior")]
+        [SerializeField] protected bool alternateDirectionOnEachPlay = false;
+
+        // Internal direction state (1 = forward, -1 = reverse)
+        [SerializeField] protected int _direction = 1;
+
+
         // Cached orbit center for this run (prevents 0,0,0 jumps)
         [Space]
         [Header("Cached Values and Debugging")]
@@ -74,6 +81,23 @@ namespace FuzzPhyte.Utility
             _hasCachedOrbit = false;
         }
 
+        public override void StartMotion()
+        {
+            if (alternateDirectionOnEachPlay)
+            {
+                _direction *= -1;
+            }
+            base.StartMotion();
+        }
+       
+        public void SetDirection(bool forward)
+        {
+            _direction = forward ? 1 : -1;
+        }
+        public void ToggleDirection()
+        {
+            _direction *= -1;
+        }
         protected override IEnumerator MotionRoutine()
         {
             do
@@ -105,7 +129,7 @@ namespace FuzzPhyte.Utility
                     float t = Mathf.Clamp01(elapsed / lerpDuration);
                     float eased = rotationCurve.Evaluate(t);
                     float targetAngle = angle * eased;
-                    float deltaAngle = targetAngle - lastApplied;
+                    float deltaAngle = (targetAngle - lastApplied)*-_direction;
 
                     ApplyRotation(ResolvePivot(), deltaAngle);
 
@@ -115,7 +139,7 @@ namespace FuzzPhyte.Utility
             }
 
             // Snap residual
-            float snap = angle - lastApplied;
+            float snap = (angle - lastApplied)*_direction;
             if (Mathf.Abs(snap) > 0.0001f)
             {
                 ApplyRotation(ResolvePivot(), snap);
@@ -129,7 +153,7 @@ namespace FuzzPhyte.Utility
             {
                 if (!isPaused)
                 {
-                    float delta = degreesPerSecond * Time.deltaTime;
+                    float delta = degreesPerSecond * Time.deltaTime*_direction;
                     ApplyRotation(ResolvePivot(), delta);
                     elapsed += Time.deltaTime;
                 }
