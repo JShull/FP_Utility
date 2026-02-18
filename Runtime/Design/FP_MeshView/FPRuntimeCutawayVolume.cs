@@ -9,6 +9,8 @@ namespace FuzzPhyte.Utility
         public bool useSphere = true;
         public float sphereRadius = 2f;
         public Vector3 boxExtents = Vector3.one;
+        public bool UseGizmo = true;
+        public Color GizmoColor = Color.orangeRed;
         public Vector3 Center => transform.position;
         private Vector3 startPos;
         private Vector3 startExtents;
@@ -41,7 +43,8 @@ namespace FuzzPhyte.Utility
         }
         private void OnDrawGizmos()
         {
-            Gizmos.color = Color.cyan;
+            if (!UseGizmo) return;
+            Gizmos.color = GizmoColor;
 
             if (useSphere)
                 Gizmos.DrawWireSphere(Center, sphereRadius);
