@@ -1,7 +1,9 @@
-namespace FuzzPhyte.Utility
+﻿namespace FuzzPhyte.Utility
 {
     using System.Collections;
-    
+#if UNITY_EDITOR
+    using UnityEditor;
+#endif
     using UnityEngine;
 
     public class FP_TransformLerp : FP_MotionBase
@@ -23,7 +25,10 @@ namespace FuzzPhyte.Utility
         public bool LocalTransform { get => localTransform; set => localTransform = value; }
         [SerializeField]
         protected bool playOnStart = true;
-        
+        [SerializeField]
+        protected bool returnToStart = false;
+        public bool ReturnToStart { get => returnToStart; set => returnToStart = value; }
+
         public override void ResetMotion()
         {
             base.ResetMotion();
@@ -41,6 +46,7 @@ namespace FuzzPhyte.Utility
         {
             do
             {
+                // Start-->End Forward motion
                 if (localTransform)
                 {
                     yield return StartCoroutine(MoveBetweenPoints(startPoint.localPosition, endPoint.localPosition));
@@ -49,8 +55,23 @@ namespace FuzzPhyte.Utility
                 {
                     yield return StartCoroutine(MoveBetweenPoints(startPoint.position, endPoint.position));
                 }
-                
-        
+
+                // Ping Pong Start-->End-->Start once
+                if (returnToStart && !loop)
+                {
+                    if (localTransform)
+                    {
+                        yield return StartCoroutine(
+                            MoveBetweenPoints(endPoint.localPosition, startPoint.localPosition)
+                        );
+                    }
+                    else
+                    {
+                        yield return StartCoroutine(
+                            MoveBetweenPoints(endPoint.position, startPoint.position)
+                        );
+                    }
+                }
                 if (loop)
                 {
                     // Swap startPoint and endPoint for the next loop
@@ -116,6 +137,47 @@ namespace FuzzPhyte.Utility
 #if UNITY_EDITOR
             if(UnityEditor.Selection.activeGameObject == this.gameObject)
             {
+                var startFontStyle = new GUIStyle();
+                var endFontStyle = new GUIStyle();
+
+                startFontStyle.normal.textColor = Color.green;
+                endFontStyle.normal.textColor = Color.cyan;
+
+                startFontStyle.fontSize = endFontStyle.fontSize = 12;
+                startFontStyle.alignment = endFontStyle.alignment = TextAnchor.MiddleCenter;
+
+#if UNITY_EDITOR
+
+                // 🔹 Get camera-relative handle sizes
+                float startSize = HandleUtility.GetHandleSize(startPoint.position) * 0.1f;
+                float endSize = HandleUtility.GetHandleSize(endPoint.position) * 0.1f;
+
+                // Labels
+                Handles.Label(
+                    startPoint.position + Vector3.up * startSize * 1.5f,
+                    "START",
+                    startFontStyle
+                );
+
+                Handles.Label(
+                    endPoint.position + Vector3.up * endSize * 1.5f,
+                    "END",
+                    endFontStyle
+                );
+
+                // Draw START
+                Gizmos.color = Color.green;
+                Gizmos.DrawSphere(startPoint.position, startSize);
+
+                // Draw path
+                Gizmos.DrawLine(startPoint.position, endPoint.position);
+
+                // Draw END
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawWireSphere(endPoint.position, endSize);
+
+#endif
+                /*
                 var  startFontStyle = new GUIStyle();
                 var endFontStyle = new GUIStyle();
                 startFontStyle.normal.textColor = Color.green;
@@ -129,6 +191,7 @@ namespace FuzzPhyte.Utility
                 Gizmos.DrawLineStrip(new Vector3[] { startPoint.position, endPoint.position }, false);
                 Gizmos.color = Color.cyan;
                 Gizmos.DrawWireSphere(endPoint.position, 0.2f);
+                */
             }
 #endif
         }
