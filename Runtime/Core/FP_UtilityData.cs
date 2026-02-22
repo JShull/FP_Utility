@@ -1499,6 +1499,7 @@ namespace FuzzPhyte.Utility
         {
             float x01 = (screenSize.x <= 0f) ? 0f : screenPoint.x / screenSize.x;
             float y01 = (screenSize.y <= 0f) ? 0f : screenPoint.y / screenSize.y;
+            Debug.Log($"Checking if screen point {screenPoint} (normalized: {x01}, {y01}) is within region '{Name}' with normalized rect {NormalizedRect}");)
             return NormalizedRect.Contains(new Vector2(x01, y01));
         }
     }
