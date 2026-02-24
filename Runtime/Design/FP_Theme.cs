@@ -20,6 +20,9 @@ namespace FuzzPhyte.Utility
 
         [Tooltip("Tertiary color of the theme.")]
         public Color TertiaryColor;
+        public bool UseOverlayColor;
+        [Tooltip("Other Color - overlay related")]
+        public Color OverlayColor;
 
         [Header("Fonts and Sizes")]
         [Tooltip("List of font settings for different text types.")]
