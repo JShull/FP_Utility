@@ -146,9 +146,7 @@
                 startFontStyle.fontSize = endFontStyle.fontSize = 12;
                 startFontStyle.alignment = endFontStyle.alignment = TextAnchor.MiddleCenter;
 
-#if UNITY_EDITOR
-
-                // 🔹 Get camera-relative handle sizes
+                // Get camera-relative handle sizes
                 float startSize = HandleUtility.GetHandleSize(startPoint.position) * 0.1f;
                 float endSize = HandleUtility.GetHandleSize(endPoint.position) * 0.1f;
 
@@ -175,23 +173,6 @@
                 // Draw END
                 Gizmos.color = Color.cyan;
                 Gizmos.DrawWireSphere(endPoint.position, endSize);
-
-#endif
-                /*
-                var  startFontStyle = new GUIStyle();
-                var endFontStyle = new GUIStyle();
-                startFontStyle.normal.textColor = Color.green;
-                endFontStyle.normal.textColor = Color.cyan;
-                startFontStyle.fontSize = endFontStyle.fontSize=12; // Set the font size if needed
-                startFontStyle.alignment = endFontStyle.alignment = TextAnchor.MiddleCenter; // Center alignment
-                UnityEditor.Handles.Label(startPoint.position + new Vector3(0, 0.225f, 0), "START", startFontStyle);
-                UnityEditor.Handles.Label(endPoint.position + new Vector3(0, 0.225f, 0), "END", endFontStyle);
-                Gizmos.color = Color.green;
-                Gizmos.DrawSphere(startPoint.position, 0.2f);
-                Gizmos.DrawLineStrip(new Vector3[] { startPoint.position, endPoint.position }, false);
-                Gizmos.color = Color.cyan;
-                Gizmos.DrawWireSphere(endPoint.position, 0.2f);
-                */
             }
 #endif
         }
