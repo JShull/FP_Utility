@@ -2,6 +2,9 @@ namespace FuzzPhyte.Utility
 {
     using UnityEngine;
 
+    /// <summary>
+    /// Don't need this all of the time, just if you wanted to abstract away from a specific input provider and cast to the interface
+    /// </summary>
     public class FP_OpennessInteractionBridge : MonoBehaviour
     {
         [SerializeField] private FP_OpennessStateTracker tracker;

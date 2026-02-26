@@ -25,14 +25,15 @@ namespace FuzzPhyte.Utility
         [Range(0f, 0.2f)]
         [SerializeField] private float closeHysteresis = 0.02f;
 
-        [Header("One-shot Events (per OPENING cycle; reset when item returns to Closed)")]
+        [Header("One-shot Events (per OPENING/CLOSING cycle)")]
+        public UnityEvent OnCrossOpenDownOneShot;
+        public UnityEvent OnCrossPartialDownOneShot;
+        public UnityEvent OnCrossFullyOpenDownOneShot;
         public UnityEvent OnCrossOpenUp;
         public UnityEvent OnCrossPartialUp;
         public UnityEvent OnCrossFullyOpenUp;
 
         [Header("Optional Directional Events (can fire multiple times, not one-shot)")]
-        public UnityEvent OnCrossPartialDown;
-        public UnityEvent OnCrossOpenDown;       // crossing below partial -> open
         public UnityEvent OnReturnClosed;        // when we hit Closed (and reset cycle)
 
         [Header("State Changed")]
@@ -57,10 +58,15 @@ namespace FuzzPhyte.Utility
         private OpennessState _state = OpennessState.Closed;
         private OpennessDirection _direction = OpennessDirection.NA;
 
-        // one-shots per opening cycle
+        // one-shots per cycle
         private bool _firedOpenUp;
+        private bool _firedOpenDown;
+
         private bool _firedPartialUp;
+        private bool _firedPartialDown;
+
         private bool _firedFullyOpenUp;
+        private bool _firedFullyOpenDown;
 
         #region IFPMotionController lifecycle wrappers
         public void SetupMotion()
@@ -147,17 +153,18 @@ namespace FuzzPhyte.Utility
             }
 
             // Fire threshold crossings (upwards one-shot per cycle)
-            if (!_firedOpenUp && _currentNormalized >= openThreshold)
+            if (!_firedOpenUp && _lastNormalized < openThreshold && _currentNormalized >= openThreshold)
             {
                 _firedOpenUp = true;
                 OnCrossOpenUp?.Invoke();
             }
-            if (!_firedPartialUp && _currentNormalized >= partialThreshold)
+            if (!_firedPartialUp &&_lastNormalized < partialThreshold && _currentNormalized >= partialThreshold)
             {
                 _firedPartialUp = true;
                 OnCrossPartialUp?.Invoke();
             }
-            if (!_firedFullyOpenUp && _currentNormalized >= fullyOpenThreshold)
+
+            if (!_firedFullyOpenUp && _lastNormalized < fullyOpenThreshold && _currentNormalized >= fullyOpenThreshold)
             {
                 _firedFullyOpenUp = true;
                 OnCrossFullyOpenUp?.Invoke();
@@ -167,14 +174,28 @@ namespace FuzzPhyte.Utility
             // These are useful if you want logic while closing.
             if (_direction == OpennessDirection.Closing)
             {
-                // Cross below fully-open -> partial (no explicit event here unless you want one)
-                if (_lastNormalized >= partialThreshold && _currentNormalized < partialThreshold)
+                if (!_firedFullyOpenDown &&
+                    _lastNormalized >= fullyOpenThreshold &&
+                    _currentNormalized < fullyOpenThreshold)
                 {
-                    OnCrossPartialDown?.Invoke();
+                    _firedFullyOpenDown = true;
+                    OnCrossFullyOpenDownOneShot?.Invoke();
                 }
-                if (_lastNormalized >= openThreshold && _currentNormalized < openThreshold)
+
+                if (!_firedPartialDown &&
+                    _lastNormalized >= partialThreshold &&
+                    _currentNormalized < partialThreshold)
                 {
-                    OnCrossOpenDown?.Invoke();
+                    _firedPartialDown = true;
+                    OnCrossPartialDownOneShot?.Invoke();
+                }
+
+                if (!_firedOpenDown &&
+                    _lastNormalized >= openThreshold &&
+                    _currentNormalized < openThreshold)
+                {
+                    _firedOpenDown = true;
+                    OnCrossOpenDownOneShot?.Invoke();
                 }
             }
 
@@ -218,8 +239,13 @@ namespace FuzzPhyte.Utility
         private void ResetOneShots()
         {
             _firedOpenUp = false;
+            _firedOpenDown = false;
+
             _firedPartialUp = false;
+            _firedPartialDown = false;
+
             _firedFullyOpenUp = false;
+            _firedFullyOpenDown = false;
         }
 
         private void SetState(OpennessState next)

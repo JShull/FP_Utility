@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-26
+
+### 0.8.5 Added
+
+- [@JShull](https://github.com/jshull)
+  - Openness Functionality
+    - FP_OpennessProviderHinge
+    - FP_OpennessProviderSlide
+    - FP_OpennessTickDriver
+    - FP_OpennessStateTracker
+    - FP_OpennessInteractionBridge
+  - Openness Samples
+    - See Samples folder/Openness
+
 ## [0.8.0] - 2026-01-27
 
 ### 0.8.0 Added

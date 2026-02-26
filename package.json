@@ -1,6 +1,6 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "0.8.0",
+    "version": "0.8.5",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "6000.3",
@@ -43,6 +43,11 @@
         "displayName": "URP Profiles",
         "description": "URP Profiles for URP FP Render Environments",
         "path": "Samples~/URPProfiles"
+      },
+      {
+        "displayName": "Openness Functionality",
+        "description": "Using the Tick System to monitor Drawers and Hinges for state of open/close",
+        "path": "Samples~/Openness"
       }
     ],
     "keywords": [
