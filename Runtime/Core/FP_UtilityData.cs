@@ -892,6 +892,14 @@ namespace FuzzPhyte.Utility
         /// </summary>
         void Tick(float dt);
     }
+    /// <summary>
+    /// Used for anything that has an open/close state (e.g., doors, containers, etc.) and needs to provide that information to the system in a consistent way, both raw and normalized (0..1)
+    /// </summary>
+    public interface IFPOpennessProvider
+    {
+        float GetOpennessRaw();
+        float GetOpennessNormalized(); //0-1
+    }
     #region Generic Enums for Players and NPCs
     [Serializable]
     /// <summary>
@@ -982,6 +990,39 @@ namespace FuzzPhyte.Utility
         Miles=12,
         NauticalMiles=13,
         Custom=99
+    }
+    public enum MeasureMode 
+    { 
+        NA=0,
+        AxisProjected=1, 
+        Magnitude=2 
+    }
+    public enum SpaceMode 
+    { 
+        NA=0,
+        Local=1, 
+        World=2 
+    }
+    /// <summary>
+    /// Used a lot with various XR needs and/or anything that has an open/close state (e.g., doors, containers, etc.)
+    /// </summary>
+    public enum OpennessState
+    {
+        NA=0,
+        Closed = 1,
+        Open = 2,
+        Partial = 3,
+        FullyOpen = 4
+    }
+
+    /// <summary>
+    /// works with OpennessState but focuses more on the action of opening/closing rather than the state itself, useful for things like doors, containers, etc.
+    /// </summary>
+    public enum OpennessDirection
+    {
+        NA = 0,
+        Opening = 1,
+        Closing = 2
     }
     /// <summary>
     /// Core 'status' for all things sequence related
