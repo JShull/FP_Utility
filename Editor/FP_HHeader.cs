@@ -1,6 +1,7 @@
-﻿namespace FuzzPhyte.Utility.Editor
+namespace FuzzPhyte.Utility.Editor
 {
     using UnityEditor;
+    using UnityEditor.SceneManagement;
     using UnityEngine;
     using System.Collections.Generic;
     using UnityEngine.SceneManagement;
@@ -28,6 +29,8 @@
         private static Texture2D hhSelectAllIconActive;
         private static bool dragSelectionActive;
         private static string selectedObjectName;
+        private static bool pendingSceneRefresh;
+        private static bool pendingCollapsedStateRestore;
         public static bool IsEnabled => EditorPrefs.GetBool(FP_UtilityData.FP_HHeader_ENABLED_KEY+ "_" + SceneManager.GetActiveScene().name, true);
 
         static FP_HHeader()
@@ -55,10 +58,13 @@
 
             LoadFoldoutStatesFromPrefs(); // Load saved foldout states on editor initialization
             LoadHeaderStyleFromFile();
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged; //restores the settings I saved right when we come back from play mode
+            EditorSceneManager.sceneOpened += OnUnitySceneOpened;
+            EditorApplication.delayCall += RefreshActiveSceneState;
         }
         
         private static void OnEditorUpdate()
@@ -74,10 +80,15 @@
             string lastScenePath = EditorPrefs.GetString(FP_UtilityData.LAST_SCENEPATH_VAR, "");
             if (activeScene.path != lastScenePath)
             {
-                EditorPrefs.SetString(FP_UtilityData.LAST_SCENEPATH_VAR, activeScene.path);
-                OnSceneOpened(activeScene);
+                RefreshSceneState(activeScene, true);
                 //this should load our dictionaries
                
+                return;
+            }
+            if (pendingSceneRefresh)
+            {
+                pendingSceneRefresh = false;
+                RefreshSceneState(activeScene, true);
                 return;
             }
             //i don't think foldoutStates is getting updated after we have a sync/find issue we probably need to read from the file each time or have an editor pref variable flag
@@ -127,6 +138,7 @@
             if (dirtyState)
             {
                 SaveFoldoutStatesToPrefs();
+                FP_HHeaderMeshPickerCache.RequestCacheRefresh();
                 EditorApplication.DirtyHierarchyWindowSorting();
                 EditorApplication.RepaintHierarchyWindow();
             }
@@ -231,103 +243,148 @@
                     
                 }
                 SaveFoldoutStatesToPrefs();
+                FP_HHeaderMeshPickerCache.RequestCacheRefresh();
                 EditorApplication.DirtyHierarchyWindowSorting();
                 EditorApplication.RepaintHierarchyWindow();
             }
         }
-        private static void OnSceneOpened(Scene scene)
+        private static void OnUnitySceneOpened(Scene scene, OpenSceneMode mode)
         {
-            // Clear and reset foldout states when a new scene is opened
-            //Debug.LogWarning($"FP_HHeader: Scene Changed... Resetting Foldout States");
-            if (!IsEnabled) return;
+            pendingSceneRefresh = true;
+            EditorPrefs.SetString(FP_UtilityData.LAST_SCENEPATH_VAR, scene.path);
+            EditorApplication.delayCall += RefreshActiveSceneState;
+        }
+        private static void RefreshActiveSceneState()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            var activeScene = SceneManager.GetActiveScene();
+            if (!activeScene.IsValid() || !activeScene.isLoaded)
+            {
+                return;
+            }
+
+            RefreshSceneState(activeScene, true);
+        }
+        private static void SyncHeadersForScene(Scene scene, bool forceExpand)
+        {
+            var allSceneObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var currentHeaders = new HashSet<string>();
+            bool dirtyState = false;
+
+            foreach (var obj in allSceneObjects)
+            {
+                if (obj == null || obj.scene != scene || !IsHeaderObject(obj))
+                {
+                    continue;
+                }
+
+                string headerKey = obj.name;
+                currentHeaders.Add(headerKey);
+
+                if (!foldoutStates.ContainsKey(headerKey))
+                {
+                    foldoutStates.Add(headerKey, true);
+                    dirtyState = true;
+                }
+
+                if (!previousNames.ContainsKey(headerKey))
+                {
+                    previousNames[headerKey] = obj.name;
+                    dirtyState = true;
+                }
+
+                if (forceExpand)
+                {
+                    ShowSubsequentObjects(obj);
+                }
+                else if (foldoutStates[headerKey])
+                {
+                    ShowSubsequentObjects(obj);
+                }
+                else
+                {
+                    HideSubsequentObjects(obj);
+                }
+            }
+
+            var staleKeys = new List<string>(foldoutStates.Keys.Where(key => !currentHeaders.Contains(key)));
+            for (int i = 0; i < staleKeys.Count; i++)
+            {
+                foldoutStates.Remove(staleKeys[i]);
+                previousNames.Remove(staleKeys[i]);
+                dirtyState = true;
+            }
+
+            if (dirtyState)
+            {
+                SaveFoldoutStatesToPrefs();
+                FP_HHeaderMeshPickerCache.RequestCacheRefresh();
+            }
+        }
+        private static void RefreshSceneState(Scene scene, bool expandAllHeadersOnOpen)
+        {
+            if (!IsEnabled)
+            {
+                return;
+            }
+
+            EditorPrefs.SetString(FP_UtilityData.LAST_SCENEPATH_VAR, scene.path);
             foldoutStates.Clear();
             previousNames.Clear();
-            //these resets my data
             LoadFoldoutStatesFromPrefs();
-            //update visuals
-            var foldoutKeys = new List<string>(foldoutStates.Keys);
-            for(int i= 0; i < foldoutKeys.Count; i++)
-            {
-                var ID = foldoutKeys[i];
-                var foldOutState = foldoutStates[ID];
-                var obj = FP_Utility_Editor.FindGameObjectByNameInactive(ID);
-                if (obj != null)
-                {
-                    if (foldoutStates[ID])
-                    {
-                        // If expanding, make sure to show previously hidden objects
-                        ShowSubsequentObjects(obj);
-                    }
-                    else
-                    {
-                        // If collapsing, hide subsequent objects
-                        HideSubsequentObjects(obj);
-                    }
-                }
-                
-                //Debug.LogWarning($"Mouse Down Change Foldout State");
-                EditorApplication.RepaintHierarchyWindow();
-            }
-            //Debug.LogWarning($"FP_HHeader: Editor opened a new scene: {scene.name}! Refreshed FuzzPhyte Header Data Complete!");
-            // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
+            SyncHeadersForScene(scene, expandAllHeadersOnOpen);
             LoadHeaderStyleFromFile();
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
+            EditorApplication.DirtyHierarchyWindowSorting();
             EditorApplication.RepaintHierarchyWindow();
+
+            if (expandAllHeadersOnOpen)
+            {
+                pendingCollapsedStateRestore = true;
+                EditorApplication.delayCall += RestoreCollapsedStatesAfterSceneRefresh;
+            }
+        }
+        private static void RestoreCollapsedStatesAfterSceneRefresh()
+        {
+            if (!pendingCollapsedStateRestore || !IsEnabled || EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            pendingCollapsedStateRestore = false;
+            Scene activeScene = SceneManager.GetActiveScene();
+            if (!activeScene.IsValid() || !activeScene.isLoaded)
+            {
+                return;
+            }
+
+            SyncHeadersForScene(activeScene, false);
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
+            EditorApplication.DirtyHierarchyWindowSorting();
+            EditorApplication.RepaintHierarchyWindow();
+        }
+        private static void OnSceneOpened(Scene scene)
+        {
+            RefreshSceneState(scene, true);
         }
         private static void OnSelectionChanged()
         {
-            if (!IsEnabled) return;
-            // Get the currently selected object in the scene
-            if (EditorWindow.focusedWindow != null && EditorWindow.focusedWindow.titleContent.text == "Scene")
+            if (!IsEnabled || EditorApplication.isPlayingOrWillChangePlaymode)
             {
-                GameObject selectedObj = Selection.activeGameObject;
-
-                if (selectedObj != null)
-                {
-                    // Traverse up to find the top-most parent (the root object in its hierarchy)
-                    Transform current = selectedObj.transform;
-                    while (current.parent != null)
-                    {
-                        current = current.parent;  // Move up to the parent
-                    }
-                    GameObject rootObject = current.gameObject;  // This is the root object in the hierarchy
-
-                    // Now that we have the root object, get the scene it belongs to
-                    var scene = rootObject.scene;
-
-                    // Get all root objects in the scene
-                    GameObject[] sceneRootObjects = scene.GetRootGameObjects();
-
-                    // Find the root object's index in the scene's root objects array
-                    int rootIndex = System.Array.IndexOf(sceneRootObjects, rootObject);
-
-                    // Traverse upwards through the scene root objects to check foldoutStates
-                    for (int i = rootIndex - 1; i >= 0; i--)
-                    {
-                        GameObject sceneRootObject = sceneRootObjects[i];
-                        //bool confirmGUID = true;
-                        //var GUIDKey = FP_Utility_Editor.ReturnGUIDFromInstance(sceneRootObject.GetInstanceID(),out confirmGUID).ToString();
-                        // Check if the scene root object is in foldoutStates and is currently collapsed
-                        var key = sceneRootObject.name;
-                        if (foldoutStates.ContainsKey(key))
-                        {
-                            if (!foldoutStates[key])
-                            {
-                                // Unfold the section to reveal this object
-                                foldoutStates[key] = true;
-                                ShowSubsequentObjects(sceneRootObject);
-                                SaveFoldoutStatesToPrefs();
-                                EditorApplication.RepaintHierarchyWindow();
-                                // Highlight the original selected item
-                                EditorGUIUtility.PingObject(selectedObj);
-                                
-                                Debug.LogError($"FP_HHeader: Selection changed?");
-                                break;  // Stop after expanding the first relevant root object
-                            }
-                        }
-                    }
-                }
+                return;
             }
-                
+
+            GameObject selectedObj = Selection.activeGameObject;
+            if (selectedObj == null)
+            {
+                return;
+            }
+
+            ExpandHeaderForSelection(selectedObj);
         }
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
         {
@@ -360,7 +417,8 @@
         {
             if (!IsEnabled) return;
             // Get the GameObject associated with this hierarchy item
-            GameObject obj = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
+
+            GameObject obj = EditorUtility.EntityIdToObject(instanceID) as GameObject;
             //get position in the inspector
             if (obj == null)
             {
@@ -442,6 +500,7 @@
                         }
                         //Debug.LogWarning($"Mouse Down Change Foldout State");
                         EditorApplication.RepaintHierarchyWindow();
+                        FP_HHeaderMeshPickerCache.RequestCacheRefresh();
                         Event.current.Use();
                         dirtyState = true;
                     }
@@ -516,24 +575,17 @@
                 normal = { textColor = Color.white } // You can change the color here
             };
             Rect labelRect = new Rect(selectionRect.x + adjHeaderWidth, selectionRect.y, selectionRect.width - adjHeaderWidth, selectionRect.height);
-            // Optionally change the background color
+            bool isExpanded = !foldoutStates.ContainsKey(ID) || foldoutStates[ID];
+            Color backgroundColor = isExpanded ? headerColor : collapsedColor;
             Rect backgroundRect = selectionRect;
             backgroundRect.xMin = 50;
-            EditorGUI.DrawRect(backgroundRect, headerColor); // Semi-transparent black
+            EditorGUI.DrawRect(backgroundRect, backgroundColor);
             // Draw Object Name
             EditorGUI.LabelField(labelRect, obj.name, style);
 
             // Ensure the custom foldout arrow is drawn last and is clearly visible
             Rect foldoutRect = ReturnFoldOutRect(selectionRect,new Vector2(4,15));
-            if (foldoutStates.ContainsKey(ID)) 
-            {
-                bool isExpanded = foldoutStates[ID];
-                DrawCustomFoldout(foldoutRect, isExpanded); // Change color as needed
-            }
-            else
-            {
-                DrawCustomFoldout(foldoutRect, true);
-            }
+            DrawCustomFoldout(foldoutRect, isExpanded);
 
         }
         private static Rect ReturnFoldOutRect(Rect selectionRect, Vector2 xyDim)
@@ -606,10 +658,7 @@
             string foldoutKey = headerObj.name;
             Dictionary<string, List<string>> hiddenObjectsByFoldout = LoadHiddenObjectsFromPrefs();
 
-            if (!hiddenObjectsByFoldout.ContainsKey(foldoutKey)) 
-            {
-                hiddenObjectsByFoldout[foldoutKey] = new List<string>();
-            }
+            hiddenObjectsByFoldout[foldoutKey] = new List<string>();
 
             for (int i = siblingIndex + 1; i < childCount; i++)
             {
@@ -670,6 +719,146 @@
                 // Show the sibling object
                 sibling.hideFlags &= ~HideFlags.HideInHierarchy; // Remove the HideInHierarchy flag
             }
+        }
+        internal static bool IsHeaderObject(GameObject obj)
+        {
+            return obj != null &&
+                   obj.name == obj.name.ToUpperInvariant() &&
+                   !obj.activeInHierarchy &&
+                   obj.transform.childCount == 0;
+        }
+        private static void ExpandHeaderForSelection(GameObject selectedObj)
+        {
+            GameObject headerObj = FindOwningHeader(selectedObj);
+            if (headerObj == null)
+            {
+                return;
+            }
+
+            string headerKey = headerObj.name;
+            if (!foldoutStates.ContainsKey(headerKey) || foldoutStates[headerKey])
+            {
+                return;
+            }
+
+            foldoutStates[headerKey] = true;
+            ShowSubsequentObjects(headerObj);
+            SaveFoldoutStatesToPrefs();
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
+            EditorApplication.DirtyHierarchyWindowSorting();
+            EditorApplication.RepaintHierarchyWindow();
+            EditorGUIUtility.PingObject(selectedObj);
+        }
+        private static GameObject FindOwningHeader(GameObject selectedObj)
+        {
+            Transform current = selectedObj.transform;
+
+            while (current != null)
+            {
+                GameObject headerObj = FindPreviousHeaderSibling(current);
+                if (headerObj != null)
+                {
+                    return headerObj;
+                }
+
+                current = current.parent;
+            }
+
+            return null;
+        }
+        private static GameObject FindPreviousHeaderSibling(Transform current)
+        {
+            if (current == null)
+            {
+                return null;
+            }
+
+            Transform parentTransform = current.parent;
+            if (parentTransform != null)
+            {
+                for (int i = current.GetSiblingIndex() - 1; i >= 0; i--)
+                {
+                    GameObject sibling = parentTransform.GetChild(i).gameObject;
+                    if (IsHeaderObject(sibling))
+                    {
+                        return sibling;
+                    }
+                }
+
+                return null;
+            }
+
+            GameObject[] rootObjects = current.gameObject.scene.GetRootGameObjects();
+            int rootIndex = Array.IndexOf(rootObjects, current.gameObject);
+            for (int i = rootIndex - 1; i >= 0; i--)
+            {
+                if (IsHeaderObject(rootObjects[i]))
+                {
+                    return rootObjects[i];
+                }
+            }
+
+            return null;
+        }
+        internal static bool TryGetHeaderState(GameObject headerObj, out bool isExpanded)
+        {
+            isExpanded = true;
+            if (!IsHeaderObject(headerObj))
+            {
+                return false;
+            }
+
+            return foldoutStates.TryGetValue(headerObj.name, out isExpanded);
+        }
+        internal static bool TryExpandHeaderForObject(GameObject targetObj)
+        {
+            if (targetObj == null)
+            {
+                return false;
+            }
+
+            GameObject headerObj = FindOwningHeader(targetObj);
+            if (headerObj == null)
+            {
+                return false;
+            }
+
+            ExpandHeaderForSelection(targetObj);
+            return true;
+        }
+        internal static List<GameObject> CollectObjectsUnderHeader(GameObject headerObj)
+        {
+            List<GameObject> groupedObjects = new List<GameObject>();
+            if (!IsHeaderObject(headerObj))
+            {
+                return groupedObjects;
+            }
+
+            Transform parentTransform = headerObj.transform.parent;
+            int siblingIndex = headerObj.transform.GetSiblingIndex();
+            int childCount = parentTransform != null ? parentTransform.childCount : headerObj.scene.rootCount;
+
+            for (int i = siblingIndex + 1; i < childCount; i++)
+            {
+                GameObject sibling;
+                if (parentTransform != null)
+                {
+                    sibling = parentTransform.GetChild(i).gameObject;
+                }
+                else
+                {
+                    sibling = headerObj.scene.GetRootGameObjects()[i];
+                }
+
+                if (IsHeaderObject(sibling))
+                {
+                    break;
+                }
+
+                groupedObjects.Add(sibling);
+            }
+
+            return groupedObjects;
         }
         private static void SelectAllSubsequentObjects(GameObject headerObj)
         {
@@ -746,8 +935,20 @@
         {
             Scene activeScene = SceneManager.GetActiveScene();
             List<string> keys = new List<string>(foldoutStates.Keys);
-            List<bool> values = new List<bool>(foldoutStates.Values);
-            List<string> otherValues = new List<string>(previousNames.Values);
+            List<bool> values = new List<bool>();
+            List<string> otherValues = new List<string>();
+            for (int i = 0; i < keys.Count; i++)
+            {
+                values.Add(foldoutStates[keys[i]]);
+                if (previousNames.TryGetValue(keys[i], out var previousName))
+                {
+                    otherValues.Add(previousName);
+                }
+                else
+                {
+                    otherValues.Add(keys[i]);
+                }
+            }
             // Convert keys and values to a JSON string
             string keysJson = JsonUtility.ToJson(new FPSerializableList<string>(keys));
             string valuesJson = JsonUtility.ToJson(new FPSerializableList<bool>(values));
@@ -816,43 +1017,45 @@
             string lastValues = EditorPrefs.GetString(FP_UtilityData.FP_PREVIOUSFOLDOUT_VALUE + "_" + activeScene.name, "{}");
 
             // Convert the JSON strings back into lists
-            List<string> keys = JsonUtility.FromJson<FPSerializableList<string>>(keysJson).list;
-            List<bool> values = JsonUtility.FromJson<FPSerializableList<bool>>(valuesJson).list;
-            List<string> lastOtherValues = JsonUtility.FromJson<FPSerializableList<string>>(lastValues).list;
+            List<string> keys = DeserializeList<string>(keysJson);
+            List<bool> values = DeserializeList<bool>(valuesJson);
+            List<string> lastOtherValues = DeserializeList<string>(lastValues);
             // Clear the current foldoutStates and reconstruct the dictionary
             foldoutStates.Clear();
             previousNames.Clear();
             //Debug.LogWarning($"Keys Count: {keys.Count} | Values Count: {values.Count} | Last Values Count: {lastOtherValues.Count}");
-            if(lastOtherValues.Count != keys.Count)
+            int count = Mathf.Min(keys.Count, values.Count);
+            if(lastOtherValues.Count != count)
             {
                 Debug.LogWarning($"Last Other Values Count does not match the keys count, this is a problem: Reset everything");
-                for (int i = 0; i < keys.Count; i++)
+                for (int i = 0; i < count; i++)
                 {
 
                     foldoutStates.Add(keys[i], values[i]);
-                    //previousNames.Add(keys[i], keys[i]);
-                    //previousNames[keys[i]] = lastOtherValues[i];
+                    previousNames[keys[i]] = keys[i];
                 }
             }
             else
             {
-                for (int i = 0; i < keys.Count; i++)
+                for (int i = 0; i < count; i++)
                 {
 
                     foldoutStates.Add(keys[i], values[i]);
-                    if (previousNames.ContainsKey(keys[i]))
-                    {
-                        previousNames[keys[i]] = lastOtherValues[i];
-                    }
-                    else
-                    {
-                        previousNames.Add(keys[i], lastOtherValues[i]);
-                    }
-                    //previousNames[keys[i]] = lastOtherValues[i];
+                    previousNames[keys[i]] = string.IsNullOrEmpty(lastOtherValues[i]) ? keys[i] : lastOtherValues[i];
                 }
             }
             
             //Debug.LogWarning("Foldout states loaded from EditorPrefs.");
+        }
+        private static List<T> DeserializeList<T>(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json) || json == "{}")
+            {
+                return new List<T>();
+            }
+
+            var data = JsonUtility.FromJson<FPSerializableList<T>>(json);
+            return data?.list ?? new List<T>();
         }
         private static void LoadHeaderStyleFromFile()
         {
@@ -963,6 +1166,7 @@
             // Refresh the hierarchy to ensure the changes are visible
             EditorApplication.RepaintHierarchyWindow();
             SaveFoldoutStatesToPrefs();
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
         }
         // Method to collapse all custom sections
         [MenuItem("GameObject/FuzzPhyte/Header/Collapse Z Sections", false, 52)]
@@ -987,6 +1191,7 @@
             // Repaint the hierarchy to make sure all objects are updated
             EditorApplication.RepaintHierarchyWindow();
             SaveFoldoutStatesToPrefs();
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
         }
         [MenuItem("GameObject/FuzzPhyte/Header/Reset Z Sections Data", false, 53)]
         
@@ -998,20 +1203,26 @@
             ClearFoldoutStatesFromPrefs();
             //these resets my data
             SaveFoldoutStatesToPrefs();
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
             Debug.LogWarning($"FP_HHeader: Editor forced data reset, refreshing FuzzPhyte Header!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
         }
-        [MenuItem("Assets/FuzzPhyte/Header/Create Headers", false, 50)]
-        private static void CreateHeadersFromData()
+        internal static bool ApplyHeaderDataAsset(FP_HHeaderData headerData, bool createHeaders)
         {
             if (Application.isPlaying)
             {
                 Debug.LogWarning("You can only run this in Edit Mode.");
-                return;
+                return false;
             }
 
-            if (Selection.activeObject is FP_HHeaderData headerData)
+            if (headerData == null)
+            {
+                Debug.LogWarning("Please assign a valid FP_HHeaderData asset.");
+                return false;
+            }
+
+            if (createHeaders)
             {
                 Undo.RegisterCompleteObjectUndo(headerData, "Create Header GameObjects");
 
@@ -1019,12 +1230,11 @@
                 {
                     string rawName = headerData.Headers[i];
                     if (string.IsNullOrWhiteSpace(rawName))
+                    {
                         continue;
-                    rawName=rawName.ToUpper();
-                    // Normalize name: //obj.name == obj.name.ToUpper()
-                    string safeName = Regex.Replace(rawName.ToUpperInvariant(), @"[^A-Z0-9 _]", "").Trim();
+                    }
 
-                    // Check for duplicate name
+                    string safeName = Regex.Replace(rawName.ToUpperInvariant(), @"[^A-Z0-9 _]", "").Trim();
                     GameObject existing = GameObject.Find(safeName);
                     if (existing != null)
                     {
@@ -1034,23 +1244,66 @@
 
                     GameObject go = new GameObject(safeName);
                     Undo.RegisterCreatedObjectUndo(go, "Create Header Object");
-
                     go.SetActive(false);
-
-                    // Insert at top of hierarchy in order
                     go.transform.SetSiblingIndex(i);
                 }
-                //visuals
-                hhCloseIcon = headerData.CloseIcon;
-                hhOpenIcon = headerData.OpenIcon;
-                hhSelectAllIcon = headerData.SelectAllIcon;
-                hhSelectAllIconActive = headerData.SelectAllIconActive;
-                collapsedColor = headerData.CollapsedColor;
-                expandedColor = headerData.ExpandedColor;
-                headerColor = headerData.HeaderColor;
-                EditorApplication.RepaintHierarchyWindow();
+            }
+
+            ApplyHeaderVisuals(headerData);
+            string assetPath = AssetDatabase.GetAssetPath(headerData);
+            if (!string.IsNullOrEmpty(assetPath))
+            {
+                Scene activeScene = SceneManager.GetActiveScene();
+                EditorPrefs.SetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name, assetPath);
+            }
+
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
+            EditorApplication.RepaintHierarchyWindow();
+
+            if (createHeaders)
+            {
                 Debug.Log($"Created {headerData.Headers.Count} header GameObjects from: {headerData.name}");
                 CreateHeaderDataFile();
+            }
+            else
+            {
+                Debug.Log($"Applied header style from: {headerData.name}");
+            }
+
+            return true;
+        }
+        internal static void ApplyHeaderVisuals(FP_HHeaderData headerData)
+        {
+            if (headerData == null)
+            {
+                return;
+            }
+
+            hhCloseIcon = headerData.CloseIcon;
+            hhOpenIcon = headerData.OpenIcon;
+            hhSelectAllIcon = headerData.SelectAllIcon;
+            hhSelectAllIconActive = headerData.SelectAllIconActive;
+            collapsedColor = headerData.CollapsedColor;
+            expandedColor = headerData.ExpandedColor;
+            headerColor = headerData.HeaderColor;
+        }
+        internal static FP_HHeaderData GetActiveHeaderDataAsset()
+        {
+            Scene activeScene = SceneManager.GetActiveScene();
+            string assetPath = EditorPrefs.GetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name, string.Empty);
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                return null;
+            }
+
+            return AssetDatabase.LoadAssetAtPath<FP_HHeaderData>(assetPath);
+        }
+        [MenuItem("Assets/FuzzPhyte/Header/Create Headers", false, 50)]
+        private static void CreateHeadersFromData()
+        {
+            if (Selection.activeObject is FP_HHeaderData headerData)
+            {
+                ApplyHeaderDataAsset(headerData, true);
             }
             else
             {

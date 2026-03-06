@@ -18,6 +18,9 @@ MonoBehaviour:
   SelectAllIcon: {fileID: 2800000, guid: 02bd129e7729c474a83f8e5f50e77b80, type: 3}
   SelectAllIconActive: {fileID: 2800000, guid: df09be76e9cfca34a9380c3e46d22148, type: 3}
   ExpandedColor: {r: 0, g: 0.2769907, b: 0.6784314, a: 1}
-  CollapsedColor: {r: 0.041758493, g: 0, b: 0.7294118, a: 1}
-  HeaderColor: {r: 0, g: 0.16705622, b: 0.6509434, a: 1}
-  Headers: []
+  CollapsedColor: {r: 0.7294118, g: 0.49582767, b: 0, a: 1}
+  HeaderColor: {r: 0.6509804, g: 0, b: 0.55261934, a: 1}
+  Headers:
+  - LIGHTING
+  - ENVIRONMENT
+  - MANAGERS

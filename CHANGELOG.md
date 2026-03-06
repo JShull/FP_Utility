@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-02-26
+## [0.9.0] - 2026-03-06
+
+### 0.9.0 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP_HHeaderMeshPickerCache.cs
+    - Added a Scene view mesh-picking cache for collapsed headers so hidden hierarchy items can still be selected from the Scene view.
+  - FP_HHeaderWindow.cs
+    - Added a `FuzzPhyte/Header/Header Options` editor window for assigning and applying `FP_HHeaderData` assets without relying only on the asset context menu.
+
+### 0.9.0 Modified
+
+- [@JShull](https://github.com/jshull)
+  - FP_HHeader.cs
+    - Improved scene-open restore flow to force a full visual refresh and then reapply cached collapsed states.
+    - Expanded collapsed headers automatically when selecting grouped objects.
+    - Added support for applying `FP_HHeaderData` assets from shared editor paths.
+    - Header background now uses the configured collapsed color while closed.
+  - FP_HHeaderData.cs
+    - Collapsed color is now reflected in the header row background when a header is closed.
+  - FPSceneAssetLister.cs
+    - Added a per-asset scene usage count column so deduplicated assets can still show how many scene objects reference them.
+    - Refined the asset list header layout to better support quick parsing of scan results.
+  - README.md
+    - Added documentation for FP Header and FP Scene Asset Tool usage and menu options.
+  - package.json
+    - Version bumped to `0.9.0`.
+
+## [0.8.5] - 2026-02-26
 
 ### 0.8.5 Added
 

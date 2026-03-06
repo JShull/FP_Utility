@@ -112,6 +112,14 @@ namespace FuzzPhyte.Utility.Editor
             GUILayout.Space(5);
             // === LIST OF ASSETS ===
 
+            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+            GUILayout.Space(24);
+            GUILayout.Label("#", EditorStyles.miniBoldLabel, GUILayout.Width(28));
+            GUILayout.Label("Asset", EditorStyles.miniBoldLabel);
+            GUILayout.Label("Type", EditorStyles.miniBoldLabel, GUILayout.Width(100));
+            GUILayout.Space(54);
+            EditorGUILayout.EndHorizontal();
+
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
 
             foreach (var assetInfo in sceneAssets)
@@ -132,6 +140,8 @@ namespace FuzzPhyte.Utility.Editor
                 EditorGUI.BeginDisabledGroup(assetInfo.IsPackageAsset);
                 assetInfo.Selected = EditorGUILayout.Toggle(assetInfo.Selected, GUILayout.Width(20));
                 EditorGUI.EndDisabledGroup();
+                string referenceCountLabel = assetInfo.ReferencedBy.Count > 0 ? assetInfo.ReferencedBy.Count.ToString() : string.Empty;
+                GUILayout.Label(referenceCountLabel, EditorStyles.miniLabel, GUILayout.Width(28));
                 EditorGUILayout.ObjectField(assetInfo.Asset, typeof(Object), false);
                 GUILayout.Label(assetInfo.TypeName, GUILayout.Width(100));
                 if (GUILayout.Button("Object", GUILayout.Width(70)))
