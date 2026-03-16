@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-03-16
+
+### 0.9.1 Added
+
+- [@JShull](https://github.com/jshull)
+  - Mesh generation and authoring workflow
+    - Added `FPMeshGridBuilder.cs` for procedural rectangular grid surface generation.
+    - Added `FPMeshGridData.cs` as an `FP_Data` asset for storing grid, heightmap, and processing settings.
+    - Added `FPMeshGridInstance.cs` for scene-based regeneration from mesh grid data assets.
+    - Added `FPMeshGeneratorWindow.cs` under `FuzzPhyte/Utility/Rendering/FP Mesh Generator`.
+    - Added `FPMeshGridInstanceEditor.cs` for inspector and menu-driven regeneration of selected mesh grid instances.
+  - Heightmap deformation and processing
+    - Added `FPMeshHeightmapUtility.cs` for UV-based heightmap sampling and mesh displacement.
+    - Added non-destructive height processing controls including remap, rectangular/radial falloff, and terracing.
+  - Heightmap editor and brush presets
+    - Added `FPHeightmapEditorWindow.cs` as a dedicated editor workspace for heightmap preview, histogram inspection, and brush-based editing on a working copy.
+    - Added `FPHeightBrushData.cs` as an `FP_Data` asset for reusable brush presets, including optional PNG mask support.
+
+### 0.9.1 Modified
+
+- [@JShull](https://github.com/jshull)
+  - `package.json`
+    - Version bumped to `0.9.1`.
+  - `FPMeshGeneratorWindow.cs`
+    - Save flow now promotes the live generated mesh and rebinds scene `MeshFilter` and `MeshCollider` references to the saved asset.
+    - Added auto-update support for the last generated preview object.
+    - Added integration with the heightmap editor and mesh data assets.
+  - `FPMeshGridData.cs`
+    - Added change notifications so linked mesh instances can auto-regenerate in edit mode when data assets change.
+  - `FPHeightmapEditorWindow.cs`
+    - Reworked the layout into a 25/75 split with parameter and histogram containers on the left and a larger painting canvas on the right.
+    - Added non-destructive working-copy creation, PNG export, brush preview overlay, optional PNG mask brushes, and brush rotation.
+
 ## [0.9.0] - 2026-03-06
 
 ### 0.9.0 Added

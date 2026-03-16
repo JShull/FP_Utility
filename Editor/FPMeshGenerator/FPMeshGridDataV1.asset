@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e8a071cdd224330a7f1805f8ed4bc26, type: 3}
+  m_Name: FPMeshGridDataV1
+  m_EditorClassIdentifier: com.fuzzphyte.utility::FuzzPhyte.Utility.FPMeshGridData
+  UniqueID: c6fee28b-4921-4233-beeb-469e97cd1ea9
+  GridSettings:
+    MeshName: FP_GridSurface
+    Width: 25
+    Length: 25
+    XSegments: 60
+    YSegments: 60
+    CenterPivot: 1
+  HeightmapSettings:
+    Heightmap: {fileID: 2800000, guid: 04a3cf65f7c7aab4484cdd5c8735487d, type: 3}
+    HeightScale: 3
+    HeightOffset: 0
+    Invert: 0
+    FlipX: 0
+    FlipY: 0
+    Channel: 0
+  HeightProcessSettings:
+    UseRemap: 1
+    RemapMin: 0
+    RemapMax: 1
+    EdgeFalloffMode: 2
+    EdgeFalloffStart: 0.75
+    EdgeFalloffStrength: 1
+    UseTerracing: 1
+    TerraceSteps: 6
