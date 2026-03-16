@@ -24,16 +24,29 @@ namespace FuzzPhyte.Utility.Editor
             Set = 2
         }
 
+        private enum GpuDebugMode
+        {
+            Off = 0,
+            Source = 1,
+            ShaderSource = 2,
+            MaskInfluence = 3,
+            FinalInfluence = 4
+        }
+
         [SerializeField]
         private FPMeshGridData meshDataAsset;
         [SerializeField]
         private Texture2D directHeightmap;
+        [SerializeField]
+        private FPMeshGridInstance livePreviewInstance;
         [SerializeField]
         private HeightmapPreviewMode previewMode = HeightmapPreviewMode.Grayscale;
         [SerializeField]
         private bool fitToPanel = true;
         [SerializeField]
         private float zoom = 1f;
+        [SerializeField]
+        private bool useGpuWorkingCopy;
         [SerializeField]
         private bool enableBrushEditing;
         [SerializeField]
@@ -52,6 +65,8 @@ namespace FuzzPhyte.Utility.Editor
         private float brushStrength = 0.15f;
         [SerializeField]
         private float brushSetValue = 1f;
+        [SerializeField]
+        private GpuDebugMode gpuDebugMode = GpuDebugMode.Off;
 
         private Texture2D cachedSourceTexture;
         private Texture2D cachedReadableTexture;
@@ -60,13 +75,36 @@ namespace FuzzPhyte.Utility.Editor
         private Texture2D cachedBrushMaskSource;
         private Texture2D cachedBrushMaskReadable;
         private float[] histogramBins;
+        private bool analysisDirty = true;
+        private bool hasAnalysisData;
+        private float cachedMinValue;
+        private float cachedMaxValue;
+        private float cachedAverageValue;
         private bool destroyReadableTexture;
         private bool destroyPreviewTexture;
         private bool destroyBrushMaskReadable;
         private Vector2 previewScroll;
+        private Vector2 parameterScroll;
+        private Vector2 histogramScroll;
+        private bool skipMarkAnalysisDirtyThisFrame;
+        private bool analysisRefreshQueued;
+        private bool liveMeshPreview = true;
+        private bool liveMeshPreviewQueued;
+        private double lastLiveMeshPreviewTime;
+        private double lastBrushEditTime;
         private Texture2D workingHeightmap;
+        private RenderTexture gpuWorkingHeightmap;
         private Rect lastPreviewDrawRect;
         private Rect lastPreviewInnerRect;
+        [SerializeField]
+        private float leftColumnTopRatio = 0.62f;
+        [SerializeField]
+        private bool autoRefreshAnalysis;
+        private bool resizingLeftColumn;
+        private const float LeftColumnSplitterHeight = 6f;
+        private const float LeftColumnMinPanelHeight = 120f;
+        private const double AnalysisRefreshDelaySeconds = 0.35d;
+        private const double LiveMeshPreviewDelaySeconds = 0.12d;
 
         [MenuItem("FuzzPhyte/Utility/Rendering/FP Heightmap Editor", priority = FP_UtilityData.ORDER_MENU + 7)]
         public static void ShowWindow()
@@ -81,20 +119,27 @@ namespace FuzzPhyte.Utility.Editor
             window.minSize = new Vector2(640f, 420f);
             window.meshDataAsset = dataAsset;
             window.directHeightmap = heightmap;
+            window.livePreviewInstance = null;
             window.RefreshCache();
+            window.MarkAnalysisDirty();
             window.Repaint();
         }
 
         private void OnEnable()
         {
             wantsMouseMove = true;
+            EditorApplication.update += HandleEditorUpdate;
             RefreshCache();
+            MarkAnalysisDirty();
         }
 
         private void OnDisable()
         {
-            ReleaseCachedTextures();
+            EditorApplication.update -= HandleEditorUpdate;
+            ReleaseCachedTextures(false);
             ReleaseWorkingTexture();
+            ReleaseGpuWorkingTexture();
+            FPGPUHeightmapUtility.ReleaseResources();
         }
 
         private void OnGUI()
@@ -114,15 +159,29 @@ namespace FuzzPhyte.Utility.Editor
             if (EditorGUI.EndChangeCheck())
             {
                 RefreshCache();
+                if (!skipMarkAnalysisDirtyThisFrame)
+                {
+                    MarkAnalysisDirty();
+                }
             }
+
+            skipMarkAnalysisDirtyThisFrame = false;
         }
 
         private void DrawParameterPanel()
         {
             meshDataAsset = (FPMeshGridData)EditorGUILayout.ObjectField("Mesh Data", meshDataAsset, typeof(FPMeshGridData), false);
             directHeightmap = (Texture2D)EditorGUILayout.ObjectField("Direct Heightmap", directHeightmap, typeof(Texture2D), false);
+            livePreviewInstance = (FPMeshGridInstance)EditorGUILayout.ObjectField("Live Preview Mesh", livePreviewInstance, typeof(FPMeshGridInstance), true);
             previewMode = (HeightmapPreviewMode)EditorGUILayout.EnumPopup("Preview Mode", previewMode);
             fitToPanel = EditorGUILayout.Toggle("Fit To Panel", fitToPanel);
+            useGpuWorkingCopy = EditorGUILayout.Toggle("Use GPU Working Copy", useGpuWorkingCopy);
+            if (useGpuWorkingCopy)
+            {
+                gpuDebugMode = (GpuDebugMode)EditorGUILayout.EnumPopup("GPU Debug View", gpuDebugMode);
+            }
+            autoRefreshAnalysis = EditorGUILayout.Toggle("Auto Refresh Analysis", autoRefreshAnalysis);
+            liveMeshPreview = EditorGUILayout.Toggle("Live Mesh Preview", liveMeshPreview);
 
             using (new EditorGUI.DisabledScope(fitToPanel))
             {
@@ -142,6 +201,14 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
 
+            using (new EditorGUI.DisabledScope(livePreviewInstance == null))
+            {
+                if (GUILayout.Button("Refresh Live Mesh"))
+                {
+                    RefreshLiveMeshPreview();
+                }
+            }
+
             DrawWorkingCopyControls();
             DrawBrushControls();
 
@@ -156,12 +223,13 @@ namespace FuzzPhyte.Utility.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button(workingHeightmap == null ? "Create Working Copy" : "Rebuild Working Copy"))
+                bool hasWorkingCopy = HasWorkingCopy();
+                if (GUILayout.Button(hasWorkingCopy ? "Rebuild Working Copy" : "Create Working Copy"))
                 {
                     CreateWorkingCopyFromSource();
                 }
 
-                using (new EditorGUI.DisabledScope(workingHeightmap == null))
+                using (new EditorGUI.DisabledScope(!hasWorkingCopy))
                 {
                     if (GUILayout.Button("Reset Working Copy"))
                     {
@@ -175,7 +243,17 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
 
-            EditorGUILayout.LabelField("Status", workingHeightmap == null ? "Using source texture preview" : $"Editing copy: {workingHeightmap.name}");
+            string status = "Using source texture preview";
+            if (useGpuWorkingCopy && gpuWorkingHeightmap != null)
+            {
+                status = $"Editing GPU copy: {gpuWorkingHeightmap.name}";
+            }
+            else if (workingHeightmap != null)
+            {
+                status = $"Editing copy: {workingHeightmap.name}";
+            }
+
+            EditorGUILayout.LabelField("Status", status);
         }
 
         private void DrawBrushControls()
@@ -201,7 +279,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
 
-            using (new EditorGUI.DisabledScope(workingHeightmap == null))
+            using (new EditorGUI.DisabledScope(!HasWorkingCopy()))
             {
                 enableBrushEditing = EditorGUILayout.Toggle("Enable Brush Editing", enableBrushEditing);
                 brushMode = (HeightBrushMode)EditorGUILayout.EnumPopup("Brush Mode", brushMode);
@@ -223,7 +301,7 @@ namespace FuzzPhyte.Utility.Editor
                     MessageType.None);
             }
 
-            if (workingHeightmap == null)
+            if (workingHeightmap == null && gpuWorkingHeightmap == null)
             {
                 EditorGUILayout.HelpBox(
                     "Create a working copy before painting. Brush edits only affect the duplicated in-memory texture.",
@@ -240,7 +318,7 @@ namespace FuzzPhyte.Utility.Editor
         private void DrawPreviewPanel(Rect rect)
         {
             GUI.Box(rect, GUIContent.none);
-            Texture2D previewTexture = GetPreviewTexture();
+            Texture previewTexture = GetPreviewTexture();
             if (previewTexture == null)
             {
                 EditorGUI.HelpBox(rect, "Assign a mesh data asset or direct heightmap to preview the texture here.", MessageType.Info);
@@ -268,73 +346,169 @@ namespace FuzzPhyte.Utility.Editor
 
         private void DrawWorkspace()
         {
-            using (new EditorGUILayout.HorizontalScope(GUILayout.ExpandHeight(true)))
-            {
-                float leftColumnWidth = Mathf.Max(220f, position.width * 0.25f);
-                DrawLeftColumn(leftColumnWidth);
-                GUILayout.Space(8f);
-                DrawPreviewPanelLayout();
-            }
+            Rect previousRect = GUILayoutUtility.GetLastRect();
+            float workspaceTop = previousRect.yMax + 4f;
+            Rect workspaceRect = new Rect(
+                4f,
+                workspaceTop,
+                Mathf.Max(100f, position.width - 8f),
+                Mathf.Max(100f, position.height - workspaceTop - 4f));
+            float gap = 8f;
+            float leftColumnWidth = Mathf.Clamp(workspaceRect.width * 0.25f, 220f, Mathf.Max(220f, workspaceRect.width - 220f - gap));
+            Rect leftRect = new Rect(workspaceRect.x, workspaceRect.y, leftColumnWidth, workspaceRect.height);
+            Rect rightRect = new Rect(leftRect.xMax + gap, workspaceRect.y, Mathf.Max(100f, workspaceRect.width - leftColumnWidth - gap), workspaceRect.height);
+
+            DrawLeftColumnLayout(leftRect);
+            DrawPreviewPanelContainer(rightRect);
         }
 
-        private void DrawLeftColumn(float width)
+        private void DrawLeftColumnLayout(Rect rect)
         {
-            using (new EditorGUILayout.VerticalScope(GUILayout.Width(width), GUILayout.ExpandHeight(true)))
-            {
-                DrawParameterPanelContainer(width);
-                GUILayout.Space(8f);
-                DrawHistogramPanel(width);
-            }
+            float availableHeight = Mathf.Max((LeftColumnMinPanelHeight * 2f) + LeftColumnSplitterHeight, rect.height);
+            float topHeight = Mathf.Clamp(
+                availableHeight * leftColumnTopRatio,
+                LeftColumnMinPanelHeight,
+                availableHeight - LeftColumnMinPanelHeight - LeftColumnSplitterHeight);
+            float bottomHeight = availableHeight - topHeight - LeftColumnSplitterHeight;
+
+            Rect topRect = new Rect(rect.x, rect.y, rect.width, topHeight);
+            Rect splitterRect = new Rect(rect.x, topRect.yMax, rect.width, LeftColumnSplitterHeight);
+            Rect bottomRect = new Rect(rect.x, splitterRect.yMax, rect.width, bottomHeight);
+
+            DrawParameterPanelContainer(topRect);
+            DrawLeftColumnSplitter(splitterRect, rect, availableHeight);
+            DrawHistogramPanel(bottomRect);
         }
 
-        private void DrawParameterPanelContainer(float width)
+        private void DrawParameterPanelContainer(Rect rect)
         {
-            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.Width(width), GUILayout.ExpandHeight(true)))
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, CalculateParameterContentHeight(innerRect.width - 16f));
+
+            parameterScroll = GUI.BeginScrollView(innerRect, parameterScroll, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
             {
                 DrawParameterPanel();
             }
+            GUILayout.EndArea();
+            GUI.EndScrollView();
         }
 
-        private void DrawPreviewPanelLayout()
+        private void DrawPreviewPanelContainer(Rect rect)
         {
-            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)))
-            {
-                Rect rect = GUILayoutUtility.GetRect(10f, 10f, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-                DrawPreviewPanel(rect);
-            }
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f);
+            DrawPreviewPanel(innerRect);
         }
 
-        private void DrawHistogramPanel(float width)
+        private void DrawHistogramPanel(Rect rect)
         {
-            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.Width(width), GUILayout.ExpandHeight(true)))
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, 360f);
+
+            histogramScroll = GUI.BeginScrollView(innerRect, histogramScroll, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
+            Texture source = GetAnalysisDisplayTexture();
+            if (source == null)
             {
-                Texture2D source = ResolveHeightmap();
-                if (source == null || cachedReadableTexture == null)
-                {
-                    EditorGUILayout.LabelField("Histogram", EditorStyles.boldLabel);
-                    EditorGUILayout.LabelField("No heightmap selected.");
-                    GUILayout.FlexibleSpace();
-                    return;
-                }
-
-                EditorGUILayout.LabelField("Texture Stats", EditorStyles.boldLabel);
-                EditorGUILayout.LabelField("Resolution", $"{source.width} x {source.height}");
-                EditorGUILayout.LabelField("Preview", previewMode.ToString());
-
-                ComputeStats(out float minValue, out float maxValue, out float averageValue);
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("Sample Stats", EditorStyles.boldLabel);
-                EditorGUILayout.LabelField("Min", minValue.ToString("F3"));
-                EditorGUILayout.LabelField("Max", maxValue.ToString("F3"));
-                EditorGUILayout.LabelField("Average", averageValue.ToString("F3"));
-
-                EditorGUILayout.Space();
                 EditorGUILayout.LabelField("Histogram", EditorStyles.boldLabel);
-                Rect histogramRect = GUILayoutUtility.GetRect(10f, 220f, GUILayout.ExpandWidth(true));
-                DrawHistogram(histogramRect);
-
+                EditorGUILayout.LabelField("No heightmap selected.");
                 GUILayout.FlexibleSpace();
             }
+            else
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField("Texture Stats", EditorStyles.boldLabel);
+                    if (GUILayout.Button("Refresh Analysis"))
+                    {
+                        skipMarkAnalysisDirtyThisFrame = true;
+                        RefreshAnalysis(true);
+                    }
+                }
+
+                if (!hasAnalysisData)
+                {
+                    EditorGUILayout.HelpBox(
+                        "Analysis is stale or unavailable. Click Refresh Analysis to rebuild stats and histogram.",
+                        MessageType.None);
+                    GUILayout.FlexibleSpace();
+                }
+                else
+                {
+                    if (analysisDirty)
+                    {
+                        EditorGUILayout.HelpBox(
+                            "Showing the last computed analysis. It will refresh after painting settles.",
+                            MessageType.None);
+                    }
+
+                    EditorGUILayout.LabelField("Resolution", $"{source.width} x {source.height}");
+                    EditorGUILayout.LabelField("Preview", previewMode.ToString());
+                    EditorGUILayout.Space();
+                    EditorGUILayout.LabelField("Sample Stats", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField("Min", cachedMinValue.ToString("F3"));
+                    EditorGUILayout.LabelField("Max", cachedMaxValue.ToString("F3"));
+                    EditorGUILayout.LabelField("Average", cachedAverageValue.ToString("F3"));
+
+                    EditorGUILayout.Space();
+                    EditorGUILayout.LabelField("Histogram", EditorStyles.boldLabel);
+                    Rect histogramRect = GUILayoutUtility.GetRect(10f, 220f, GUILayout.ExpandWidth(true));
+                    DrawHistogram(histogramRect);
+
+                    GUILayout.FlexibleSpace();
+                }
+            }
+            GUILayout.EndArea();
+            GUI.EndScrollView();
+        }
+
+        private void DrawLeftColumnSplitter(Rect splitterRect, Rect columnRect, float totalHeight)
+        {
+            EditorGUIUtility.AddCursorRect(splitterRect, MouseCursor.ResizeVertical);
+            EditorGUI.DrawRect(splitterRect, new Color(0.25f, 0.25f, 0.25f, 1f));
+
+            Event current = Event.current;
+            switch (current.type)
+            {
+                case EventType.MouseDown:
+                    if (splitterRect.Contains(current.mousePosition) && current.button == 0)
+                    {
+                        resizingLeftColumn = true;
+                        current.Use();
+                    }
+                    break;
+                case EventType.MouseDrag:
+                    if (resizingLeftColumn)
+                    {
+                        float localY = current.mousePosition.y - columnRect.y;
+                        float clampedTopHeight = Mathf.Clamp(
+                            localY,
+                            LeftColumnMinPanelHeight,
+                            totalHeight - LeftColumnMinPanelHeight - LeftColumnSplitterHeight);
+                        leftColumnTopRatio = Mathf.Clamp01(clampedTopHeight / totalHeight);
+                        Repaint();
+                        current.Use();
+                    }
+                    break;
+                case EventType.MouseUp:
+                    if (resizingLeftColumn)
+                    {
+                        resizingLeftColumn = false;
+                        current.Use();
+                    }
+                    break;
+            }
+        }
+
+        private float CalculateParameterContentHeight(float width)
+        {
+            float line = EditorGUIUtility.singleLineHeight;
+            float spacing = EditorGUIUtility.standardVerticalSpacing;
+            float estimatedLines = 34f;
+            return Mathf.Max(480f, (estimatedLines * (line + spacing)) + 80f);
         }
 
         private void LoadFromSelectedGridInstance()
@@ -352,11 +526,18 @@ namespace FuzzPhyte.Utility.Editor
 
             meshDataAsset = instance.DataAsset;
             directHeightmap = meshDataAsset != null ? meshDataAsset.HeightmapSettings.Heightmap : null;
+            livePreviewInstance = instance;
             RefreshCache(true);
         }
 
         private void RefreshCache(bool force = false)
         {
+            if (gpuWorkingHeightmap != null)
+            {
+                RefreshCacheFromGpu(force);
+                return;
+            }
+
             Texture2D source = ResolveHeightmap();
             if (!force && source == cachedSourceTexture && previewMode == cachedPreviewMode && cachedPreviewTexture != null)
             {
@@ -389,11 +570,15 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             cachedPreviewMode = previewMode;
-            histogramBins = BuildHistogram(cachedReadableTexture, previewMode, 64);
         }
 
-        private Texture2D GetPreviewTexture()
+        private Texture GetPreviewTexture()
         {
+            if (gpuWorkingHeightmap != null && previewMode == HeightmapPreviewMode.Source)
+            {
+                return gpuWorkingHeightmap;
+            }
+
             if (cachedPreviewTexture == null)
             {
                 RefreshCache();
@@ -402,7 +587,7 @@ namespace FuzzPhyte.Utility.Editor
             return cachedPreviewTexture;
         }
 
-        private void ReleaseCachedTextures()
+        private void ReleaseCachedTextures(bool clearAnalysis = true)
         {
             if (destroyPreviewTexture && cachedPreviewTexture != null)
             {
@@ -417,14 +602,24 @@ namespace FuzzPhyte.Utility.Editor
             cachedSourceTexture = null;
             cachedReadableTexture = null;
             cachedPreviewTexture = null;
-            histogramBins = null;
             destroyReadableTexture = false;
             destroyPreviewTexture = false;
             ReleaseBrushMaskTexture();
+
+            if (clearAnalysis)
+            {
+                histogramBins = null;
+                hasAnalysisData = false;
+            }
         }
 
         private Texture2D ResolveHeightmap()
         {
+            if (gpuWorkingHeightmap != null)
+            {
+                return cachedReadableTexture;
+            }
+
             if (workingHeightmap != null)
             {
                 return workingHeightmap;
@@ -517,18 +712,18 @@ namespace FuzzPhyte.Utility.Editor
             return bins;
         }
 
-        private void ComputeStats(out float minValue, out float maxValue, out float averageValue)
+        private void ComputeStats(Texture2D sourceTexture, out float minValue, out float maxValue, out float averageValue)
         {
             minValue = 1f;
             maxValue = 0f;
             averageValue = 0f;
 
-            if (cachedReadableTexture == null)
+            if (sourceTexture == null)
             {
                 return;
             }
 
-            Color[] pixels = cachedReadableTexture.GetPixels();
+            Color[] pixels = sourceTexture.GetPixels();
             if (pixels == null || pixels.Length == 0)
             {
                 return;
@@ -614,6 +809,15 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             ReleaseWorkingTexture();
+            ReleaseGpuWorkingTexture();
+
+            if (useGpuWorkingCopy)
+            {
+                gpuWorkingHeightmap = FPGPUHeightmapUtility.CreateWorkingCopy(source, $"{source.name}_GPUWorkingCopy");
+                enableBrushEditing = false;
+                RefreshCache(true);
+                return;
+            }
 
             Texture2D readableSource = GetReadableTexture(source, out bool destroyReadable);
             if (readableSource == null)
@@ -635,6 +839,7 @@ namespace FuzzPhyte.Utility.Editor
 
             enableBrushEditing = true;
             RefreshCache(true);
+            MarkAnalysisDirty();
         }
 
         private void ResetWorkingCopy()
@@ -649,12 +854,15 @@ namespace FuzzPhyte.Utility.Editor
 
         private void SaveWorkingCopyAsPng()
         {
-            if (workingHeightmap == null)
+            bool hasCpuCopy = workingHeightmap != null;
+            bool hasGpuCopy = gpuWorkingHeightmap != null;
+            if (!hasCpuCopy && !hasGpuCopy)
             {
                 return;
             }
 
-            string defaultName = $"{workingHeightmap.name}.png";
+            string exportName = hasGpuCopy ? gpuWorkingHeightmap.name : workingHeightmap.name;
+            string defaultName = $"{exportName}.png";
             string path = EditorUtility.SaveFilePanelInProject(
                 "Save Working Heightmap",
                 defaultName,
@@ -666,10 +874,18 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            byte[] pngBytes = workingHeightmap.EncodeToPNG();
+            Texture2D exportTexture = hasGpuCopy
+                ? FPGPUHeightmapUtility.ReadbackToTexture2D(gpuWorkingHeightmap)
+                : workingHeightmap;
+
+            byte[] pngBytes = exportTexture != null ? exportTexture.EncodeToPNG() : null;
             if (pngBytes == null || pngBytes.Length == 0)
             {
                 Debug.LogWarning("[FP Heightmap Editor] Failed to encode working copy to PNG.");
+                if (hasGpuCopy && exportTexture != null)
+                {
+                    DestroyImmediate(exportTexture);
+                }
                 return;
             }
 
@@ -688,6 +904,11 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             directHeightmap = savedTexture != null ? savedTexture : directHeightmap;
+            if (hasGpuCopy && exportTexture != null)
+            {
+                DestroyImmediate(exportTexture);
+            }
+            MarkAnalysisDirty();
         }
 
         private void ReleaseWorkingTexture()
@@ -699,9 +920,18 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        private void HandleBrushPainting(Event currentEvent, Rect drawRect, Texture2D previewTexture)
+        private void ReleaseGpuWorkingTexture()
         {
-            if (!enableBrushEditing || workingHeightmap == null || !fitToPanel || previewTexture == null)
+            if (gpuWorkingHeightmap != null)
+            {
+                FPGPUHeightmapUtility.Release(gpuWorkingHeightmap);
+                gpuWorkingHeightmap = null;
+            }
+        }
+
+        private void HandleBrushPainting(Event currentEvent, Rect drawRect, Texture previewTexture)
+        {
+            if (!enableBrushEditing || !HasWorkingCopy() || !fitToPanel || previewTexture == null)
             {
                 return;
             }
@@ -720,13 +950,20 @@ namespace FuzzPhyte.Utility.Editor
                 Mathf.InverseLerp(drawRect.xMin, drawRect.xMax, currentEvent.mousePosition.x),
                 1f - Mathf.InverseLerp(drawRect.yMin, drawRect.yMax, currentEvent.mousePosition.y));
 
-            PaintBrushStroke(uv);
+            if (gpuWorkingHeightmap != null)
+            {
+                PaintGpuBrushStroke(uv);
+            }
+            else
+            {
+                PaintBrushStroke(uv);
+            }
             currentEvent.Use();
         }
 
-        private void DrawBrushOverlay(Event currentEvent, Rect drawRect, Texture2D previewTexture)
+        private void DrawBrushOverlay(Event currentEvent, Rect drawRect, Texture previewTexture)
         {
-            if (!enableBrushEditing || workingHeightmap == null || previewTexture == null)
+            if (!enableBrushEditing || !HasWorkingCopy() || previewTexture == null)
             {
                 return;
             }
@@ -744,6 +981,7 @@ namespace FuzzPhyte.Utility.Editor
             float hardRadius = Mathf.Max(0.001f, radiusPixels * (1f - brushSoftness));
             float hardRadiusX = hardRadius * scaleX;
             float hardRadiusY = hardRadius * scaleY;
+            Color brushOverlayColor = GetBrushOverlayColor();
 
             Handles.BeginGUI();
             Color previousColor = Handles.color;
@@ -758,19 +996,19 @@ namespace FuzzPhyte.Utility.Editor
                     radiusX * 2f,
                     radiusY * 2f);
                 GUIUtility.RotateAroundPivot(brushRotationDegrees, currentEvent.mousePosition);
-                GUI.color = new Color(1f, 1f, 1f, 0.28f);
+                GUI.color = new Color(brushOverlayColor.r, brushOverlayColor.g, brushOverlayColor.b, 0.28f);
                 GUI.DrawTexture(maskRect, brushMask, ScaleMode.StretchToFill, true);
                 GUI.color = previousGuiColor;
                 GUI.matrix = previousMatrix;
             }
             else
             {
-                Handles.color = new Color(1f, 1f, 1f, 0.95f);
+                Handles.color = new Color(brushOverlayColor.r, brushOverlayColor.g, brushOverlayColor.b, 0.95f);
                 Handles.DrawWireDisc(currentEvent.mousePosition, Vector3.forward, radiusX);
 
                 if (brushSoftness > 0f)
                 {
-                    Handles.color = new Color(FP_Utility_Editor.OkayColor.r, FP_Utility_Editor.OkayColor.g, FP_Utility_Editor.OkayColor.b, 0.95f);
+                    Handles.color = new Color(brushOverlayColor.r, brushOverlayColor.g, brushOverlayColor.b, 0.55f);
                     Handles.DrawWireDisc(currentEvent.mousePosition, Vector3.forward, hardRadiusX);
                 }
             }
@@ -835,7 +1073,80 @@ namespace FuzzPhyte.Utility.Editor
 
             workingHeightmap.Apply(false, false);
             RefreshCache(true);
+            MarkAnalysisDirty();
+            QueueDeferredAnalysisRefresh();
+            QueueLiveMeshPreviewRefresh();
             Repaint();
+        }
+
+        private void PaintGpuBrushStroke(Vector2 uv)
+        {
+            if (gpuWorkingHeightmap == null)
+            {
+                return;
+            }
+
+            bool applied = FPGPUHeightmapUtility.ApplyBrushStroke(
+                gpuWorkingHeightmap,
+                brushMask,
+                uv,
+                brushSizePixels,
+                brushSoftness,
+                brushStrength,
+                brushSetValue,
+                brushRotationDegrees,
+                (int)brushMode,
+                (int)gpuDebugMode);
+
+            if (!applied)
+            {
+                return;
+            }
+
+            if (previewMode != HeightmapPreviewMode.Source)
+            {
+                RefreshCache(true);
+            }
+            MarkAnalysisDirty();
+            QueueDeferredAnalysisRefresh();
+            QueueLiveMeshPreviewRefresh();
+            Repaint();
+        }
+
+        private bool HasWorkingCopy()
+        {
+            return workingHeightmap != null || gpuWorkingHeightmap != null;
+        }
+
+        private void RefreshCacheFromGpu(bool force)
+        {
+            if (gpuWorkingHeightmap == null)
+            {
+                return;
+            }
+
+            if (!force && cachedPreviewMode == previewMode && cachedReadableTexture != null)
+            {
+                return;
+            }
+
+            ReleaseCachedTextures(false);
+            cachedReadableTexture = FPGPUHeightmapUtility.ReadbackToTexture2D(gpuWorkingHeightmap);
+            cachedSourceTexture = cachedReadableTexture;
+            destroyReadableTexture = true;
+
+            if (previewMode == HeightmapPreviewMode.Source)
+            {
+                cachedPreviewTexture = cachedReadableTexture;
+                destroyPreviewTexture = false;
+            }
+            else
+            {
+                cachedPreviewTexture = BuildPreviewTexture(cachedReadableTexture, previewMode);
+                destroyPreviewTexture = true;
+            }
+
+            cachedPreviewMode = previewMode;
         }
 
         private float ApplyBrushMode(float currentValue, float influence)
@@ -843,12 +1154,12 @@ namespace FuzzPhyte.Utility.Editor
             switch (brushMode)
             {
                 case HeightBrushMode.Lower:
-                    return Mathf.Clamp01(currentValue - influence);
+                    return Mathf.Lerp(currentValue, 0f, influence);
                 case HeightBrushMode.Set:
                     return Mathf.Lerp(currentValue, brushSetValue, influence);
                 case HeightBrushMode.Raise:
                 default:
-                    return Mathf.Clamp01(currentValue + influence);
+                    return Mathf.Lerp(currentValue, 1f, influence);
             }
         }
 
@@ -956,6 +1267,174 @@ namespace FuzzPhyte.Utility.Editor
             cachedBrushMaskSource = null;
             cachedBrushMaskReadable = null;
             destroyBrushMaskReadable = false;
+        }
+
+        private Color GetBrushOverlayColor()
+        {
+            switch (brushMode)
+            {
+                case HeightBrushMode.Lower:
+                    return new Color(0.08f, 0.08f, 0.08f, 1f);
+                case HeightBrushMode.Set:
+                    return new Color(0.15f, 0.7f, 1f, 1f);
+                case HeightBrushMode.Raise:
+                default:
+                    return Color.white;
+            }
+        }
+
+        private void MarkAnalysisDirty()
+        {
+            analysisDirty = true;
+            if (autoRefreshAnalysis)
+            {
+                RefreshAnalysis(true);
+            }
+        }
+
+        private void QueueDeferredAnalysisRefresh()
+        {
+            analysisRefreshQueued = true;
+            lastBrushEditTime = EditorApplication.timeSinceStartup;
+        }
+
+        private void QueueLiveMeshPreviewRefresh()
+        {
+            if (!liveMeshPreview || livePreviewInstance == null)
+            {
+                return;
+            }
+
+            liveMeshPreviewQueued = true;
+            lastLiveMeshPreviewTime = EditorApplication.timeSinceStartup;
+        }
+
+        private void RefreshAnalysis(bool force = false)
+        {
+            if (!force && !analysisDirty)
+            {
+                return;
+            }
+
+            if (gpuWorkingHeightmap != null)
+            {
+                ReleaseCachedAnalysisTextureIfNeeded();
+                cachedReadableTexture = FPGPUHeightmapUtility.ReadbackToTexture2D(gpuWorkingHeightmap);
+                cachedSourceTexture = null;
+                destroyReadableTexture = true;
+            }
+            else
+            {
+                Texture2D source = ResolveHeightmap();
+                if (source == null)
+                {
+                    hasAnalysisData = false;
+                    return;
+                }
+
+                if (cachedReadableTexture == null || cachedSourceTexture != source)
+                {
+                    ReleaseCachedAnalysisTextureIfNeeded();
+                    cachedReadableTexture = GetReadableTexture(source, out destroyReadableTexture);
+                    cachedSourceTexture = source;
+                }
+            }
+
+            if (cachedReadableTexture == null)
+            {
+                hasAnalysisData = false;
+                return;
+            }
+
+            ComputeStats(cachedReadableTexture, out cachedMinValue, out cachedMaxValue, out cachedAverageValue);
+            histogramBins = BuildHistogram(cachedReadableTexture, previewMode, 64);
+            analysisDirty = false;
+            hasAnalysisData = true;
+            analysisRefreshQueued = false;
+        }
+
+        private void ReleaseCachedAnalysisTextureIfNeeded()
+        {
+            if (destroyReadableTexture && cachedReadableTexture != null)
+            {
+                DestroyImmediate(cachedReadableTexture);
+            }
+
+            cachedReadableTexture = null;
+            destroyReadableTexture = false;
+        }
+
+        private Texture GetAnalysisDisplayTexture()
+        {
+            if (gpuWorkingHeightmap != null)
+            {
+                return gpuWorkingHeightmap;
+            }
+
+            if (workingHeightmap != null)
+            {
+                return workingHeightmap;
+            }
+
+            if (meshDataAsset != null && meshDataAsset.HeightmapSettings.Heightmap != null)
+            {
+                return meshDataAsset.HeightmapSettings.Heightmap;
+            }
+
+            return directHeightmap;
+        }
+
+        private void HandleEditorUpdate()
+        {
+            if (liveMeshPreviewQueued && !Application.isPlaying)
+            {
+                if (EditorApplication.timeSinceStartup - lastLiveMeshPreviewTime >= LiveMeshPreviewDelaySeconds)
+                {
+                    RefreshLiveMeshPreview();
+                    liveMeshPreviewQueued = false;
+                }
+            }
+
+            if (!analysisRefreshQueued || autoRefreshAnalysis)
+            {
+                return;
+            }
+
+            if (EditorApplication.timeSinceStartup - lastBrushEditTime < AnalysisRefreshDelaySeconds)
+            {
+                return;
+            }
+
+            RefreshAnalysis(true);
+            Repaint();
+        }
+
+        private void RefreshLiveMeshPreview()
+        {
+            if (Application.isPlaying || livePreviewInstance == null)
+            {
+                return;
+            }
+
+            Texture2D overrideHeightmap = null;
+            bool destroyOverride = false;
+
+            if (gpuWorkingHeightmap != null)
+            {
+                overrideHeightmap = FPGPUHeightmapUtility.ReadbackToTexture2D(gpuWorkingHeightmap);
+                destroyOverride = overrideHeightmap != null;
+            }
+            else if (workingHeightmap != null)
+            {
+                overrideHeightmap = workingHeightmap;
+            }
+
+            livePreviewInstance.RegenerateWithHeightmapOverride(overrideHeightmap);
+
+            if (destroyOverride && overrideHeightmap != null)
+            {
+                DestroyImmediate(overrideHeightmap);
+            }
         }
     }
 }

@@ -32,6 +32,16 @@ namespace FuzzPhyte.Utility
 
         public void Regenerate()
         {
+            RegenerateInternal(null);
+        }
+
+        public void RegenerateWithHeightmapOverride(Texture2D heightmapOverride)
+        {
+            RegenerateInternal(heightmapOverride);
+        }
+
+        private void RegenerateInternal(Texture2D heightmapOverride)
+        {
             if (DataAsset == null)
             {
                 return;
@@ -41,7 +51,13 @@ namespace FuzzPhyte.Utility
 
             Mesh previousMesh = _meshFilter.sharedMesh;
             Mesh nextMesh = FPMeshGridBuilder.Build(DataAsset.GridSettings);
-            FPMeshHeightmapUtility.ApplyHeightmap(nextMesh, DataAsset.HeightmapSettings, DataAsset.HeightProcessSettings);
+            FPMeshHeightmapSettings heightmapSettings = DataAsset.HeightmapSettings.Sanitized();
+            if (heightmapOverride != null)
+            {
+                heightmapSettings.Heightmap = heightmapOverride;
+            }
+
+            FPMeshHeightmapUtility.ApplyHeightmap(nextMesh, heightmapSettings, DataAsset.HeightProcessSettings);
 
             _meshFilter.sharedMesh = nextMesh;
 

@@ -15,14 +15,14 @@ MonoBehaviour:
   UniqueID: c6fee28b-4921-4233-beeb-469e97cd1ea9
   GridSettings:
     MeshName: FP_GridSurface
-    Width: 25
-    Length: 25
-    XSegments: 60
-    YSegments: 60
+    Width: 30
+    Length: 30
+    XSegments: 50
+    YSegments: 50
     CenterPivot: 1
   HeightmapSettings:
-    Heightmap: {fileID: 2800000, guid: 04a3cf65f7c7aab4484cdd5c8735487d, type: 3}
-    HeightScale: 3
+    Heightmap: {fileID: 2800000, guid: 713bb71378934b441929b6409eea08da, type: 3}
+    HeightScale: 5
     HeightOffset: 0
     Invert: 0
     FlipX: 0
@@ -32,8 +32,8 @@ MonoBehaviour:
     UseRemap: 1
     RemapMin: 0
     RemapMax: 1
-    EdgeFalloffMode: 2
-    EdgeFalloffStart: 0.75
-    EdgeFalloffStrength: 1
+    EdgeFalloffMode: 0
+    EdgeFalloffStart: 0.6
+    EdgeFalloffStrength: 0.75
     UseTerracing: 1
-    TerraceSteps: 6
+    TerraceSteps: 20
