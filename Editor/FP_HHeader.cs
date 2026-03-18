@@ -384,6 +384,11 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
+            if (!HasUsableScene(selectedObj.scene))
+            {
+                return;
+            }
+
             ExpandHeaderForSelection(selectedObj);
         }
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
@@ -653,7 +658,21 @@ namespace FuzzPhyte.Utility.Editor
         {
             Transform parentTransform = headerObj.transform.parent;
             int siblingIndex = headerObj.transform.GetSiblingIndex();
-            int childCount = parentTransform != null ? parentTransform.childCount : headerObj.scene.rootCount;
+            GameObject[] rootObjects = null;
+            int childCount;
+
+            if (parentTransform != null)
+            {
+                childCount = parentTransform.childCount;
+            }
+            else if (TryGetRootGameObjects(headerObj.scene, out rootObjects))
+            {
+                childCount = rootObjects.Length;
+            }
+            else
+            {
+                return;
+            }
 
             string foldoutKey = headerObj.name;
             Dictionary<string, List<string>> hiddenObjectsByFoldout = LoadHiddenObjectsFromPrefs();
@@ -669,7 +688,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
                 else
                 {
-                    sibling = headerObj.scene.GetRootGameObjects()[i];
+                    sibling = rootObjects[i];
                 }
 
                 // Check if the sibling is another header
@@ -696,7 +715,21 @@ namespace FuzzPhyte.Utility.Editor
         {
             Transform parentTransform = headerObj.transform.parent;
             int siblingIndex = headerObj.transform.GetSiblingIndex();
-            int childCount = parentTransform != null ? parentTransform.childCount : headerObj.scene.rootCount;
+            GameObject[] rootObjects = null;
+            int childCount;
+
+            if (parentTransform != null)
+            {
+                childCount = parentTransform.childCount;
+            }
+            else if (TryGetRootGameObjects(headerObj.scene, out rootObjects))
+            {
+                childCount = rootObjects.Length;
+            }
+            else
+            {
+                return;
+            }
 
             for (int i = siblingIndex + 1; i < childCount; i++)
             {
@@ -707,7 +740,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
                 else
                 {
-                    sibling = headerObj.scene.GetRootGameObjects()[i];
+                    sibling = rootObjects[i];
                 }
 
                 // Check if the sibling is another header
@@ -729,6 +762,11 @@ namespace FuzzPhyte.Utility.Editor
         }
         private static void ExpandHeaderForSelection(GameObject selectedObj)
         {
+            if (selectedObj == null || !HasUsableScene(selectedObj.scene))
+            {
+                return;
+            }
+
             GameObject headerObj = FindOwningHeader(selectedObj);
             if (headerObj == null)
             {
@@ -751,6 +789,11 @@ namespace FuzzPhyte.Utility.Editor
         }
         private static GameObject FindOwningHeader(GameObject selectedObj)
         {
+            if (selectedObj == null || !HasUsableScene(selectedObj.scene))
+            {
+                return null;
+            }
+
             Transform current = selectedObj.transform;
 
             while (current != null)
@@ -788,7 +831,11 @@ namespace FuzzPhyte.Utility.Editor
                 return null;
             }
 
-            GameObject[] rootObjects = current.gameObject.scene.GetRootGameObjects();
+            if (!TryGetRootGameObjects(current.gameObject.scene, out GameObject[] rootObjects))
+            {
+                return null;
+            }
+
             int rootIndex = Array.IndexOf(rootObjects, current.gameObject);
             for (int i = rootIndex - 1; i >= 0; i--)
             {
@@ -836,7 +883,21 @@ namespace FuzzPhyte.Utility.Editor
 
             Transform parentTransform = headerObj.transform.parent;
             int siblingIndex = headerObj.transform.GetSiblingIndex();
-            int childCount = parentTransform != null ? parentTransform.childCount : headerObj.scene.rootCount;
+            GameObject[] rootObjects = null;
+            int childCount;
+
+            if (parentTransform != null)
+            {
+                childCount = parentTransform.childCount;
+            }
+            else if (TryGetRootGameObjects(headerObj.scene, out rootObjects))
+            {
+                childCount = rootObjects.Length;
+            }
+            else
+            {
+                return groupedObjects;
+            }
 
             for (int i = siblingIndex + 1; i < childCount; i++)
             {
@@ -847,7 +908,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
                 else
                 {
-                    sibling = headerObj.scene.GetRootGameObjects()[i];
+                    sibling = rootObjects[i];
                 }
 
                 if (IsHeaderObject(sibling))
@@ -865,7 +926,22 @@ namespace FuzzPhyte.Utility.Editor
             List<GameObject> subsequentObjects = new List<GameObject>();
             Transform parentTransform = headerObj.transform.parent;
             int siblingIndex = headerObj.transform.GetSiblingIndex();
-            int childCount = parentTransform != null ? parentTransform.childCount : headerObj.scene.rootCount;
+            GameObject[] rootObjects = null;
+            int childCount;
+
+            if (parentTransform != null)
+            {
+                childCount = parentTransform.childCount;
+            }
+            else if (TryGetRootGameObjects(headerObj.scene, out rootObjects))
+            {
+                childCount = rootObjects.Length;
+            }
+            else
+            {
+                return;
+            }
+
             //subsequentObjects.Add(headerObj);
             for (int i = siblingIndex + 1; i < childCount; i++)
             {
@@ -876,7 +952,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
                 else
                 {
-                    sibling = headerObj.scene.GetRootGameObjects()[i];
+                    sibling = rootObjects[i];
                 }
 
                 // Check if the sibling is another header
@@ -897,6 +973,29 @@ namespace FuzzPhyte.Utility.Editor
                 //EditorApplication.RepaintHierarchyWindow();
             }
             
+        }
+        
+        private static bool HasUsableScene(Scene scene)
+        {
+            return scene.IsValid() && scene.isLoaded;
+        }
+        private static bool TryGetRootGameObjects(Scene scene, out GameObject[] rootObjects)
+        {
+            rootObjects = Array.Empty<GameObject>();
+            if (!HasUsableScene(scene))
+            {
+                return false;
+            }
+
+            try
+            {
+                rootObjects = scene.GetRootGameObjects();
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
         }
         
         // Helper method to check if a transform is a child of another transform
