@@ -89,7 +89,9 @@ namespace FuzzPhyte.Utility.Editor
         private static void SetExpanded(GameObject go, bool expand)
         {
             // Use the instance ID of the GameObject
+#pragma warning disable CS0618
             int instanceID = go.GetInstanceID();
+#pragma warning restore CS0618
 
             // Access the internal SceneHierarchyWindow and set the expanded state
             var hierarchyWindow = GetHierarchyWindow();

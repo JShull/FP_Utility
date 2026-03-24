@@ -18,6 +18,9 @@ namespace FuzzPhyte.Utility
 
         private MeshFilter _meshFilter;
         private MeshRenderer _meshRenderer;
+#if UNITY_EDITOR
+        private bool _editorRegenerateQueued;
+#endif
 
         private void OnEnable()
         {
@@ -28,6 +31,9 @@ namespace FuzzPhyte.Utility
         private void OnDisable()
         {
             FPMeshGridData.Changed -= HandleDataAssetChanged;
+#if UNITY_EDITOR
+            _editorRegenerateQueued = false;
+#endif
         }
 
         public void Regenerate()
@@ -88,7 +94,7 @@ namespace FuzzPhyte.Utility
 #if UNITY_EDITOR
             if (!Application.isPlaying && previousMesh != null && !UnityEditor.EditorUtility.IsPersistent(previousMesh))
             {
-                DestroyImmediate(previousMesh);
+                ScheduleMeshDestroy(previousMesh);
             }
 
             UnityEditor.EditorUtility.SetDirty(this);
@@ -127,7 +133,7 @@ namespace FuzzPhyte.Utility
 #if UNITY_EDITOR
             if (!Application.isPlaying && AutoRegenerateInEditor && DataAsset != null)
             {
-                Regenerate();
+                ScheduleEditorRegenerate();
             }
 #endif
         }
@@ -145,8 +151,49 @@ namespace FuzzPhyte.Utility
                 return;
             }
 
-            Regenerate();
+            ScheduleEditorRegenerate();
 #endif
         }
+
+#if UNITY_EDITOR
+        private void ScheduleEditorRegenerate()
+        {
+            if (_editorRegenerateQueued)
+            {
+                return;
+            }
+
+            _editorRegenerateQueued = true;
+            UnityEditor.EditorApplication.delayCall += ExecuteDeferredRegenerate;
+        }
+
+        private void ExecuteDeferredRegenerate()
+        {
+            _editorRegenerateQueued = false;
+
+            if (this == null || Application.isPlaying || !AutoRegenerateInEditor || DataAsset == null)
+            {
+                return;
+            }
+
+            Regenerate();
+        }
+
+        private static void ScheduleMeshDestroy(Mesh mesh)
+        {
+            if (mesh == null || UnityEditor.EditorUtility.IsPersistent(mesh))
+            {
+                return;
+            }
+
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                if (mesh != null)
+                {
+                    DestroyImmediate(mesh);
+                }
+            };
+        }
+#endif
     }
 }

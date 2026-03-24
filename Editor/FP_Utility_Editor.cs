@@ -553,7 +553,9 @@ namespace FuzzPhyte.Utility.Editor
 
                 if (obj != null)
                 {
+#pragma warning disable CS0618
                     return obj.GetInstanceID(); // Get the instance ID of the loaded asset
+#pragma warning restore CS0618
                 }
             }
 
@@ -562,9 +564,16 @@ namespace FuzzPhyte.Utility.Editor
         }        
         public static GUID ReturnGUIDFromInstance(int instanceID, out bool success)
         {
-            GameObject obj = EditorUtility.EntityIdToObject(instanceID) as GameObject;
-            //GetHashCode
-            var getGlobalID = GlobalObjectId.GetGlobalObjectIdSlow(instanceID).assetGUID;
+#pragma warning disable CS0618
+            UnityEngine.Object obj = EditorUtility.InstanceIDToObject(instanceID);
+#pragma warning restore CS0618
+            if (obj == null)
+            {
+                success = false;
+                return default;
+            }
+
+            var getGlobalID = GlobalObjectId.GetGlobalObjectIdSlow(obj).assetGUID;
             if (getGlobalID.ToString() == "GlobalObjectId_V1-0-00000000000000000000000000000000-0-0")
             {
                 success = false;
@@ -606,7 +615,7 @@ namespace FuzzPhyte.Utility.Editor
         /// <returns></returns>
         public static GameObject FindGameObjectByNameInactive(string name)
         {
-            GameObject[] allGameObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            GameObject[] allGameObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
             for (int i = 0; i < allGameObjects.Length; i++)
             {
                 var obj = allGameObjects[i];

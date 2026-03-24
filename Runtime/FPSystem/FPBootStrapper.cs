@@ -46,7 +46,7 @@ namespace FuzzPhyte.Utility.FPSystem
             // If you care about WEBGL, keep the old #if – purely optional here.
 #if !UNITY_WEBGL
             var majorFPSystems =
-                Object.FindObjectsByType<FPSystemBase<TData>>(FindObjectsSortMode.InstanceID).ToList();
+                Object.FindObjectsByType<FPSystemBase<TData>>().ToList();
 
             Debug.LogWarning($"Major Systems Found: {majorFPSystems.Count}");
 

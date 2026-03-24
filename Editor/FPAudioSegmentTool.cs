@@ -60,7 +60,6 @@
         private readonly Color kCutOutline = new Color(FP_Utility_Editor.OkayColor.r, FP_Utility_Editor.OkayColor.g, FP_Utility_Editor.OkayColor.b, 0.90f);
         private Color regionTypeColor = FP_Utility_Editor.OkayColor;
         
-        private float quickRegionSeconds = 0.1f;
         private float regionStartSec = 0f;
         private float regionLengthSec = 0.10f; // default 100ms quick region
         private bool regionStartFollowsPlayhead = true; // convenience toggle

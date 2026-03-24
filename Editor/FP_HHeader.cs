@@ -59,7 +59,9 @@ namespace FuzzPhyte.Utility.Editor
             LoadFoldoutStatesFromPrefs(); // Load saved foldout states on editor initialization
             LoadHeaderStyleFromFile();
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
+#pragma warning disable CS0618
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
+#pragma warning restore CS0618
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged; //restores the settings I saved right when we come back from play mode
@@ -271,7 +273,7 @@ namespace FuzzPhyte.Utility.Editor
         }
         private static void SyncHeadersForScene(Scene scene, bool forceExpand)
         {
-            var allSceneObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var allSceneObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
             var currentHeaders = new HashSet<string>();
             bool dirtyState = false;
 
@@ -423,7 +425,9 @@ namespace FuzzPhyte.Utility.Editor
             if (!IsEnabled) return;
             // Get the GameObject associated with this hierarchy item
 
-            GameObject obj = EditorUtility.EntityIdToObject(instanceID) as GameObject;
+#pragma warning disable CS0618
+            GameObject obj = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
+#pragma warning restore CS0618
             //get position in the inspector
             if (obj == null)
             {
@@ -1241,7 +1245,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             // Iterate over all GameObjects in the scene
 
-            foreach (GameObject obj in GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None)) // 'true' includes inactive objects
+            foreach (GameObject obj in GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include)) // 'true' includes inactive objects
             {
                 // Check if the object is hidden in the hierarchy
                 if (obj.hideFlags.HasFlag(HideFlags.HideInHierarchy))

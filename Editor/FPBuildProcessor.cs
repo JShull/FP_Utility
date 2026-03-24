@@ -14,7 +14,7 @@ namespace FuzzPhyte.Utility.Editor
         private static void BuildHandler(BuildPlayerOptions options)
         {
             // Find all GameObjects with the EditorOnlyComponent in the scene
-            FP_EditorOnly[] editorOnlyComponents = Object.FindObjectsByType<FP_EditorOnly>(FindObjectsSortMode.InstanceID);
+            FP_EditorOnly[] editorOnlyComponents = Object.FindObjectsByType<FP_EditorOnly>();
             foreach (FP_EditorOnly component in editorOnlyComponents)
             {
                 // Remove the GameObject from the scene

@@ -14,7 +14,7 @@ namespace FuzzPhyte.Utility.FPSystem
             // This runs AFTER Awake/OnEnable, BEFORE Start on the first scene.
 
             // Grab all behaviours in the loaded scene(s)
-            var monos = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.InstanceID);
+            var monos = Object.FindObjectsByType<MonoBehaviour>();
 
             var list = new List<IFPAfterSceneLoadBootstrap>();
 

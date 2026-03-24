@@ -42,9 +42,9 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        private static readonly Dictionary<int, CachedPickTarget> cachedTargets = new Dictionary<int, CachedPickTarget>();
+        private static readonly Dictionary<EntityId, CachedPickTarget> cachedTargets = new Dictionary<EntityId, CachedPickTarget>();
         internal static bool IsEnabled => EditorPrefs.GetBool(FP_UtilityData.FP_HHeader_MESHPICKER_ENABLED_KEY + "_" + SceneManager.GetActiveScene().name, true);
-        private static readonly Dictionary<int, List<int>> cachedTargetsByHeader = new Dictionary<int, List<int>>();
+        private static readonly Dictionary<EntityId, List<EntityId>> cachedTargetsByHeader = new Dictionary<EntityId, List<EntityId>>();
         private static bool pendingRefresh;
         private static bool debugScenePicking;
 
@@ -67,12 +67,12 @@ namespace FuzzPhyte.Utility.Editor
                 return false;
             }
 
-            return cachedTargets.TryGetValue(targetObj.GetInstanceID(), out cachedTarget);
+            return cachedTargets.TryGetValue(targetObj.GetEntityId(), out cachedTarget);
         }
 
         internal static bool TryRevealCachedObject(GameObject targetObj)
         {
-            if (targetObj == null || !cachedTargets.ContainsKey(targetObj.GetInstanceID()))
+            if (targetObj == null || !cachedTargets.ContainsKey(targetObj.GetEntityId()))
             {
                 return false;
             }
@@ -251,7 +251,7 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            GameObject[] sceneObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            GameObject[] sceneObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
             for (int i = 0; i < sceneObjects.Length; i++)
             {
                 GameObject headerObj = sceneObjects[i];
@@ -277,10 +277,10 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            int headerId = headerObj.GetInstanceID();
-            if (!cachedTargetsByHeader.TryGetValue(headerId, out List<int> targetIds))
+            EntityId headerId = headerObj.GetEntityId();
+            if (!cachedTargetsByHeader.TryGetValue(headerId, out List<EntityId> targetIds))
             {
-                targetIds = new List<int>();
+                targetIds = new List<EntityId>();
                 cachedTargetsByHeader.Add(headerId, targetIds);
             }
 
@@ -292,7 +292,7 @@ namespace FuzzPhyte.Utility.Editor
                     continue;
                 }
 
-                int targetId = cachedTarget.Target.GetInstanceID();
+                EntityId targetId = cachedTarget.Target.GetEntityId();
                 cachedTargets[targetId] = cachedTarget;
                 targetIds.Add(targetId);
             }

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-03-24
+
+### 0.9.2 Fixed
+
+- [@JShull](https://github.com/jshull)
+  - Mesh grid editor regeneration stability
+    - Deferred `FPMeshGridInstance` auto-regeneration out of `OnValidate` to avoid unsafe editor reload timing.
+    - Deferred cleanup of transient generated meshes in editor workflows to prevent `DestroyImmediate` errors during validation and reload callbacks.
+  - Unity 6 API housekeeping
+    - Replaced deprecated `FindObjectsByType` overloads that required `FindObjectsSortMode`.
+    - Migrated mesh picker cache tracking to `EntityId`-based dictionaries instead of relying on deprecated `GetInstanceID()` usage.
+    - Updated global object lookup helpers to use object-based `GlobalObjectId.GetGlobalObjectIdSlow(...)` calls.
+    - Added narrow compatibility guards around legacy editor callback paths that still expose `instanceID`-based APIs, avoiding compiler warnings without changing hierarchy behavior.
+
 ## [0.9.1] - 2026-03-16
 
 ### 0.9.1 Added
