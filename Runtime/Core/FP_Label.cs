@@ -40,10 +40,6 @@ namespace FuzzPhyte.Utility
             Vector3 labelBasePosition = useThisTransformForLabelPlacement ? transform.position : objectPosition;
             Vector3 labelUpDirection = useThisTransformForLabelPlacement ? transform.up : Vector3.up;
             Vector3 labelPosition = labelBasePosition + labelUpDirection * labelOffset;
-            // Adjust label size based on world scale
-            float handleSize = UnityEditor.HandleUtility.GetHandleSize(labelPosition) * scaleFactor;
-
-            // Calculate approximate background size
             GUIStyleState styleState = new GUIStyleState{
                 textColor = this.textColor
             };
@@ -67,6 +63,13 @@ namespace FuzzPhyte.Utility
             style.normal.background = styleState.background;
             style.normal.scaledBackgrounds = new[] { styleState.background };
 
+            // Estimate the label box height so the connector reaches the bottom edge instead of the center.
+            string[] labelLines = string.IsNullOrEmpty(labelText) ? new[] { string.Empty } : labelText.Split('\n');
+            float lineHeight = style.lineHeight > 0f ? style.lineHeight : style.CalcSize(new GUIContent("Ay")).y;
+            float labelHeight = (lineHeight * labelLines.Length) + style.padding.top + style.padding.bottom;
+            float handleSize = UnityEditor.HandleUtility.GetHandleSize(labelPosition) * scaleFactor;
+            Vector3 lineEndPosition = labelPosition - labelUpDirection * (labelHeight * handleSize * 0.5f);
+
             // Draw label text
             Color previousGuiColor = GUI.color;
             GUI.color = backgroundColor;
@@ -75,7 +78,7 @@ namespace FuzzPhyte.Utility
 
             // Draw line connecting label to object
             UnityEditor.Handles.color = lineColor;
-            UnityEditor.Handles.DrawAAPolyLine(Mathf.Max(1f, lineThickness), objectPosition, labelPosition);
+            UnityEditor.Handles.DrawAAPolyLine(Mathf.Max(1f, lineThickness), objectPosition, lineEndPosition);
            
     #endif
         }
