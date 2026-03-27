@@ -9,6 +9,7 @@ namespace FuzzPhyte.Utility
         [SerializeField] protected string labelText = "Object Label";
         [SerializeField] protected float labelOffset = 1.5f; // Offset above the object
         [SerializeField] protected Color lineColor = Color.white; 
+        [SerializeField] protected float lineThickness = 2f;
         [SerializeField] protected Color textColor = Color.white;
         [SerializeField] protected Color backgroundColor = Color.white;
         [SerializeField] protected Texture2D backgroundTexture;
@@ -73,8 +74,8 @@ namespace FuzzPhyte.Utility
             GUI.color = previousGuiColor;
 
             // Draw line connecting label to object
-            Gizmos.color = lineColor;
-            Gizmos.DrawLine(objectPosition, labelPosition);
+            UnityEditor.Handles.color = lineColor;
+            UnityEditor.Handles.DrawAAPolyLine(Mathf.Max(1f, lineThickness), objectPosition, labelPosition);
            
     #endif
         }
