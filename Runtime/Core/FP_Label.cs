@@ -4,6 +4,8 @@ namespace FuzzPhyte.Utility
     public class FP_Label:MonoBehaviour
     {
         public Transform LabelTransform;
+        [SerializeField] protected bool useThisTransformForLabelPlacement = false;
+        [TextArea(2, 6)]
         [SerializeField] protected string labelText = "Object Label";
         [SerializeField] protected float labelOffset = 1.5f; // Offset above the object
         [SerializeField] protected Color lineColor = Color.white; 
@@ -33,7 +35,9 @@ namespace FuzzPhyte.Utility
 
     #if UNITY_EDITOR
             Vector3 objectPosition = LabelTransform.position;
-            Vector3 labelPosition = objectPosition + Vector3.up * labelOffset;
+            Vector3 labelBasePosition = useThisTransformForLabelPlacement ? transform.position : objectPosition;
+            Vector3 labelUpDirection = useThisTransformForLabelPlacement ? transform.up : Vector3.up;
+            Vector3 labelPosition = labelBasePosition + labelUpDirection * labelOffset;
             // Adjust label size based on world scale
             float handleSize = UnityEditor.HandleUtility.GetHandleSize(labelPosition) * scaleFactor;
 
@@ -52,6 +56,9 @@ namespace FuzzPhyte.Utility
                 fontSize = Mathf.RoundToInt(textSize),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
+                wordWrap = true,
+                clipping = TextClipping.Overflow,
+                padding = new RectOffset(8, 8, 4, 4),
                 normal = styleState
             };
 
