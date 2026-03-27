@@ -10,6 +10,7 @@ namespace FuzzPhyte.Utility
         [SerializeField] protected float labelOffset = 1.5f; // Offset above the object
         [SerializeField] protected Color lineColor = Color.white; 
         [SerializeField] protected Color textColor = Color.white;
+        [SerializeField] protected Color backgroundColor = Color.white;
         [SerializeField] protected Texture2D backgroundTexture;
         [SerializeField] protected float textSize = 12f; // Font size
         [SerializeField] protected float scaleFactor = 0.01f; // Adjust for world unit scaling
@@ -61,9 +62,15 @@ namespace FuzzPhyte.Utility
                 padding = new RectOffset(8, 8, 4, 4),
                 normal = styleState
             };
+            style.normal.textColor = textColor;
+            style.normal.background = styleState.background;
+            style.normal.scaledBackgrounds = new[] { styleState.background };
 
             // Draw label text
+            Color previousGuiColor = GUI.color;
+            GUI.color = backgroundColor;
             UnityEditor.Handles.Label(labelPosition, labelText, style);
+            GUI.color = previousGuiColor;
 
             // Draw line connecting label to object
             Gizmos.color = lineColor;
