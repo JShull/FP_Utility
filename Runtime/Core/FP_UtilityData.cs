@@ -9,7 +9,8 @@ namespace FuzzPhyte.Utility
     using Unity.Mathematics;
     using TMPro;
     using UnityEngine.EventSystems;
-    using System.Linq;
+    using System.Security.Cryptography;
+    using System.Text;
   
     /// <summary>
     /// A collection of static classes, enums, structs, and methods that are used throughout the FuzzPhyte Utility package
@@ -29,6 +30,12 @@ namespace FuzzPhyte.Utility
         public const string FP_HHeader_ENABLED_KEY = "FP_HHeader_Enabled";
         public const string FP_HHeader_MESHPICKER_ENABLED_KEY = "FP_HHeader_MeshPicker_Enabled";
         public const string FP_GIZMOS_DEFAULT = "FP";
+        // azure parameters
+        public const string AZURE_STORAGE_ROOT_KEY = "FP_AzureStorageRoot";
+        public const string AZURE_VIDEOS_CONTAINER_KEY = "FP_AzureVideosContainer";
+        public const string AZURE_MANIFESTS_CONTAINER_KEY = "FP_AzureManifestsContainer";
+        public const string AZURE_MANIFEST_FILE_NAME_KEY = "FP_AzureManifestFileName";
+        public const string AZURE_BLOB_OVERRIDE_URL_KEY = "FP_AzureBlobOverrideURL";
         // menu order for misc. menus
         public const int ORDER_MENU = 0;
         public const int ORDER_SUBMENU_LVL1 = 150;
@@ -733,6 +740,38 @@ namespace FuzzPhyte.Utility
         public const string OVR_PrimaryGrip = "Oculus_CrossPlatform_PrimaryHandTrigger";
         public const string OVR_SecondaryGrip = "Oculus_CrossPlatform_SecondaryHandTrigger";
         #endregion
+    }
+
+    /// <summary>
+    /// Utility class for computing file hashes, such as SHA256, to verify file integrity or for caching purposes.
+    /// </summary>
+    public static class FP_HashUtility
+    {
+        /// <summary>
+        /// string hash = FP_HashUtility.ComputeSHA256("C:/Videos/lesson_intro.mp4");
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static string ComputeSHA256(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                UnityEngine.Debug.LogError($"File not found: {filePath}");
+                return string.Empty;
+            }
+            using (FileStream stream = File.OpenRead(filePath))
+            using (SHA256 sha = SHA256.Create())
+            {
+                byte[] hashBytes = sha.ComputeHash(stream);
+
+                StringBuilder sb = new StringBuilder(hashBytes.Length * 2);
+                for (int i = 0; i < hashBytes.Length; i++)
+                {
+                    sb.Append(hashBytes[i].ToString("x2"));
+                }
+                return sb.ToString();
+            }
+        }
     }
     /// <summary>
     /// Initial interface for all simple tools

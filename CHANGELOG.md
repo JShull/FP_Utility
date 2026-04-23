@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-04-23
+
+### 0.9.3 Added
+
+- [@JShull](https://github.com/jshull)
+  - Runtime video manifest and cache pipeline
+    - Added `FPVideoManifestModels.cs` to define runtime manifest entries, local cache metadata, request results, and related video events.
+    - Added `FPVideoRuntimeConfig.cs` as a ScriptableObject for manifest URL, cache folder names, validation policy, and preload options.
+    - Added `FPVideoCacheManager.cs` to fetch the remote manifest, validate local cached files, download missing or outdated videos, and resolve local playback paths.
+    - Added `FPVideoDownloadUtility.cs` for download-to-disk temp file handling and `FPVideoHashUtility.cs` for SHA256 validation.
+    - Added `FPVideoPlaybackResolver.cs` as a small runtime resolver surface for playback consumers.
+  - Bootstrap, testing, and playback hookup flow
+    - Added `FPVideoCacheBootstrap.cs` as a MonoBehaviour entry point for initialization, requests, preloading, and runtime event relays.
+    - Added `FPVideoCacheTester.cs` with startup toggles and `ContextMenu` actions for initialization, preload, request, and cache checks from the inspector.
+    - Added `FPVideoDownloadListenerExample.cs` as an example C# subscriber for request and download lifecycle events.
+    - Added `FPVideoSimpleEventBridge.cs` to expose simple inspector-friendly events for video id, resolved local path, success state, cache source, download state, and error message.
+    - Added `FPVideoPlayerPathReceiver.cs` for direct drag-and-drop wiring from resolved local file paths into a Unity `VideoPlayer`.
+  - Editor manifest generation
+    - Added `FPVideoHashEditor.cs` under `Editor/Video` to build Azure Blob manifest JSON entries with file name, hash, size, and generated blob URLs.
+
+### 0.9.3 Modified
+
+- [@JShull](https://github.com/jshull)
+  - `package.json`
+    - Version bumped to `0.9.3`.
+
 ## [0.9.2] - 2026-03-24
 
 ### 0.9.2 Fixed
