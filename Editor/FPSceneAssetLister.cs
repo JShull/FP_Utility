@@ -1,543 +1,1 @@
-namespace FuzzPhyte.Utility.Editor
-{
-    using UnityEngine;
-    using UnityEditor;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using UnityEngine.SceneManagement;
-
-    public class FPSceneAssetLister : EditorWindow
-    {
-        private Vector2 scrollPos;
-        private List<SceneAssetInfo> sceneAssets = new List<SceneAssetInfo>();
-        private string destinationFolder = "Assets/_FPUtility";
-        private Dictionary<string, bool> typeToggles = new Dictionary<string, bool>();
-        private string searchQuery = string.Empty;
-        private string jsonFileName = "";
-        private static readonly string JsonFolderPath = "Assets/_FPUtility";
-
-        [MenuItem("FuzzPhyte/Utility/Scene/Asset Tool",priority = FP_UtilityData.ORDER_MENU)]
-        public static void ShowWindow()
-        {
-            GetWindow<FPSceneAssetLister>("FP Scene Asset Tool");
-        }
-
-        private void OnGUI()
-        {
-            GUILayout.Label("Scene Asset Collector", EditorStyles.boldLabel);
-            GUILayout.Space(5);
-            
-            destinationFolder = EditorGUILayout.TextField("Destination Folder", destinationFolder);
-
-            if (GUILayout.Button("Scan Scene for Assets"))
-            {
-                ScanSceneAssets();
-            }
-
-            if (sceneAssets.Count == 0)
-            {
-                EditorGUILayout.HelpBox("No assets scanned yet. Click the button above.", MessageType.Info);
-                return;
-            }
-
-            GUILayout.Space(10);
-            // === Counters ===
-            // Display counters
-            int totalAssets = sceneAssets.Count;
-            int totalSelectable = sceneAssets.Count(a => !a.IsPackageAsset);
-            int selectedAssets = sceneAssets.Count(a => a.Selected && !a.IsPackageAsset);
-            GUILayout.Label($"Total Assets: {totalAssets} | Selectable: {totalSelectable} | Selected: {selectedAssets}", EditorStyles.boldLabel);
-
-            // === Header Toolbar ===
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Select All", GUILayout.Width(100)))
-            {
-                //foreach (var asset in sceneAssets) asset.Selected = true;
-                foreach (var asset in sceneAssets)
-                {
-                    if (asset.IsPackageAsset) continue; // Ignore package assets
-
-                    asset.Selected = true;
-                }
-            }
-            if (GUILayout.Button("Unselect All", GUILayout.Width(100)))
-            {
-                foreach (var asset in sceneAssets) asset.Selected = false;
-            }
-            EditorGUILayout.EndHorizontal();
-            
-            GUILayout.Space(5);
-
-            // === Multi-Select by Type ===
-            GUILayout.Label("Select By Type:", EditorStyles.boldLabel);
-
-            float viewWidth = EditorGUIUtility.currentViewWidth - 40; // Account for padding
-            float toggleWidth = 150f; // Adjust this as needed
-            int itemsPerRow = Mathf.FloorToInt(viewWidth / toggleWidth);
-            if (itemsPerRow < 1) itemsPerRow = 1;
-
-            int count = 0;
-            EditorGUILayout.BeginVertical("box");
-            EditorGUILayout.BeginHorizontal();
-            foreach (var type in typeToggles.Keys.ToList())
-            {
-                typeToggles[type] = EditorGUILayout.ToggleLeft(type, typeToggles[type], GUILayout.Width(toggleWidth));
-                count++;
-                if (count % itemsPerRow == 0)
-                {
-                    EditorGUILayout.EndHorizontal();
-                    EditorGUILayout.BeginHorizontal();
-                }
-            }
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
-
-            if (GUILayout.Button("Select By Checked Types"))
-            {
-                var selectedTypes = typeToggles.Where(kv => kv.Value).Select(kv => kv.Key).ToHashSet();
-                foreach (var asset in sceneAssets)
-                {
-                    if (asset.IsPackageAsset) continue; // Ignore package assets
-
-                    if (selectedTypes.Contains(asset.TypeName))
-                    {
-                        asset.Selected = true; // Add to the selection
-                    }
-                }
-            }
-
-            GUILayout.Space(10);
-            searchQuery = EditorGUILayout.TextField("Search:", searchQuery);
-            GUILayout.Space(5);
-            // === LIST OF ASSETS ===
-
-            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-            GUILayout.Space(24);
-            GUILayout.Label("#", EditorStyles.miniBoldLabel, GUILayout.Width(28));
-            GUILayout.Label("Asset", EditorStyles.miniBoldLabel);
-            GUILayout.Label("Type", EditorStyles.miniBoldLabel, GUILayout.Width(100));
-            GUILayout.Space(54);
-            EditorGUILayout.EndHorizontal();
-
-            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-
-            foreach (var assetInfo in sceneAssets)
-            {
-                if (assetInfo.Asset == null) continue;
-                //=== SEARCH===
-                if (!string.IsNullOrEmpty(searchQuery))
-                {
-                    if (!assetInfo.Asset.name.ToLower().Contains(searchQuery.ToLower()) &&
-                        !AssetDatabase.GetAssetPath(assetInfo.Asset).ToLower().Contains(searchQuery.ToLower()))
-                    {
-                        continue;
-                    }
-                }
-                //
-                EditorGUILayout.BeginHorizontal();
-                //assetInfo.Selected = EditorGUILayout.Toggle(assetInfo.Selected, GUILayout.Width(20));
-                EditorGUI.BeginDisabledGroup(assetInfo.IsPackageAsset);
-                assetInfo.Selected = EditorGUILayout.Toggle(assetInfo.Selected, GUILayout.Width(20));
-                EditorGUI.EndDisabledGroup();
-                string referenceCountLabel = assetInfo.ReferencedBy.Count > 0 ? assetInfo.ReferencedBy.Count.ToString() : string.Empty;
-                GUILayout.Label(referenceCountLabel, EditorStyles.miniLabel, GUILayout.Width(28));
-                EditorGUILayout.ObjectField(assetInfo.Asset, typeof(Object), false);
-                GUILayout.Label(assetInfo.TypeName, GUILayout.Width(100));
-                if (GUILayout.Button("Object", GUILayout.Width(70)))
-                {
-                    Selection.objects = assetInfo.ReferencedBy.ToArray();
-                    if (assetInfo.ReferencedBy.Count > 0)
-                        EditorGUIUtility.PingObject(assetInfo.ReferencedBy[0]);
-                }
-                if (GUILayout.Button("Ping", GUILayout.Width(50)))
-                {
-                    EditorGUIUtility.PingObject(assetInfo.Asset);
-                    Selection.activeObject = assetInfo.Asset;
-                }
-
-                EditorGUILayout.EndHorizontal();
-            }
-
-            EditorGUILayout.EndScrollView();
-
-            GUILayout.Space(10);
-
-            // === JSON File Name Field ===
-            jsonFileName = EditorGUILayout.TextField("JSON File Name (no extension)", jsonFileName);
-            GUILayout.Space(5);
-
-
-            // === Action Buttons ===
-            EditorGUILayout.BeginHorizontal();
-
-            if (GUILayout.Button("Move Selected Assets"))
-            {
-                int selectedCount = sceneAssets.Count(a => a.Selected);
-                if (selectedCount == 0)
-                {
-                    EditorUtility.DisplayDialog("No Assets Selected", "Please select at least one asset to move.", "OK");
-                }
-                else if (EditorUtility.DisplayDialog("Move Selected Assets",
-                    $"Are you sure you want to move {selectedCount} asset(s) to '{destinationFolder}'?",
-                    "Yes, Move Assets", "Cancel"))
-                {
-                    MoveSelectedAssets(selectedCount);
-                }
-            }
-            if (GUILayout.Button("Save to JSON"))
-            {
-                DumpToJson();
-            }
-
-            EditorGUILayout.EndHorizontal();
-        }
-
-        private void ScanSceneAssets()
-        {
-            sceneAssets.Clear();
-            typeToggles.Clear();
-
-
-            var dependencies = new HashSet<Object>();
-            var rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-
-            foreach (var obj in rootObjects)
-            {
-                var objs = EditorUtility.CollectDependencies(new Object[] { obj });
-                foreach (var dep in objs)
-                {
-                    if (dep == null) continue;
-
-                    //skip transform
-                    if (dep is Transform) continue;
-
-                    string path = AssetDatabase.GetAssetPath(dep);
-                    if (!string.IsNullOrEmpty(path) && !path.StartsWith("Assets/Scenes"))
-                    {
-                        dependencies.Add(dep); // Collect unique dependencies
-                    }
-                }
-            }
-
-            // Deduplicate by asset path and track GameObjects that reference them
-            var uniqueAssets = new Dictionary<string, SceneAssetInfo>();
-            foreach (var dep in dependencies)
-            {
-                var assetRef = dep;//local reference
-                string path = AssetDatabase.GetAssetPath(assetRef);
-                string typeName = assetRef.GetType().Name;
-                
-                //check for Sprites/Texture2D
-                if (typeName == "Texture2D")
-                {
-                    var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-                    if (importer != null && importer.textureType == TextureImporterType.Sprite)
-                    {
-                        typeName = "Sprite";
-                    }
-                }
-
-                // Handle ScriptableObjects like FP_Data
-                if (typeof(ScriptableObject).IsAssignableFrom(assetRef.GetType()))
-                {
-                    typeName = "ScriptableObject";
-                }
-
-                // Handle Mesh (or any sub-asset) as part of FBX or other parent asset
-                var mainAsset = AssetDatabase.LoadMainAssetAtPath(path);
-                if ((assetRef is Mesh || assetRef is AnimationClip) && mainAsset != null && mainAsset!=assetRef)
-                {
-                    assetRef = mainAsset;
-                    path = AssetDatabase.GetAssetPath(assetRef);
-                    if (assetRef != null)
-                    {
-                        typeName = assetRef.GetType().Name;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"Main asset at path {path} could not be resolved");
-                        continue;// skip this asset to avoid errors
-                    }
-                        
-                }
-                if (!uniqueAssets.ContainsKey(path))
-                {
-                    bool isPackage = path.StartsWith("Packages/");
-                    bool isFontDependency = path.Contains("/Fonts/") && (typeName == "Texture2D" || typeName == "Material");
-                    bool isUnityBuiltin = string.IsNullOrEmpty(path) 
-                        || path.StartsWith("Resources/unity_builtin_extra")
-                        || path.StartsWith("Library/") 
-                        || path.StartsWith("GUI/");
-                    var info = new SceneAssetInfo
-                    {
-                        Asset = assetRef,
-                        TypeName = typeName,
-                        Selected = false,
-                        ReferencedBy = new List<GameObject>(),
-                        IsPackageAsset = isPackage||isFontDependency|| isUnityBuiltin
-                    };
-                    uniqueAssets[path] = info;
-
-                    if (!typeToggles.ContainsKey(info.TypeName))
-                        typeToggles[info.TypeName] = false;
-                }
-            }
-            // Track which GameObjects use each asset via component references
-            foreach (var obj in rootObjects)
-            {
-                var allSceneObjects = obj.GetComponentsInChildren<Transform>(true);
-                foreach (var t in allSceneObjects)
-                {
-                    var go = t.gameObject;
-                    var components = go.GetComponents<Component>();
-
-                    foreach (var c in components)
-                    {
-                        if (c == null) continue;
-
-                        var so = new SerializedObject(c);
-                        var property = so.GetIterator();
-                        //new
-                        CollectReferencedObjects(c, go, uniqueAssets);
-
-                        //
-                        //recursive bit replaced
-                        //old
-                        /*
-                        while (property.NextVisible(true))
-                        {
-                            if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue != null)
-                            {
-                                string path = AssetDatabase.GetAssetPath(property.objectReferenceValue);
-                                Debug.Log($"Component: {c.GetType().Name} on GameObject: {go.name} references: {property.displayName} of type {property.objectReferenceValue?.GetType().Name}");
-
-                                if (!string.IsNullOrEmpty(path) && uniqueAssets.ContainsKey(path))
-                                {
-                                    if (!uniqueAssets[path].ReferencedBy.Contains(go))
-                                    {
-                                        uniqueAssets[path].ReferencedBy.Add(go);
-                                    }
-                                }
-                            }
-                        }
-                        */
-                    }
-                }
-            }
-            // Track scene GameObjects that are prefab instances of prefab assets
-            foreach (var obj in rootObjects)
-            {
-                var allSceneObjects = obj.GetComponentsInChildren<Transform>(true);
-                foreach (var t in allSceneObjects)
-                {
-                    var go = t.gameObject;
-                    var prefabSource = PrefabUtility.GetCorrespondingObjectFromSource(go);
-
-                    if (prefabSource != null)
-                    {
-                        string prefabPath = AssetDatabase.GetAssetPath(prefabSource);
-                        if (!string.IsNullOrEmpty(prefabPath) && uniqueAssets.ContainsKey(prefabPath))
-                        {
-                            var info = uniqueAssets[prefabPath];
-                            if (!info.ReferencedBy.Contains(go))
-                            {
-                                info.ReferencedBy.Add(go);
-                            }
-                        }
-                    }
-                }
-            }
-            // sceneAssets = uniqueAssets.Values.OrderBy(a => AssetDatabase.GetAssetPath(a.Asset)).ToList();
-            sceneAssets = uniqueAssets.Values
-                .OrderBy(a => a.TypeName)
-                .ThenBy(a => AssetDatabase.GetAssetPath(a.Asset))
-                .ToList();
-
-
-            jsonFileName = SceneManager.GetActiveScene().name + "_Assets";
-        }
-        private void CollectReferencedObjects(Object obj, GameObject sceneGo, Dictionary<string, SceneAssetInfo> uniqueAssets, HashSet<Object> visited = null)
-        {
-            if (obj == null) return;
-
-            // Initialize visited set
-            if (visited == null)
-            {
-                visited = new HashSet<Object>();
-            }
-
-            // Prevent infinite recursion
-            if (visited.Contains(obj)) return;
-            visited.Add(obj);
-
-            var so = new SerializedObject(obj);
-            var property = so.GetIterator();
-
-            while (property.NextVisible(true))
-            {
-                if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue != null)
-                {
-                    string refPath = AssetDatabase.GetAssetPath(property.objectReferenceValue);
-                    if (!string.IsNullOrEmpty(refPath) && uniqueAssets.ContainsKey(refPath))
-                    {
-                        var info = uniqueAssets[refPath];
-                        if (!info.ReferencedBy.Contains(sceneGo))
-                        {
-                            info.ReferencedBy.Add(sceneGo);
-                        }
-
-                        // Recurse into ScriptableObjects safely
-                        if (property.objectReferenceValue is ScriptableObject)
-                        {
-                            CollectReferencedObjects(property.objectReferenceValue, sceneGo, uniqueAssets, visited);
-                        }
-                    }
-                }
-            }
-        }
-
-
-
-        private void MoveSelectedAssets(int numFiles)
-        {
-            if (!AssetDatabase.IsValidFolder(destinationFolder))
-            {
-                Debug.LogError($"Destination folder does not exist: {destinationFolder}");
-                return;
-            }
-
-            Dictionary<string, string> typeToSubfolder = GetTypeToSubfolderMap();
-
-            foreach (var assetInfo in sceneAssets)
-            {
-                if (!assetInfo.Selected || assetInfo.Asset == null) continue;
-
-                string typeName = assetInfo.TypeName;
-                string subfolderName = typeToSubfolder.ContainsKey(typeName) ? typeToSubfolder[typeName] : "Other";
-
-                string subfolderPath = Path.Combine(destinationFolder, subfolderName).Replace("\\", "/");
-                // Ensure the full subfolder path exists
-                EnsureFolderExists(subfolderPath);
-                
-                string assetPath = AssetDatabase.GetAssetPath(assetInfo.Asset);
-                string fileName = Path.GetFileName(assetPath);
-                string targetPath = Path.Combine(subfolderPath, fileName).Replace("\\", "/");
-
-                var error = AssetDatabase.MoveAsset(assetPath, targetPath);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    Debug.LogError($"Error moving asset: {error}");
-                }
-                else
-                {
-                    Debug.Log($"Moved {assetPath} to {targetPath}");
-                }
-            }
-
-            AssetDatabase.Refresh();
-            Debug.Log($"Move completed, should have moved {numFiles} file(s)!");
-        }
-
-        private void DumpToJson()
-        {
-            Dictionary<string, string> typeToSubfolder = GetTypeToSubfolderMap();
-
-            var groupedAssets = new Dictionary<string, List<string>>();
-
-            foreach (var assetInfo in sceneAssets)
-            {
-                if (assetInfo.Asset == null) continue;
-
-                string typeName = assetInfo.TypeName;
-                string category = typeToSubfolder.ContainsKey(typeName) ? typeToSubfolder[typeName] : "Other";
-
-                if (!groupedAssets.ContainsKey(category))
-                    groupedAssets[category] = new List<string>();
-
-                groupedAssets[category].Add(AssetDatabase.GetAssetPath(assetInfo.Asset));
-            }
-
-            if (!AssetDatabase.IsValidFolder(JsonFolderPath))
-            {
-                AssetDatabase.CreateFolder("Assets", "_FPUtility");
-                Debug.Log($"Created folder: {JsonFolderPath}");
-            }
-
-            string safeFileName = jsonFileName.Trim().Replace(" ", "_");
-            string path = Path.Combine(JsonFolderPath, safeFileName + ".json").Replace("\\", "/");
-
-            string json = JsonUtility.ToJson(new FPWrapper(groupedAssets), true);
-            File.WriteAllText(path, json);
-            Debug.Log($"Data dumped = {json}");
-            AssetDatabase.Refresh();
-            Debug.Log($"Dumped asset info to {path}");
-            EditorUtility.RevealInFinder(path);
-        }
-        private void EnsureFolderExists(string folderPath)
-        {
-            if (AssetDatabase.IsValidFolder(folderPath)) return;
-
-            string parent = Path.GetDirectoryName(folderPath).Replace("\\", "/");
-            string folderName = Path.GetFileName(folderPath);
-
-            if (!AssetDatabase.IsValidFolder(parent))
-            {
-                EnsureFolderExists(parent);
-            }
-
-            AssetDatabase.CreateFolder(parent, folderName);
-        }
-
-        //If TextureImporter.textureType == TextureImporterType.Sprite It's a Sprite.
-        private Dictionary<string, string> GetTypeToSubfolderMap()
-        {
-            return new Dictionary<string, string>
-            {
-                { "MonoScript", "Scripts" },
-                { "Material", "Materials" },
-                { "GameObject", "Prefabs" },
-                { "Font", "Fonts" },
-                { "TMP_FontAsset", "Fonts" },
-                { "Mesh", "3DAssets" },
-                { "Texture2D", "Textures" },
-                { "Sprite", "Sprites" },
-                { "Shader","Shaders" },
-                { "AudioClip", "Audio" },
-                { "ScriptableObject","ScriptableObjects" }
-            };
-        }
-        [System.Serializable]
-        private class FPWrapper
-        {
-            public List<CategoryGroup> categories = new List<CategoryGroup>();
-            //public Dictionary<string, List<string>> assets;
-
-            public FPWrapper(Dictionary<string, List<string>> data)
-            {
-                foreach (var kvp in data)
-                {
-                    categories.Add(new CategoryGroup
-                    {
-                        category = kvp.Key,
-                        assets = kvp.Value
-                    });
-                }
-            }
-        }
-        private class SceneAssetInfo
-        {
-            public Object Asset;
-            public List<GameObject> ReferencedBy = new List<GameObject>();
-            public string TypeName;
-            public bool Selected;
-            public bool IsPackageAsset;
-        }
-        [System.Serializable]
-        public class CategoryGroup
-        {
-            public string category;
-            public List<string> assets;
-        }
-    }
-}
+namespace FuzzPhyte.Utility.Editor{    using UnityEngine;    using UnityEditor;    using System.Collections.Generic;    using System.IO;    using System.Linq;    using UnityEngine.SceneManagement;    public class FPSceneAssetLister : EditorWindow    {        private Vector2 scrollPos;        private List<SceneAssetInfo> sceneAssets = new List<SceneAssetInfo>();        private string destinationFolder = "Assets/_FPUtility";        private Dictionary<string, bool> typeToggles = new Dictionary<string, bool>();        private string searchQuery = string.Empty;        private string jsonFileName = "";        private static readonly string JsonFolderPath = "Assets/_FPUtility";        private int textureMaxSize = 2048;        private readonly int[] textureMaxSizeOptions = { 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };        private readonly string[] textureMaxSizeOptionLabels = { "32", "64", "128", "256", "512", "1024", "2048", "4096", "8192" };        private readonly Stack<List<TextureMaxSizeChange>> textureMaxSizeUndoStack = new Stack<List<TextureMaxSizeChange>>();        [MenuItem("FuzzPhyte/Utility/Scene/Asset Tool",priority = FP_UtilityData.ORDER_MENU)]        public static void ShowWindow()        {            GetWindow<FPSceneAssetLister>("FP Scene Asset Tool");        }        private void OnGUI()        {            GUILayout.Label("Scene Asset Collector", EditorStyles.boldLabel);            GUILayout.Space(5);                        destinationFolder = EditorGUILayout.TextField("Destination Folder", destinationFolder);            if (GUILayout.Button("Scan Scene for Assets"))            {                ScanSceneAssets();            }            if (sceneAssets.Count == 0)            {                EditorGUILayout.HelpBox("No assets scanned yet. Click the button above.", MessageType.Info);                return;            }            GUILayout.Space(10);            // === Counters ===            // Display counters            int totalAssets = sceneAssets.Count;            int totalSelectable = sceneAssets.Count(a => !a.IsPackageAsset);            int selectedAssets = sceneAssets.Count(a => a.Selected && !a.IsPackageAsset);            GUILayout.Label($"Total Assets: {totalAssets} | Selectable: {totalSelectable} | Selected: {selectedAssets}", EditorStyles.boldLabel);            // === Header Toolbar ===            EditorGUILayout.BeginHorizontal();            if (GUILayout.Button("Select All", GUILayout.Width(100)))            {                //foreach (var asset in sceneAssets) asset.Selected = true;                foreach (var asset in sceneAssets)                {                    if (asset.IsPackageAsset) continue; // Ignore package assets                    asset.Selected = true;                }            }            if (GUILayout.Button("Unselect All", GUILayout.Width(100)))            {                foreach (var asset in sceneAssets) asset.Selected = false;            }            EditorGUILayout.EndHorizontal();                        GUILayout.Space(5);            // === Multi-Select by Type ===            GUILayout.Label("Select By Type:", EditorStyles.boldLabel);            float viewWidth = EditorGUIUtility.currentViewWidth - 40; // Account for padding            float toggleWidth = 150f; // Adjust this as needed            int itemsPerRow = Mathf.FloorToInt(viewWidth / toggleWidth);            if (itemsPerRow < 1) itemsPerRow = 1;            int count = 0;            EditorGUILayout.BeginVertical("box");            EditorGUILayout.BeginHorizontal();            foreach (var type in typeToggles.Keys.ToList())            {                typeToggles[type] = EditorGUILayout.ToggleLeft(type, typeToggles[type], GUILayout.Width(toggleWidth));                count++;                if (count % itemsPerRow == 0)                {                    EditorGUILayout.EndHorizontal();                    EditorGUILayout.BeginHorizontal();                }            }            EditorGUILayout.EndHorizontal();            EditorGUILayout.EndVertical();            if (GUILayout.Button("Select By Checked Types"))            {                var selectedTypes = typeToggles.Where(kv => kv.Value).Select(kv => kv.Key).ToHashSet();                foreach (var asset in sceneAssets)                {                    if (asset.IsPackageAsset) continue; // Ignore package assets                    if (selectedTypes.Contains(asset.TypeName))                    {                        asset.Selected = true; // Add to the selection                    }                }            }            GUILayout.Space(10);            searchQuery = EditorGUILayout.TextField("Search:", searchQuery);            GUILayout.Space(5);            // === LIST OF ASSETS ===            EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);            GUILayout.Space(24);            GUILayout.Label("#", EditorStyles.miniBoldLabel, GUILayout.Width(28));            GUILayout.Label("Asset", EditorStyles.miniBoldLabel);            GUILayout.Label("Type", EditorStyles.miniBoldLabel, GUILayout.Width(100));            GUILayout.Space(54);            EditorGUILayout.EndHorizontal();            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);            foreach (var assetInfo in sceneAssets)            {                if (assetInfo.Asset == null) continue;                //=== SEARCH===                if (!string.IsNullOrEmpty(searchQuery))                {                    if (!assetInfo.Asset.name.ToLower().Contains(searchQuery.ToLower()) &&                        !AssetDatabase.GetAssetPath(assetInfo.Asset).ToLower().Contains(searchQuery.ToLower()))                    {                        continue;                    }                }                //                EditorGUILayout.BeginHorizontal();                //assetInfo.Selected = EditorGUILayout.Toggle(assetInfo.Selected, GUILayout.Width(20));                EditorGUI.BeginDisabledGroup(assetInfo.IsPackageAsset);                assetInfo.Selected = EditorGUILayout.Toggle(assetInfo.Selected, GUILayout.Width(20));                EditorGUI.EndDisabledGroup();                string referenceCountLabel = assetInfo.ReferencedBy.Count > 0 ? assetInfo.ReferencedBy.Count.ToString() : string.Empty;                GUILayout.Label(referenceCountLabel, EditorStyles.miniLabel, GUILayout.Width(28));                EditorGUILayout.ObjectField(assetInfo.Asset, typeof(Object), false);                GUILayout.Label(assetInfo.TypeName, GUILayout.Width(100));                if (GUILayout.Button("Object", GUILayout.Width(70)))                {                    Selection.objects = assetInfo.ReferencedBy.ToArray();                    if (assetInfo.ReferencedBy.Count > 0)                        EditorGUIUtility.PingObject(assetInfo.ReferencedBy[0]);                }                if (GUILayout.Button("Ping", GUILayout.Width(50)))                {                    EditorGUIUtility.PingObject(assetInfo.Asset);                    Selection.activeObject = assetInfo.Asset;                }                EditorGUILayout.EndHorizontal();            }            EditorGUILayout.EndScrollView();            GUILayout.Space(10);            DrawTextureMaxSizeTools();            GUILayout.Space(5);            // === Action Buttons ===            EditorGUILayout.BeginHorizontal();            if (GUILayout.Button("Move Selected Assets"))            {                int selectedCount = sceneAssets.Count(a => a.Selected);                if (selectedCount == 0)                {                    EditorUtility.DisplayDialog("No Assets Selected", "Please select at least one asset to move.", "OK");                }                else if (EditorUtility.DisplayDialog("Move Selected Assets",                    $"Are you sure you want to move {selectedCount} asset(s) to '{destinationFolder}'?",                    "Yes, Move Assets", "Cancel"))                {                    MoveSelectedAssets(selectedCount);                }            }            EditorGUILayout.EndHorizontal();            GUILayout.Space(5);            // === JSON Export ===            EditorGUILayout.BeginHorizontal();            jsonFileName = EditorGUILayout.TextField("JSON File Name (no extension)", jsonFileName);            if (GUILayout.Button("Save to JSON", GUILayout.Width(120)))            {                DumpToJson();            }            EditorGUILayout.EndHorizontal();        }        private void DrawTextureMaxSizeTools()        {            var selectedTextures = GetSelectedTextureAssets();            int selectedTextureCount = selectedTextures.Count;            EditorGUILayout.BeginVertical(EditorStyles.helpBox);            GUILayout.Label("Texture Import Settings", EditorStyles.boldLabel);            EditorGUILayout.BeginHorizontal();            textureMaxSize = EditorGUILayout.IntPopup("Max Size", textureMaxSize, textureMaxSizeOptionLabels, textureMaxSizeOptions);            EditorGUI.BeginDisabledGroup(selectedTextureCount == 0);            if (GUILayout.Button($"Apply to Selected ({selectedTextureCount})", GUILayout.Width(180)))            {                if (EditorUtility.DisplayDialog("Change Texture Max Size",                    $"Change max size for {selectedTextureCount} selected texture asset(s) to {textureMaxSize}?",                    "Apply", "Cancel"))                {                    ApplyTextureMaxSizeToSelection(selectedTextures, textureMaxSize);                }            }            EditorGUI.EndDisabledGroup();            EditorGUI.BeginDisabledGroup(textureMaxSizeUndoStack.Count == 0);            if (GUILayout.Button("Undo Last Max Size Change", GUILayout.Width(190)))            {                UndoLastTextureMaxSizeChange();            }            EditorGUI.EndDisabledGroup();            EditorGUILayout.EndHorizontal();            EditorGUILayout.HelpBox("Applies to selected assets with a TextureImporter, including Texture2D and Sprite entries.", MessageType.None);            EditorGUILayout.EndVertical();        }        private void ScanSceneAssets()        {            sceneAssets.Clear();            typeToggles.Clear();            var dependencies = new HashSet<Object>();            var rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();            foreach (var obj in rootObjects)            {                var objs = EditorUtility.CollectDependencies(new Object[] { obj });                foreach (var dep in objs)                {                    if (dep == null) continue;                    //skip transform                    if (dep is Transform) continue;                    string path = AssetDatabase.GetAssetPath(dep);                    if (!string.IsNullOrEmpty(path) && !path.StartsWith("Assets/Scenes"))                    {                        dependencies.Add(dep); // Collect unique dependencies                    }                }            }            // Deduplicate by asset path and track GameObjects that reference them            var uniqueAssets = new Dictionary<string, SceneAssetInfo>();            foreach (var dep in dependencies)            {                var assetRef = dep;//local reference                string path = AssetDatabase.GetAssetPath(assetRef);                string typeName = assetRef.GetType().Name;                                //check for Sprites/Texture2D                if (typeName == "Texture2D")                {                    var importer = AssetImporter.GetAtPath(path) as TextureImporter;                    if (importer != null && importer.textureType == TextureImporterType.Sprite)                    {                        typeName = "Sprite";                    }                }                // Handle ScriptableObjects like FP_Data                if (typeof(ScriptableObject).IsAssignableFrom(assetRef.GetType()))                {                    typeName = "ScriptableObject";                }                // Handle Mesh (or any sub-asset) as part of FBX or other parent asset                var mainAsset = AssetDatabase.LoadMainAssetAtPath(path);                if ((assetRef is Mesh || assetRef is AnimationClip) && mainAsset != null && mainAsset!=assetRef)                {                    assetRef = mainAsset;                    path = AssetDatabase.GetAssetPath(assetRef);                    if (assetRef != null)                    {                        typeName = assetRef.GetType().Name;                    }                    else                    {                        Debug.LogWarning($"Main asset at path {path} could not be resolved");                        continue;// skip this asset to avoid errors                    }                                        }                if (!uniqueAssets.ContainsKey(path))                {                    bool isPackage = path.StartsWith("Packages/");                    bool isFontDependency = path.Contains("/Fonts/") && (typeName == "Texture2D" || typeName == "Material");                    bool isUnityBuiltin = string.IsNullOrEmpty(path)                         || path.StartsWith("Resources/unity_builtin_extra")                        || path.StartsWith("Library/")                         || path.StartsWith("GUI/");                    var info = new SceneAssetInfo                    {                        Asset = assetRef,                        TypeName = typeName,                        Selected = false,                        ReferencedBy = new List<GameObject>(),                        IsPackageAsset = isPackage||isFontDependency|| isUnityBuiltin                    };                    uniqueAssets[path] = info;                    if (!typeToggles.ContainsKey(info.TypeName))                        typeToggles[info.TypeName] = false;                }            }            // Track which GameObjects use each asset via component references            foreach (var obj in rootObjects)            {                var allSceneObjects = obj.GetComponentsInChildren<Transform>(true);                foreach (var t in allSceneObjects)                {                    var go = t.gameObject;                    var components = go.GetComponents<Component>();                    foreach (var c in components)                    {                        if (c == null) continue;                        var so = new SerializedObject(c);                        var property = so.GetIterator();                        //new                        CollectReferencedObjects(c, go, uniqueAssets);                        //                        //recursive bit replaced                        //old                        /*                        while (property.NextVisible(true))                        {                            if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue != null)                            {                                string path = AssetDatabase.GetAssetPath(property.objectReferenceValue);                                Debug.Log($"Component: {c.GetType().Name} on GameObject: {go.name} references: {property.displayName} of type {property.objectReferenceValue?.GetType().Name}");                                if (!string.IsNullOrEmpty(path) && uniqueAssets.ContainsKey(path))                                {                                    if (!uniqueAssets[path].ReferencedBy.Contains(go))                                    {                                        uniqueAssets[path].ReferencedBy.Add(go);                                    }                                }                            }                        }                        */                    }                }            }            // Track scene GameObjects that are prefab instances of prefab assets            foreach (var obj in rootObjects)            {                var allSceneObjects = obj.GetComponentsInChildren<Transform>(true);                foreach (var t in allSceneObjects)                {                    var go = t.gameObject;                    var prefabSource = PrefabUtility.GetCorrespondingObjectFromSource(go);                    if (prefabSource != null)                    {                        string prefabPath = AssetDatabase.GetAssetPath(prefabSource);                        if (!string.IsNullOrEmpty(prefabPath) && uniqueAssets.ContainsKey(prefabPath))                        {                            var info = uniqueAssets[prefabPath];                            if (!info.ReferencedBy.Contains(go))                            {                                info.ReferencedBy.Add(go);                            }                        }                    }                }            }            // sceneAssets = uniqueAssets.Values.OrderBy(a => AssetDatabase.GetAssetPath(a.Asset)).ToList();            sceneAssets = uniqueAssets.Values                .OrderBy(a => a.TypeName)                .ThenBy(a => AssetDatabase.GetAssetPath(a.Asset))                .ToList();            jsonFileName = SceneManager.GetActiveScene().name + "_Assets";        }        private List<SceneAssetInfo> GetSelectedTextureAssets()        {            var selectedTextures = new List<SceneAssetInfo>();            var seenPaths = new HashSet<string>();            foreach (var assetInfo in sceneAssets)            {                if (!assetInfo.Selected || assetInfo.IsPackageAsset || assetInfo.Asset == null)                {                    continue;                }                string path = AssetDatabase.GetAssetPath(assetInfo.Asset);                if (string.IsNullOrEmpty(path) || seenPaths.Contains(path))                {                    continue;                }                var importer = AssetImporter.GetAtPath(path) as TextureImporter;                if (importer != null)                {                    selectedTextures.Add(assetInfo);                    seenPaths.Add(path);                }            }            return selectedTextures;        }        private void ApplyTextureMaxSizeToSelection(List<SceneAssetInfo> selectedTextures, int maxSize)        {            if (selectedTextures == null || selectedTextures.Count == 0)            {                EditorUtility.DisplayDialog("No Textures Selected", "Please select at least one Texture2D or Sprite asset.", "OK");                return;            }            string undoName = $"Set Texture Max Size to {maxSize}";            int undoGroup = Undo.GetCurrentGroup();            Undo.SetCurrentGroupName(undoName);            var changes = new List<TextureMaxSizeChange>();            AssetDatabase.StartAssetEditing();            try            {                foreach (var assetInfo in selectedTextures)                {                    string path = AssetDatabase.GetAssetPath(assetInfo.Asset);                    var importer = AssetImporter.GetAtPath(path) as TextureImporter;                    if (importer == null)                    {                        continue;                    }                    int previousMaxSize = importer.maxTextureSize;                    if (previousMaxSize == maxSize)                    {                        continue;                    }                    Undo.RecordObject(importer, undoName);                    importer.maxTextureSize = maxSize;                    changes.Add(new TextureMaxSizeChange                    {                        AssetPath = path,                        PreviousMaxSize = previousMaxSize                    });                    importer.SaveAndReimport();                }            }            finally            {                AssetDatabase.StopAssetEditing();            }            Undo.CollapseUndoOperations(undoGroup);            if (changes.Count == 0)            {                Debug.Log($"No texture max size changes were needed. Selected textures are already set to {maxSize}.");                return;            }            textureMaxSizeUndoStack.Push(changes);            AssetDatabase.Refresh();            Debug.Log($"Updated max size to {maxSize} for {changes.Count} texture asset(s).");        }        private void UndoLastTextureMaxSizeChange()        {            if (textureMaxSizeUndoStack.Count == 0)            {                return;            }            var changes = textureMaxSizeUndoStack.Pop();            int restoredCount = 0;            string undoName = "Undo Texture Max Size Change";            int undoGroup = Undo.GetCurrentGroup();            Undo.SetCurrentGroupName(undoName);            AssetDatabase.StartAssetEditing();            try            {                foreach (var change in changes)                {                    var importer = AssetImporter.GetAtPath(change.AssetPath) as TextureImporter;                    if (importer == null)                    {                        Debug.LogWarning($"Could not restore texture max size. Texture importer not found at path: {change.AssetPath}");                        continue;                    }                    Undo.RecordObject(importer, undoName);                    importer.maxTextureSize = change.PreviousMaxSize;                    importer.SaveAndReimport();                    restoredCount++;                }            }            finally            {                AssetDatabase.StopAssetEditing();            }            Undo.CollapseUndoOperations(undoGroup);            AssetDatabase.Refresh();            Debug.Log($"Restored previous max size for {restoredCount} texture asset(s).");        }        private void CollectReferencedObjects(Object obj, GameObject sceneGo, Dictionary<string, SceneAssetInfo> uniqueAssets, HashSet<Object> visited = null)        {            if (obj == null) return;            // Initialize visited set            if (visited == null)            {                visited = new HashSet<Object>();            }            // Prevent infinite recursion            if (visited.Contains(obj)) return;            visited.Add(obj);            var so = new SerializedObject(obj);            var property = so.GetIterator();            while (property.NextVisible(true))            {                if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue != null)                {                    string refPath = AssetDatabase.GetAssetPath(property.objectReferenceValue);                    if (!string.IsNullOrEmpty(refPath) && uniqueAssets.ContainsKey(refPath))                    {                        var info = uniqueAssets[refPath];                        if (!info.ReferencedBy.Contains(sceneGo))                        {                            info.ReferencedBy.Add(sceneGo);                        }                        // Recurse into ScriptableObjects safely                        if (property.objectReferenceValue is ScriptableObject)                        {                            CollectReferencedObjects(property.objectReferenceValue, sceneGo, uniqueAssets, visited);                        }                    }                }            }        }        private void MoveSelectedAssets(int numFiles)        {            if (!AssetDatabase.IsValidFolder(destinationFolder))            {                Debug.LogError($"Destination folder does not exist: {destinationFolder}");                return;            }            Dictionary<string, string> typeToSubfolder = GetTypeToSubfolderMap();            foreach (var assetInfo in sceneAssets)            {                if (!assetInfo.Selected || assetInfo.Asset == null) continue;                string typeName = assetInfo.TypeName;                string subfolderName = typeToSubfolder.ContainsKey(typeName) ? typeToSubfolder[typeName] : "Other";                string subfolderPath = Path.Combine(destinationFolder, subfolderName).Replace("\\", "/");                // Ensure the full subfolder path exists                EnsureFolderExists(subfolderPath);                                string assetPath = AssetDatabase.GetAssetPath(assetInfo.Asset);                string fileName = Path.GetFileName(assetPath);                string targetPath = Path.Combine(subfolderPath, fileName).Replace("\\", "/");                var error = AssetDatabase.MoveAsset(assetPath, targetPath);                if (!string.IsNullOrEmpty(error))                {                    Debug.LogError($"Error moving asset: {error}");                }                else                {                    Debug.Log($"Moved {assetPath} to {targetPath}");                }            }            AssetDatabase.Refresh();            Debug.Log($"Move completed, should have moved {numFiles} file(s)!");        }        private void DumpToJson()        {            Dictionary<string, string> typeToSubfolder = GetTypeToSubfolderMap();            var groupedAssets = new Dictionary<string, List<string>>();            foreach (var assetInfo in sceneAssets)            {                if (assetInfo.Asset == null) continue;                string typeName = assetInfo.TypeName;                string category = typeToSubfolder.ContainsKey(typeName) ? typeToSubfolder[typeName] : "Other";                if (!groupedAssets.ContainsKey(category))                    groupedAssets[category] = new List<string>();                groupedAssets[category].Add(AssetDatabase.GetAssetPath(assetInfo.Asset));            }            if (!AssetDatabase.IsValidFolder(JsonFolderPath))            {                AssetDatabase.CreateFolder("Assets", "_FPUtility");                Debug.Log($"Created folder: {JsonFolderPath}");            }            string safeFileName = jsonFileName.Trim().Replace(" ", "_");            string path = Path.Combine(JsonFolderPath, safeFileName + ".json").Replace("\\", "/");            string json = JsonUtility.ToJson(new FPWrapper(groupedAssets), true);            File.WriteAllText(path, json);            Debug.Log($"Data dumped = {json}");            AssetDatabase.Refresh();            Debug.Log($"Dumped asset info to {path}");            EditorUtility.RevealInFinder(path);        }        private void EnsureFolderExists(string folderPath)        {            if (AssetDatabase.IsValidFolder(folderPath)) return;            string parent = Path.GetDirectoryName(folderPath).Replace("\\", "/");            string folderName = Path.GetFileName(folderPath);            if (!AssetDatabase.IsValidFolder(parent))            {                EnsureFolderExists(parent);            }            AssetDatabase.CreateFolder(parent, folderName);        }        //If TextureImporter.textureType == TextureImporterType.Sprite It's a Sprite.        private Dictionary<string, string> GetTypeToSubfolderMap()        {            return new Dictionary<string, string>            {                { "MonoScript", "Scripts" },                { "Material", "Materials" },                { "GameObject", "Prefabs" },                { "Font", "Fonts" },                { "TMP_FontAsset", "Fonts" },                { "Mesh", "3DAssets" },                { "Texture2D", "Textures" },                { "Sprite", "Sprites" },                { "Shader","Shaders" },                { "AudioClip", "Audio" },                { "ScriptableObject","ScriptableObjects" }            };        }        [System.Serializable]        private class FPWrapper        {            public List<CategoryGroup> categories = new List<CategoryGroup>();            //public Dictionary<string, List<string>> assets;            public FPWrapper(Dictionary<string, List<string>> data)            {                foreach (var kvp in data)                {                    categories.Add(new CategoryGroup                    {                        category = kvp.Key,                        assets = kvp.Value                    });                }            }        }        private class SceneAssetInfo        {            public Object Asset;            public List<GameObject> ReferencedBy = new List<GameObject>();            public string TypeName;            public bool Selected;            public bool IsPackageAsset;        }        private class TextureMaxSizeChange        {            public string AssetPath;            public int PreviousMaxSize;        }        [System.Serializable]        public class CategoryGroup        {            public string category;            public List<string> assets;        }    }}

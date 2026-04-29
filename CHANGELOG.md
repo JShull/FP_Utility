@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-04-29
+
+### 0.9.4 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP Scene Asset Tool texture import workflow
+    - Added a Texture Import Settings panel to `FPSceneAssetLister.cs` for applying a selected max texture size to selected scene texture assets.
+    - Added support for selected assets backed by `TextureImporter`, including Texture2D and Sprite entries.
+    - Added an in-tool undo action for restoring the previous max texture size values from the last batch update.
+
+### 0.9.4 Modified
+
+- [@JShull](https://github.com/jshull)
+  - `FPSceneAssetLister.cs`
+    - Moved the JSON file name input to the bottom export row beside the Save to JSON button.
+  - `package.json`
+    - Version bumped to `0.9.4`.
+
 ## [0.9.3] - 2026-04-23
 
 ### 0.9.3 Added

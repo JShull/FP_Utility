@@ -31,7 +31,8 @@ namespace FuzzPhyte.Utility.Editor
         private string manifestId = string.Empty;
         private string version = "1.0.0";
 
-        private string storageAccountRoot;// = "https://vabluetech1video.blob.core.windows.net";
+        public string AzureRoot = "https://";
+        private string storageAccountRoot;// 
         private string videosContainerName;// = "videos";
         private string manifestsContainerName;// = "manifests";
         private string manifestFileName;// = "videos_manifest.json";
@@ -55,16 +56,17 @@ namespace FuzzPhyte.Utility.Editor
         {
             GetWindow<FPVideoHashEditor>("FP Video Hash Generator");
         }
-        private void OnEnable()
+        public virtual void OnEnable()
         {
-            storageAccountRoot = EditorPrefs.GetString(FP_UtilityData.AZURE_STORAGE_ROOT_KEY, "https://vabluetech1video.blob.core.windows.net");
+            //Change the AzureRoot before we load, so something like = https://vabluetech1video.blob.core.windows.net
+            storageAccountRoot = EditorPrefs.GetString(FP_UtilityData.AZURE_STORAGE_ROOT_KEY, AzureRoot);
             videosContainerName = EditorPrefs.GetString(FP_UtilityData.AZURE_VIDEOS_CONTAINER_KEY, "videos");
             manifestsContainerName = EditorPrefs.GetString(FP_UtilityData.AZURE_MANIFESTS_CONTAINER_KEY, "manifests");
             manifestFileName = EditorPrefs.GetString(FP_UtilityData.AZURE_MANIFEST_FILE_NAME_KEY, "videos_manifest.json");
             
             RefreshBuiltUrls();
         }
-        private void OnGUI()
+        protected virtual void OnGUI()
         {
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
 
