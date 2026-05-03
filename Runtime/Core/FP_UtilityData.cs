@@ -524,6 +524,28 @@ namespace FuzzPhyte.Utility
             return (false, meters);
         }
 
+        /// <summary>
+        /// Simple rotation Helper
+        /// </summary>
+        /// <param name="point"></param>
+        /// <param name="pivot"></param>
+        /// <param name="degrees"></param>
+        /// <returns></returns>
+        public static Vector2 RotateAround(Vector2 point, Vector2 pivot, float degrees)
+        {
+            float radians = degrees * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(radians);
+            float sin = Mathf.Sin(radians);
+
+            Vector2 offset = point - pivot;
+
+            Vector2 rotated = new Vector2(
+                offset.x * cos - offset.y * sin,
+                offset.x * sin + offset.y * cos
+            );
+
+            return pivot + rotated;
+        }
         #endregion
         /// <summary>
         /// If we need to take a string function and return a Unity Action on said target
