@@ -21,23 +21,28 @@ namespace FuzzPhyte.Utility.Debug
         public static void Log(string label)
         {
             Debug.Log(
-                $"[FP_MEM] {label} | " +
-                $"Used={ToMB(_totalUsed.LastValue):F1}MB | " +
-                $"Reserved={ToMB(_totalReserved.LastValue):F1}MB | " +
-                $"GC={ToMB(_gcUsed.LastValue):F1}MB | " +
-                $"Gfx={ToMB(_gfxUsed.LastValue):F1}MB | " +
-                $"Textures={Resources.FindObjectsOfTypeAll<Texture2D>().Length} | " +
-                $"Audio={Resources.FindObjectsOfTypeAll<AudioClip>().Length} | " +
-                $"Meshes={Resources.FindObjectsOfTypeAll<Mesh>().Length} | " +
-                $"Materials={Resources.FindObjectsOfTypeAll<Material>().Length} | " +
-                $"RenderTextures={Resources.FindObjectsOfTypeAll<RenderTexture>().Length} | " +
-                $"ScriptableObjects={Resources.FindObjectsOfTypeAll<ScriptableObject>().Length}"
-            );
+             $"[FP_MEM] {label} | " +
+             $"Used={ReadRecorder(_totalUsed)} | " +
+             $"Reserved={ReadRecorder(_totalReserved)} | " +
+             $"GC={ReadRecorder(_gcUsed)} | " +
+             $"Gfx={ReadRecorder(_gfxUsed)} | " +
+             $"Textures={Resources.FindObjectsOfTypeAll<Texture2D>().Length} | " +
+             $"Audio={Resources.FindObjectsOfTypeAll<AudioClip>().Length} | " +
+             $"Meshes={Resources.FindObjectsOfTypeAll<Mesh>().Length} | " +
+             $"Materials={Resources.FindObjectsOfTypeAll<Material>().Length} | " +
+             $"RenderTextures={Resources.FindObjectsOfTypeAll<RenderTexture>().Length} | " +
+             $"ScriptableObjects={Resources.FindObjectsOfTypeAll<ScriptableObject>().Length}"
+         );
         }
-
-        private static double ToMB(long bytes)
+        private static string ReadRecorder(ProfilerRecorder recorder)
         {
-            return bytes / (1024.0 * 1024.0);
+            if (!recorder.Valid)
+            {
+                return "INVALID";
+            }
+
+            return $"{recorder.LastValue / (1024f * 1024f):F1}MB";
         }
+        
     }
 }
