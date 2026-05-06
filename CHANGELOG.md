@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-05-06
+
+### 0.9.5 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP Scene Asset Tool bulk import workflows
+    - Added a Bulk Audio Import Settings panel for selected AudioClip assets, including load type, preload audio data, load in background, compression format, and quality.
+    - Added active build target audio sample setting overrides so batch audio changes can be applied per build platform.
+    - Added in-tool undo support for restoring previous audio import settings and platform override state.
+    - Added README documentation for bulk texture and bulk audio import settings.
+
+### 0.9.5 Modified
+
+- [@JShull](https://github.com/jshull)
+  - `FPSceneAssetLister.cs`
+    - Texture and audio import settings panels now only appear when selected assets include matching importer types.
+  - `package.json`
+    - Version bumped to `0.9.5`.
+
 ## [0.9.4] - 2026-04-29
 
 ### 0.9.4 Added

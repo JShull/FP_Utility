@@ -58,6 +58,18 @@ The tool deduplicates assets by path, groups them by detected type, tracks which
 
 The tool also supports moving selected project assets into a destination folder. This can be useful when organizing content after an audit, but it should be used carefully because it changes asset locations in the project.
 
+#### Bulk Texture Import Settings
+
+When selected scene assets include textures, the tool displays a `Texture Import Settings` panel. Use this panel to set a shared max texture size for the selected Texture2D and Sprite-backed assets.
+
+The change is applied to both the texture importer's default max size and the active build target platform override. The panel displays the active build target so you can confirm which platform override will be changed before applying the batch update. Use `Undo Last Max Size Change` to restore the previous default and platform-specific values from the last texture batch operation.
+
+#### Bulk Audio Import Settings
+
+When selected scene assets include AudioClip assets, the tool displays an `Audio Import Settings` panel. Use this panel to batch set load type, preload audio data, load in background, compression format, and quality for the selected audio importers.
+
+The change is applied to the audio importer's default sample settings and the active build target platform override where supported. Use `Undo Last Audio Change` to restore the previous default settings, load-in-background value, and platform override state from the last audio batch operation.
+
 #### Scene Asset Tool - Menu & Window Actions
 
 * `FuzzPhyte/Utility/Scene/Asset Tool`
