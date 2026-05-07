@@ -6,6 +6,9 @@ namespace FuzzPhyte.Utility.DebugTools
 
     public static class FPLoadedTMPFontReport
     {
+        /// <summary>
+        /// LOG TMP Fonts
+        /// </summary>
         public static void LogLoadedTMPFonts()
         {
             var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>()
@@ -49,6 +52,23 @@ namespace FuzzPhyte.Utility.DebugTools
                         }
                     }
                 }
+            }
+        }
+        /// <summary>
+        /// Log Basic Fonts
+        /// </summary>
+        public static void LogLoadedFonts()
+        {
+            var fonts = Resources.FindObjectsOfTypeAll<Font>()
+                .Where(f => f != null)
+                .OrderBy(f => f.name)
+                .ToArray();
+
+            Debug.Log($"[FP_FONT_REPORT] Loaded Unity Fonts: {fonts.Length}");
+
+            foreach (var font in fonts)
+            {
+                Debug.Log($"[FP_FONT] {font.name}");
             }
         }
     }
