@@ -2,7 +2,8 @@
     "name": "com.fuzzphyte.utility.debugtools",
     "rootNamespace": "FuzzPhyte.Utility.DebugTools",
     "references": [
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
