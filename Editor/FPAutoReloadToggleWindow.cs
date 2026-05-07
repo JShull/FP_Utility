@@ -1,8 +1,8 @@
 namespace FuzzPhyte.Utility.Editor
 {
-    using System.Collections;
+//    using System.Collections;
     using System.IO;
-    using System.Threading.Tasks;
+    //using System.Threading.Tasks;
     using UnityEditor;
     using UnityEngine;
     /// <summary>
@@ -28,8 +28,8 @@ namespace FuzzPhyte.Utility.Editor
             var packageName = loadedPackageManager ? "utility" : "FP_Utility";
             var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
             var iconRefEditor = FP_Utility_Editor.ReturnEditorResourceIcons(packageRef);
-            Debug.LogWarning($"iconRefEditor = {iconRefEditor}");
-            Debug.LogWarning($"packageRef = {packageRef}");
+            UnityEngine.Debug.LogWarning($"iconRefEditor = {iconRefEditor}");
+            UnityEngine.Debug.LogWarning($"packageRef = {packageRef}");
             //ICON LOAD
             var enabledIconPath = Path.Combine(iconRefEditor, "HH_SelectAllActive.png");
             var disabledIconPath = Path.Combine(iconRefEditor, "HH_SelectAll.png");
@@ -121,13 +121,13 @@ namespace FuzzPhyte.Utility.Editor
                 if (!value)
                 {
                     EditorApplication.LockReloadAssemblies();
-                    Debug.Log("FP Auto script reload: disabled.");
+                    UnityEngine.Debug.Log("FP Auto script reload: disabled.");
                 }
                 else
                 {
                     EditorApplication.UnlockReloadAssemblies();
                     AssetDatabase.Refresh();
-                    Debug.Log("FP Auto script reload: enabled and assets refreshed.");
+                    UnityEngine.Debug.Log("FP Auto script reload: enabled and assets refreshed.");
                 }
             }
         }
@@ -162,15 +162,15 @@ namespace FuzzPhyte.Utility.Editor
                 EditorApplication.delayCall += () =>
                 {
                     EditorApplication.LockReloadAssemblies();
-                    Debug.Log("Manual refresh complete. Assemblies re-locked.");
+                    UnityEngine.Debug.Log("Manual refresh complete. Assemblies re-locked.");
                 };
 
-                Debug.Log("Manual script refresh and assembly reload triggered temporarily.");
+                UnityEngine.Debug.Log("Manual script refresh and assembly reload triggered temporarily.");
             }
             else
             {
                 AssetDatabase.Refresh();
-                Debug.Log("Manual script refresh triggered.");
+                UnityEngine.Debug.Log("Manual script refresh triggered.");
             }
         }
         /*

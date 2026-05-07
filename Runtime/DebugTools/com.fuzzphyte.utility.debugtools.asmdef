@@ -1,6 +1,6 @@
 {
-    "name": "com.fuzzphyte.utility.debug",
-    "rootNamespace": "FuzzPhyte.Utility.Debug",
+    "name": "com.fuzzphyte.utility.debugtools",
+    "rootNamespace": "FuzzPhyte.Utility.DebugTools",
     "references": [
         "Unity.InputSystem"
     ],

@@ -1,4 +1,4 @@
-namespace FuzzPhyte.Utility.Debug
+namespace FuzzPhyte.Utility.DebugTools
 {
     using UnityEngine;
     using Unity.Profiling;
