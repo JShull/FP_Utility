@@ -26,6 +26,8 @@ namespace FuzzPhyte.Utility.Editor
         [SerializeField]
         private bool includeMeshFilters = true;
         [SerializeField]
+        private bool includeSkinnedMeshRenderers = true;
+        [SerializeField]
         private bool skipEditorOnlyTagged = true;
 
         // Output options
@@ -93,7 +95,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             GUILayout.Label("FP Mesh Combiner", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Combine multiple MeshFilters / MeshColliders into a single Mesh asset, " +
+                "Combine multiple MeshFilters / SkinnedMeshRenderers / MeshColliders into a single Mesh asset, " +
                 "baked using world-space positions into the local space of the selected root.\n\n" +
                 "Ideal for generating a single MeshCollider from many scene meshes.",
                 MessageType.Info);
@@ -137,6 +139,7 @@ namespace FuzzPhyte.Utility.Editor
 
             EditorGUILayout.Space();
             includeMeshFilters = EditorGUILayout.Toggle("Include MeshFilters", includeMeshFilters);
+            includeSkinnedMeshRenderers = EditorGUILayout.Toggle("Include SkinnedMeshRenderers", includeSkinnedMeshRenderers);
             includeMeshColliders = EditorGUILayout.Toggle("Include MeshColliders", includeMeshColliders);
 
             skipEditorOnlyTagged = EditorGUILayout.Toggle("Skip 'EditorOnly' Tagged Objects", skipEditorOnlyTagged);
@@ -190,53 +193,89 @@ namespace FuzzPhyte.Utility.Editor
             if (!canCombine)
             {
                 EditorGUILayout.HelpBox(
-                    "Assign a root object and ensure there are MeshFilters and/or MeshColliders under it.",
+                    "Assign a root object and ensure there are MeshFilters, SkinnedMeshRenderers, and/or MeshColliders under it.",
                     MessageType.Warning);
             }
         }
 
         // --- Core Logic ------------------------------------------------------
 
+        private struct MeshSource
+        {
+            public Mesh Mesh;
+            public Transform Transform;
+
+            public MeshSource(Mesh mesh, Transform transform)
+            {
+                Mesh = mesh;
+                Transform = transform;
+            }
+        }
+
         private int PreviewMeshCount()
         {
             if (rootObject == null)
                 return 0;
 
-            var filters = GetSourceMeshFilters();
-            return filters.Count;
+            var sources = GetSourceMeshes();
+            return sources.Count;
         }
 
-        private List<MeshFilter> GetSourceMeshFilters()
+        private List<MeshSource> GetSourceMeshes()
         {
-            var result = new List<MeshFilter>();
+            var result = new List<MeshSource>();
+            var sourceComponents = new HashSet<Component>();
 
-            if (!includeMeshFilters && !includeMeshColliders)
+            if (!includeMeshFilters && !includeSkinnedMeshRenderers && !includeMeshColliders)
                 return result;
 
             if (rootObject == null)
                 return result;
 
-            // Search hierarchy under root
-            var flags = includeInactive
-                ? System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
-                : System.Reflection.BindingFlags.Public; // we'll just use GetComponentsInChildren overload instead
-
-            var filters = rootObject.GetComponentsInChildren<MeshFilter>(includeInactive);
             if (includeMeshFilters)
             {
+                var filters = includeChildren
+                    ? rootObject.GetComponentsInChildren<MeshFilter>(includeInactive)
+                    : rootObject.GetComponents<MeshFilter>();
+
                 foreach (var mf in filters)
                 {
                     if (!IsValidSourceObject(mf.gameObject))
                         continue;
 
                     if (mf.sharedMesh != null)
-                        result.Add(mf);
+                    {
+                        result.Add(new MeshSource(mf.sharedMesh, mf.transform));
+                        sourceComponents.Add(mf);
+                    }
+                }
+            }
+
+            if (includeSkinnedMeshRenderers)
+            {
+                var skinnedRenderers = includeChildren
+                    ? rootObject.GetComponentsInChildren<SkinnedMeshRenderer>(includeInactive)
+                    : rootObject.GetComponents<SkinnedMeshRenderer>();
+
+                foreach (var smr in skinnedRenderers)
+                {
+                    if (!IsValidSourceObject(smr.gameObject))
+                        continue;
+
+                    if (smr.sharedMesh != null)
+                    {
+                        result.Add(new MeshSource(smr.sharedMesh, smr.transform));
+                        sourceComponents.Add(smr);
+                    }
                 }
             }
 
             if (includeMeshColliders)
             {
-                var colliders = rootObject.GetComponentsInChildren<MeshCollider>(includeInactive);
+                var colliders = includeChildren
+                    ? rootObject.GetComponentsInChildren<MeshCollider>(includeInactive)
+                    : rootObject.GetComponents<MeshCollider>();
+
                 foreach (var col in colliders)
                 {
                     if (!IsValidSourceObject(col.gameObject))
@@ -245,29 +284,17 @@ namespace FuzzPhyte.Utility.Editor
                     if (col.sharedMesh == null)
                         continue;
 
-                    // Prefer the MeshFilter if present, but fall back to collider’s mesh
+                    // Prefer visual mesh sources when present, but fall back to the collider's mesh.
                     var mf = col.GetComponent<MeshFilter>();
-                    if (mf != null && mf.sharedMesh != null)
-                    {
-                        if (!result.Contains(mf))
-                            result.Add(mf);
-                    }
-                    else
-                    {
-                        // Create an ephemeral GameObject to host this mesh via MeshFilter-like behaviour
-                        // but for collision-only, we can treat collider as a "filter" using its transform.
-                        // We'll add a fake MeshFilter entry by temporarily adding one and not saving it.
-                        var fakeFilter = col.gameObject.GetComponent<MeshFilter>();
-                        if (fakeFilter == null)
-                        {
-                            fakeFilter = col.gameObject.AddComponent<MeshFilter>();
-                            fakeFilter.hideFlags = HideFlags.HideAndDontSave;
-                            fakeFilter.sharedMesh = col.sharedMesh;
-                        }
+                    if (mf != null && mf.sharedMesh != null && sourceComponents.Contains(mf))
+                        continue;
 
-                        if (!result.Contains(fakeFilter) && fakeFilter.sharedMesh != null)
-                            result.Add(fakeFilter);
-                    }
+                    var smr = col.GetComponent<SkinnedMeshRenderer>();
+                    if (smr != null && smr.sharedMesh != null && sourceComponents.Contains(smr))
+                        continue;
+
+                    result.Add(new MeshSource(col.sharedMesh, col.transform));
+                    sourceComponents.Add(col);
                 }
             }
 
@@ -290,7 +317,7 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            var sources = GetSourceMeshFilters();
+            var sources = GetSourceMeshes();
             if (sources.Count == 0)
             {
                 Debug.LogWarning("[FP Mesh Combiner] No valid source meshes found.");
@@ -301,13 +328,13 @@ namespace FuzzPhyte.Utility.Editor
             var combineInstances = new List<CombineInstance>();
             var rootToLocal = rootObject.transform.worldToLocalMatrix;
 
-            foreach (var mf in sources)
+            foreach (var source in sources)
             {
-                var mesh = mf.sharedMesh;
+                var mesh = source.Mesh;
                 if (mesh == null)
                     continue;
 
-                var localToWorld = mf.transform.localToWorldMatrix;
+                var localToWorld = source.Transform.localToWorldMatrix;
                 var xform = rootToLocal * localToWorld;
 
                 int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
