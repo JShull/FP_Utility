@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e02c375b071ccc34381cd4e8e70fd2af, type: 3}
+  m_Name: Readme
+  m_EditorClassIdentifier: com.fuzzphyte.utility.editor::FuzzPhyte.Utility.Editor.FPReadmeAsset
+  icon: {fileID: 2800000, guid: 0378ca7329b7827468040c7cb9c0ab30, type: 3}
+  title: FuzzPhyte Package
+  subtitle: Package documentation and setup notes.
+  version: 0.9.5
+  overview: "FP_Utility is designed and built to be a simple set of base classes
+    to be used in almost all future FuzzPhyte packages. \nThere is an element of
+    Scriptable Object and an element of just simple input/output functions as well
+    as some core scripts timed to timers etc. \nThere are a lot of static functions
+    to help with file management and Unity Editor management. \nPlease see the FP_UtilityData
+    class as well as the FP_Utility_Editor class for a lot of these functions/enums/structs
+    etc."
+  sections:
+  - heading: FP Header
+    body: "FP Header is an editor-only hierarchy organization tool for Unity scenes.
+      \nIt lets you create disabled, all-caps GameObjects that act like visual section
+      headers in the standard Unity Hierarchy without forcing the grouped objects
+      into a parent-child transform relationship. \nThis is useful when you want
+      the readability and collapse behavior of folders, but you do not want to change
+      transform inheritance or scene structure.\r\n\r\nA header is treated as valid
+      when the GameObject name is all caps, the object is inactive, and it has no
+      children. \nObjects that appear after that header in the same sibling scope
+      are treated as part of the section until the next valid header is found."
+    links:
+    - label: Source code for FP_HHeader
+      url: https://github.com/JShull/FP_Utility/blob/main/Editor/FP_HHeader.cs
+  - heading: FP Scene Asset Tool
+    body: "FP Scene Asset Tool is an editor window that scans the active scene and
+      builds a reference list of the external assets used by that scene. \nIt is
+      intended to help you audit scene dependencies such as:\nmaterials, meshes,
+      textures, audio clips, prefab assets, animation assets, ScriptableObjects,
+      fonts, and other referenced content. \nThis helps you can spot misplaced project
+      references, redundant assets, or content coming from the wrong part of the
+      project.\r\n\r\nThe tool deduplicates assets by path, groups them by detected
+      type, tracks which scene GameObjects reference each asset, and marks package
+      or built-in dependencies as non-selectable. \nYou can focus on project content
+      you actually control.\n\nThere are other options for Bulk Texture Import and
+      Bulk Audio Import - if you wanted to select these type of assets in a scene
+      and force them to a lower/higher quality you can much easier than traditional
+      Unity."
+    links:
+    - label: Source code for FPSceneAssetLister
+      url: https://github.com/JShull/FP_Utility/blob/main/Editor/FPSceneAssetLister.cs
