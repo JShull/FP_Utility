@@ -7,6 +7,7 @@ namespace FuzzPhyte.Utility.Editor
     using UnityEngine;
     using UnityEngine.Playables;
     using UnityEngine.SceneManagement;
+    using UnityEngine.Timeline;
     public class FPSceneReferenceReplaceEditorWindow:EditorWindow
     {
         private GameObject oldGameObject;
@@ -18,6 +19,7 @@ namespace FuzzPhyte.Utility.Editor
         private bool replaceSpecificComponentReferences = true;
         private bool includeInactiveObjects = true;
         private bool includePlayableDirectorBindings = true;
+        private bool logPlayableDirectorBindings = true;
 
         private Vector2 scroll;
 
@@ -78,12 +80,22 @@ namespace FuzzPhyte.Utility.Editor
                 "Include inactive objects",
                 includeInactiveObjects
             );
-
+            
             includePlayableDirectorBindings = EditorGUILayout.ToggleLeft(
                 "Include PlayableDirector / Timeline bindings",
                 includePlayableDirectorBindings
             );
-
+            if (includePlayableDirectorBindings)
+            {
+                logPlayableDirectorBindings = EditorGUILayout.ToggleLeft(
+                "Log PlayableDirector / Timeline bindings before replacement",
+                logPlayableDirectorBindings
+                );
+            }
+            else
+            {
+                logPlayableDirectorBindings = false;
+            }
             EditorGUILayout.Space();
 
             using (new EditorGUI.DisabledScope(!CanRun()))
@@ -210,7 +222,8 @@ namespace FuzzPhyte.Utility.Editor
             {
                 foreach (var director in FindObjectsInScene<PlayableDirector>(activeScene, includeInactiveObjects))
                 {
-                    var result = ReplacePlayableDirectorBindings(director, replacementMap);
+                    DebugPlayableDirectorBindings(director);
+                    var result = ReplacePlayableDirectorBindings(director, oldGameObject, newGameObject,replacementMap);
 
                     if (result.changed)
                     {
@@ -374,6 +387,8 @@ namespace FuzzPhyte.Utility.Editor
 
         private static (bool changed, int referenceCount) ReplacePlayableDirectorBindings(
             PlayableDirector director,
+            GameObject oldGameObject,
+            GameObject newGameObject,
             Dictionary<UnityEngine.Object, UnityEngine.Object> replacementMap
         )
         {
@@ -387,27 +402,55 @@ namespace FuzzPhyte.Utility.Editor
 
             foreach (var output in director.playableAsset.outputs)
             {
-                var currentBinding = director.GetGenericBinding(output.sourceObject);
+                var sourceObject = output.sourceObject;
+
+                if (sourceObject == null)
+                {
+                    continue;
+                }
+
+                var currentBinding = director.GetGenericBinding(sourceObject);
 
                 if (currentBinding == null)
                 {
                     continue;
                 }
 
-                if (!replacementMap.TryGetValue(currentBinding, out var replacement))
+                UnityEngine.Object replacement = null;
+
+                // Normal binding replacement:
+                // old GameObject -> new GameObject
+                // old component -> new component
+                if (replacementMap.TryGetValue(currentBinding, out var mappedReplacement))
+                {
+                    replacement = mappedReplacement;
+                }
+
+                // Signal Track-specific fallback.
+                // Signal tracks may appear as GameObject bindings or SignalReceiver bindings.
+                if (replacement == null && sourceObject is SignalTrack)
+                {
+                    replacement = GetSignalTrackReplacement(
+                        currentBinding,
+                        oldGameObject,
+                        newGameObject
+                    );
+                }
+
+                if (replacement == null || replacement == currentBinding)
                 {
                     continue;
                 }
 
                 Undo.RecordObject(director, "Replace Timeline Binding");
 
-                director.SetGenericBinding(output.sourceObject, replacement);
+                director.SetGenericBinding(sourceObject, replacement);
 
                 changed = true;
                 referenceCount++;
 
                 Debug.Log(
-                    $"Replaced Timeline binding on {director.name}: " +
+                    $"Replaced Timeline binding on '{director.name}' / '{sourceObject.name}': " +
                     $"{currentBinding.name} -> {replacement.name}",
                     director
                 );
@@ -419,6 +462,90 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return (changed, referenceCount);
+        }
+        private static UnityEngine.Object GetSignalTrackReplacement(
+            UnityEngine.Object currentBinding,
+            GameObject oldGameObject,
+            GameObject newGameObject
+)
+        {
+            if (currentBinding == null || oldGameObject == null || newGameObject == null)
+            {
+                return null;
+            }
+
+            // Case 1:
+            // The Signal Track is bound directly to the old GameObject.
+            if (currentBinding == oldGameObject)
+            {
+                return newGameObject;
+            }
+
+            // Case 2:
+            // The Signal Track is bound to a SignalReceiver component on the old GameObject.
+            if (currentBinding is SignalReceiver oldSignalReceiver)
+            {
+                if (oldSignalReceiver.gameObject != oldGameObject)
+                {
+                    return null;
+                }
+
+                var newSignalReceiver = newGameObject.GetComponent<SignalReceiver>();
+
+                if (newSignalReceiver != null)
+                {
+                    return newSignalReceiver;
+                }
+
+                // Optional: auto-add SignalReceiver if the old object had one.
+                newSignalReceiver = Undo.AddComponent<SignalReceiver>(newGameObject);
+                EditorUtility.SetDirty(newGameObject);
+
+                return newSignalReceiver;
+            }
+
+            // Case 3:
+            // Some Timeline bindings are stored as components.
+            // If the bound component belongs to the old object, try to find
+            // a matching component type on the new object.
+            if (currentBinding is Component oldComponent)
+            {
+                if (oldComponent.gameObject != oldGameObject)
+                {
+                    return null;
+                }
+
+                var newComponent = newGameObject.GetComponent(oldComponent.GetType());
+
+                if (newComponent != null)
+                {
+                    return newComponent;
+                }
+            }
+
+            return null;
+        }
+        private static void DebugPlayableDirectorBindings(PlayableDirector director)
+        {
+            if (director == null || director.playableAsset == null)
+            {
+                return;
+            }
+
+            foreach (var output in director.playableAsset.outputs)
+            {
+                var sourceObject = output.sourceObject;
+                var binding = director.GetGenericBinding(sourceObject);
+
+                Debug.Log(
+                    $"Director: {director.name} | " +
+                    $"Track: {sourceObject?.name ?? "NULL"} | " +
+                    $"Track Type: {sourceObject?.GetType().Name ?? "NULL"} | " +
+                    $"Binding: {(binding == null ? "NULL" : binding.name)} | " +
+                    $"Binding Type: {(binding == null ? "NULL" : binding.GetType().Name)}",
+                    director
+                );
+            }
         }
     }
 }

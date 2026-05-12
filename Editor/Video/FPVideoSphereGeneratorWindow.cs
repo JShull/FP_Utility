@@ -408,7 +408,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 return;
             }
 
-            MeshFilter[] meshFilters = Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None);
+            MeshFilter[] meshFilters = Object.FindObjectsByType<MeshFilter>();
             foreach (MeshFilter meshFilter in meshFilters)
             {
                 if (meshFilter.sharedMesh == originalMesh)
@@ -419,7 +419,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 }
             }
 
-            MeshCollider[] meshColliders = Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None);
+            MeshCollider[] meshColliders = Object.FindObjectsByType<MeshCollider>();
             foreach (MeshCollider meshCollider in meshColliders)
             {
                 if (meshCollider.sharedMesh == originalMesh)
