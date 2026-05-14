@@ -37,6 +37,7 @@ Shader "FuzzPhyte/Outline Color And Stencil"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -47,12 +48,14 @@ Shader "FuzzPhyte/Outline Color And Stencil"
             {
                 float4 positionOS : POSITION;
                 float2 uv : TEXCOORD0;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
             {
                 float4 positionHCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             // To make the Unity shader SRP Batcher compatible, declare all
@@ -73,6 +76,8 @@ Shader "FuzzPhyte/Outline Color And Stencil"
             Varyings vert(Attributes IN)
             {
                 Varyings OUT;
+                UNITY_SETUP_INSTANCE_ID(IN);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
                 OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
                 OUT.uv = IN.uv * _FPOutlineMaskTexture_ST.xy + _FPOutlineMaskTexture_ST.zw;
                 return OUT;
@@ -80,6 +85,8 @@ Shader "FuzzPhyte/Outline Color And Stencil"
 
             half4 frag(Varyings IN) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
+
                 if (_FPOutlineAlphaMode != 0)
                 {
                     half alpha = SAMPLE_TEXTURE2D(_FPOutlineMaskTexture, sampler_FPOutlineMaskTexture, IN.uv).a;
