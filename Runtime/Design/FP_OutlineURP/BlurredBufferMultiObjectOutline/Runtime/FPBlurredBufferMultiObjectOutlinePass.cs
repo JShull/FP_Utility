@@ -12,16 +12,31 @@ namespace FuzzPhyte.Utility
     /// </summary>
     public class FPBlurredBufferMultiObjectOutlinePass : ScriptableRenderPass
     {
+        private const string BaseMapName = "_BaseMap";
+        private const string MainTexName = "_MainTex";
         private const string DilationTex0Name = "_DilationTexture0";
         private const string DilationTex1Name = "_DilationTexture1";
         private const string DrawOutlineObjectsPassName = "DrawOutlineObjectsPass";
         private const string HorizontalPassName = "HorizontalDilationPass";
         private const string VerticalPassName = "VerticalDilationPass";
 
+        private static readonly int BaseMapId = Shader.PropertyToID(BaseMapName);
+        private static readonly int MainTexId = Shader.PropertyToID(MainTexName);
+        private static readonly int OutlineColorId = Shader.PropertyToID("_FPOutlineColor");
+        private static readonly int OutlineAlphaModeId = Shader.PropertyToID("_FPOutlineAlphaMode");
+        private static readonly int OutlineAlphaCutoffId = Shader.PropertyToID("_FPOutlineAlphaCutoff");
+        private static readonly int OutlineMaskTextureId = Shader.PropertyToID("_FPOutlineMaskTexture");
+        private static readonly int OutlineMaskTextureStId = Shader.PropertyToID("_FPOutlineMaskTexture_ST");
+
         public RenderPassEvent RenderEvent { private get; set; }
         public Material DilationMaterial { private get; set; }
         public Material OutlineMaterial { private get; set; }
         public Renderer[] Renderers { get; set; }
+        public FPOutlineTarget[] Targets { get; set; }
+        public Color DefaultOutlineColor { private get; set; } = Color.cyan;
+        public FPOutlineAlphaMode DefaultAlphaMode { private get; set; } = FPOutlineAlphaMode.MeshSilhouette;
+        public float DefaultAlphaCutoff { private get; set; } = 0.5f;
+        public Texture DefaultMaskTexture { private get; set; }
 
         private RenderTextureDescriptor _dilationDescriptor;
 
@@ -60,12 +75,12 @@ namespace FuzzPhyte.Utility
                 renderGraph,
                 _dilationDescriptor,
                 DilationTex0Name,
-                clear: false);
+                clear: true);
             var dilation1Handle = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph,
                 _dilationDescriptor,
                 DilationTex1Name,
-                clear: false);
+                clear: true);
 
             var screenColorHandle = resourceData.activeColorTexture;
             var screenDepthStencilHandle = resourceData.activeDepthTexture;
@@ -83,10 +98,17 @@ namespace FuzzPhyte.Utility
             {
                 // Configure pass data
                 passData.Renderers = Renderers;
+                passData.Targets = Targets;
                 passData.Material = OutlineMaterial;
+                passData.DefaultOutlineColor = DefaultOutlineColor;
+                passData.DefaultAlphaMode = DefaultAlphaMode;
+                passData.DefaultAlphaCutoff = DefaultAlphaCutoff;
+                passData.DefaultMaskTexture = DefaultMaskTexture;
 
                 // Draw to dilation0Handle
                 builder.SetRenderAttachment(dilation0Handle, 0);
+                builder.SetRenderAttachmentDepth(screenDepthStencilHandle);
+                builder.AllowPassCulling(false);
 
                 // Blit from the source color to destination color,
                 // using the first shader pass.
@@ -105,6 +127,7 @@ namespace FuzzPhyte.Utility
                 // From dilation0Handle to dilation1Handle
                 builder.UseTexture(passData.Source);
                 builder.SetRenderAttachment(dilation1Handle, 0);
+                builder.AllowPassCulling(false);
 
                 // Blit from the source color to destination color,
                 // using the first shader pass.
@@ -127,6 +150,7 @@ namespace FuzzPhyte.Utility
                 // which was written to in the Draw objects-to-outline pass
                 // and is used here to cut out the inside of the outline.
                 builder.SetRenderAttachmentDepth(screenDepthStencilHandle, AccessFlags.Read);
+                builder.AllowPassCulling(false);
 
                 // Blit from the source color to destination (camera) color,
                 // using the second shader pass.
@@ -139,19 +163,139 @@ namespace FuzzPhyte.Utility
             RenderObjectsPassData data,
             RasterGraphContext context)
         {
-            // Render all the outlined objects to the temp texture
-            foreach (Renderer objectRenderer in data.Renderers)
+            DrawTargets(data, context);
+            DrawManualRenderers(data, context);
+        }
+
+        private static void DrawTargets(RenderObjectsPassData data, RasterGraphContext context)
+        {
+            if (data.Targets == null)
+                return;
+
+            for (int i = 0; i < data.Targets.Length; i++)
             {
-                // Skip null renderers
-                if (objectRenderer)
+                FPOutlineTarget target = data.Targets[i];
+                if (!target || !target.isActiveAndEnabled)
+                    continue;
+
+                DrawRendererSet(
+                    context,
+                    data.Material,
+                    target.Renderers,
+                    target.OutlineColor,
+                    target.AlphaMode,
+                    target.AlphaCutoff,
+                    target.CustomMaskTexture);
+            }
+        }
+
+        private static void DrawManualRenderers(RenderObjectsPassData data, RasterGraphContext context)
+        {
+            DrawRendererSet(
+                context,
+                data.Material,
+                data.Renderers,
+                data.DefaultOutlineColor,
+                data.DefaultAlphaMode,
+                data.DefaultAlphaCutoff,
+                data.DefaultMaskTexture);
+        }
+
+        private static void DrawRendererSet(
+            RasterGraphContext context,
+            Material material,
+            Renderer[] renderers,
+            Color outlineColor,
+            FPOutlineAlphaMode alphaMode,
+            float alphaCutoff,
+            Texture customMaskTexture)
+        {
+            if (renderers == null)
+                return;
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer objectRenderer = renderers[i];
+                if (!objectRenderer || !objectRenderer.enabled || !objectRenderer.gameObject.activeInHierarchy)
+                    continue;
+
+                Material[] sharedMaterials = objectRenderer.sharedMaterials;
+                int materialCount = sharedMaterials.Length;
+                for (int materialIndex = 0; materialIndex < materialCount; materialIndex++)
                 {
-                    int materialCount = objectRenderer.sharedMaterials.Length;
-                    for (int i = 0; i < materialCount; i++)
-                    {
-                        context.cmd.DrawRenderer(objectRenderer, data.Material, i, 0);
-                    }
+                    Material sourceMaterial = sharedMaterials[materialIndex];
+                    ConfigureOutlineDraw(
+                        material,
+                        outlineColor,
+                        alphaMode,
+                        alphaCutoff,
+                        customMaskTexture,
+                        sourceMaterial);
+                    context.cmd.DrawRenderer(objectRenderer, material, materialIndex, 0);
                 }
             }
+        }
+
+        private static void ConfigureOutlineDraw(
+            Material material,
+            Color outlineColor,
+            FPOutlineAlphaMode alphaMode,
+            float alphaCutoff,
+            Texture customMaskTexture,
+            Material sourceMaterial)
+        {
+            Texture maskTexture = Texture2D.whiteTexture;
+            Vector4 maskTextureSt = new Vector4(1f, 1f, 0f, 0f);
+
+            if (alphaMode == FPOutlineAlphaMode.CustomMaskTexture && customMaskTexture)
+            {
+                maskTexture = customMaskTexture;
+            }
+            else if (alphaMode == FPOutlineAlphaMode.MainTextureAlpha)
+            {
+                ResolveMainTexture(sourceMaterial, out maskTexture, out maskTextureSt);
+            }
+
+            material.SetColor(OutlineColorId, outlineColor);
+            material.SetInt(OutlineAlphaModeId, (int)alphaMode);
+            material.SetFloat(OutlineAlphaCutoffId, Mathf.Clamp01(alphaCutoff));
+            material.SetTexture(OutlineMaskTextureId, maskTexture);
+            material.SetVector(OutlineMaskTextureStId, maskTextureSt);
+        }
+
+        private static void ResolveMainTexture(
+            Material sourceMaterial,
+            out Texture texture,
+            out Vector4 textureSt)
+        {
+            texture = Texture2D.whiteTexture;
+            textureSt = new Vector4(1f, 1f, 0f, 0f);
+
+            if (!sourceMaterial)
+                return;
+
+            if (sourceMaterial.HasProperty(BaseMapId))
+            {
+                Texture sourceTexture = sourceMaterial.GetTexture(BaseMapId);
+                if (sourceTexture)
+                    texture = sourceTexture;
+
+                Vector2 scale = sourceMaterial.GetTextureScale(BaseMapName);
+                Vector2 offset = sourceMaterial.GetTextureOffset(BaseMapName);
+                textureSt = new Vector4(scale.x, scale.y, offset.x, offset.y);
+                return;
+            }
+
+            if (!sourceMaterial.HasProperty(MainTexId))
+                return;
+
+            Texture mainTexture = sourceMaterial.GetTexture(MainTexId);
+            if (mainTexture)
+                texture = mainTexture;
+
+            Vector2 mainScale = sourceMaterial.GetTextureScale(MainTexName);
+            Vector2 mainOffset = sourceMaterial.GetTextureOffset(MainTexName);
+            textureSt = new Vector4(mainScale.x, mainScale.y, mainOffset.x, mainOffset.y);
         }
 
         private static void ExecuteBlit(BlitPassData data, RasterGraphContext context, int pass)
@@ -162,7 +306,12 @@ namespace FuzzPhyte.Utility
         private class RenderObjectsPassData
         {
             internal Renderer[] Renderers;
+            internal FPOutlineTarget[] Targets;
             internal Material Material;
+            internal Color DefaultOutlineColor;
+            internal FPOutlineAlphaMode DefaultAlphaMode;
+            internal float DefaultAlphaCutoff;
+            internal Texture DefaultMaskTexture;
         }
 
         private class BlitPassData
