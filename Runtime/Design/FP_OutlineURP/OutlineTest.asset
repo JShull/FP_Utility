@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: OutlineTest
   m_EditorClassIdentifier: com.fuzzphyte.utility::FuzzPhyte.Utility.FPOutlineProfile
   outlineColor: {r: 1, g: 0.3230752, b: 0, a: 1}
-  alphaMode: 1
+  alphaMode: 0
   alphaCutoff: 0.5
   customMaskTexture: {fileID: 0}
   thickness: 4

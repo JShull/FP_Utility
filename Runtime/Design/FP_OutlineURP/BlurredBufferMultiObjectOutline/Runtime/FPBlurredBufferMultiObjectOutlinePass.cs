@@ -1,6 +1,7 @@
 namespace FuzzPhyte.Utility
 {
     using UnityEngine;
+    using UnityEngine.Experimental.Rendering;
     using UnityEngine.Rendering;
     using UnityEngine.Rendering.RenderGraphModule;
     using UnityEngine.Rendering.Universal;
@@ -71,12 +72,12 @@ namespace FuzzPhyte.Utility
             // Update Settings
             renderPassEvent = RenderEvent;
 
-            // Set the dilation texture size to be the same as the camera target size.
-            // depthBufferBits must be zero for color textures, and non-zero for depth textures
-            // (it determines the texture format)
-            _dilationDescriptor.width = cameraData.cameraTargetDescriptor.width;
-            _dilationDescriptor.height = cameraData.cameraTargetDescriptor.height;
-            _dilationDescriptor.msaaSamples = cameraData.cameraTargetDescriptor.msaaSamples;
+            // Match the full camera target shape, including XR texture array slices.
+            // depthBufferBits must be zero for color textures.
+            _dilationDescriptor = cameraData.cameraTargetDescriptor;
+            _dilationDescriptor.depthBufferBits = 0;
+            _dilationDescriptor.depthStencilFormat = GraphicsFormat.None;
+            _dilationDescriptor.stencilFormat = GraphicsFormat.None;
 
             var screenColorHandle = resourceData.activeColorTexture;
             var screenDepthStencilHandle = resourceData.activeDepthTexture;
