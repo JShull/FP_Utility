@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 848ae0432f9749868a3434a8f4dad916, type: 3}
+  m_Name: OutlineTest
+  m_EditorClassIdentifier: com.fuzzphyte.utility::FuzzPhyte.Utility.FPOutlineProfile
+  outlineColor: {r: 1, g: 0.3230752, b: 0, a: 1}
+  alphaMode: 1
+  alphaCutoff: 0.5
+  customMaskTexture: {fileID: 0}
+  thickness: 4
+  blur: 2
+  maxRadius: 50

@@ -22,6 +22,9 @@ namespace FuzzPhyte.Utility
 
         private static readonly int BaseMapId = Shader.PropertyToID(BaseMapName);
         private static readonly int MainTexId = Shader.PropertyToID(MainTexName);
+        private static readonly int ThicknessId = Shader.PropertyToID("_Thickness");
+        private static readonly int BlurId = Shader.PropertyToID("_Blur");
+        private static readonly int MaxRadiusId = Shader.PropertyToID("_MaxRadius");
         private static readonly int OutlineColorId = Shader.PropertyToID("_FPOutlineColor");
         private static readonly int OutlineAlphaModeId = Shader.PropertyToID("_FPOutlineAlphaMode");
         private static readonly int OutlineAlphaCutoffId = Shader.PropertyToID("_FPOutlineAlphaCutoff");
@@ -33,10 +36,14 @@ namespace FuzzPhyte.Utility
         public Material OutlineMaterial { private get; set; }
         public Renderer[] Renderers { get; set; }
         public FPOutlineTarget[] Targets { get; set; }
+        public OutlineRenderBatch[] Batches { private get; set; }
         public Color DefaultOutlineColor { private get; set; } = Color.cyan;
         public FPOutlineAlphaMode DefaultAlphaMode { private get; set; } = FPOutlineAlphaMode.MeshSilhouette;
         public float DefaultAlphaCutoff { private get; set; } = 0.5f;
         public Texture DefaultMaskTexture { private get; set; }
+        public int DefaultThickness { private get; set; } = 5;
+        public int DefaultBlur { private get; set; } = 2;
+        public int DefaultMaxRadius { private get; set; } = 50;
 
         private RenderTextureDescriptor _dilationDescriptor;
 
@@ -71,89 +78,119 @@ namespace FuzzPhyte.Utility
             _dilationDescriptor.height = cameraData.cameraTargetDescriptor.height;
             _dilationDescriptor.msaaSamples = cameraData.cameraTargetDescriptor.msaaSamples;
 
-            var dilation0Handle = UniversalRenderer.CreateRenderGraphTexture(
-                renderGraph,
-                _dilationDescriptor,
-                DilationTex0Name,
-                clear: true);
-            var dilation1Handle = UniversalRenderer.CreateRenderGraphTexture(
-                renderGraph,
-                _dilationDescriptor,
-                DilationTex1Name,
-                clear: true);
-
             var screenColorHandle = resourceData.activeColorTexture;
             var screenDepthStencilHandle = resourceData.activeDepthTexture;
 
             // This check is to avoid an error from the material preview in the scene
             if (!screenColorHandle.IsValid() ||
-                !screenDepthStencilHandle.IsValid() ||
-                !dilation0Handle.IsValid() ||
-                !dilation1Handle.IsValid())
+                !screenDepthStencilHandle.IsValid())
                 return;
 
-            // Draw objects-to-outline pass
-            using (var builder = renderGraph.AddRasterRenderPass<RenderObjectsPassData>(DrawOutlineObjectsPassName,
+            if (Batches != null && Batches.Length > 0)
+            {
+                for (int i = 0; i < Batches.Length; i++)
+                {
+                    RecordBatch(
+                        renderGraph,
+                        screenColorHandle,
+                        screenDepthStencilHandle,
+                        Batches[i],
+                        i);
+                }
+
+                return;
+            }
+
+            var fallbackBatch = new OutlineRenderBatch
+            {
+                Renderers = Renderers,
+                Targets = Targets,
+                DefaultOutlineColor = DefaultOutlineColor,
+                DefaultAlphaMode = DefaultAlphaMode,
+                DefaultAlphaCutoff = DefaultAlphaCutoff,
+                DefaultMaskTexture = DefaultMaskTexture,
+                Thickness = DefaultThickness,
+                Blur = DefaultBlur,
+                MaxRadius = DefaultMaxRadius
+            };
+            RecordBatch(renderGraph, screenColorHandle, screenDepthStencilHandle, fallbackBatch, 0);
+        }
+
+        private void RecordBatch(
+            RenderGraph renderGraph,
+            TextureHandle screenColorHandle,
+            TextureHandle screenDepthStencilHandle,
+            OutlineRenderBatch batch,
+            int batchIndex)
+        {
+            var dilation0Handle = UniversalRenderer.CreateRenderGraphTexture(
+                renderGraph,
+                _dilationDescriptor,
+                $"{DilationTex0Name}_{batchIndex}",
+                clear: true);
+            var dilation1Handle = UniversalRenderer.CreateRenderGraphTexture(
+                renderGraph,
+                _dilationDescriptor,
+                $"{DilationTex1Name}_{batchIndex}",
+                clear: true);
+
+            if (!dilation0Handle.IsValid() || !dilation1Handle.IsValid())
+                return;
+
+            using (var builder = renderGraph.AddRasterRenderPass<RenderObjectsPassData>(
+                       $"{DrawOutlineObjectsPassName}_{batchIndex}",
                        out var passData))
             {
-                // Configure pass data
-                passData.Renderers = Renderers;
-                passData.Targets = Targets;
+                passData.Renderers = batch.Renderers;
+                passData.Targets = batch.Targets;
                 passData.Material = OutlineMaterial;
-                passData.DefaultOutlineColor = DefaultOutlineColor;
-                passData.DefaultAlphaMode = DefaultAlphaMode;
-                passData.DefaultAlphaCutoff = DefaultAlphaCutoff;
-                passData.DefaultMaskTexture = DefaultMaskTexture;
+                passData.DefaultOutlineColor = batch.DefaultOutlineColor;
+                passData.DefaultAlphaMode = batch.DefaultAlphaMode;
+                passData.DefaultAlphaCutoff = batch.DefaultAlphaCutoff;
+                passData.DefaultMaskTexture = batch.DefaultMaskTexture;
 
-                // Draw to dilation0Handle
                 builder.SetRenderAttachment(dilation0Handle, 0);
                 builder.SetRenderAttachmentDepth(screenDepthStencilHandle);
+                builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
 
-                // Blit from the source color to destination color,
-                // using the first shader pass.
                 builder.SetRenderFunc((RenderObjectsPassData data, RasterGraphContext context) =>
                     ExecuteDrawOutlineObjects(data, context));
             }
 
-            // Horizontal dilation pass
-            using (var builder = renderGraph.AddRasterRenderPass<BlitPassData>(HorizontalPassName,
+            using (var builder = renderGraph.AddRasterRenderPass<BlitPassData>(
+                       $"{HorizontalPassName}_{batchIndex}",
                        out var passData))
             {
-                // Configure pass data
                 passData.Source = dilation0Handle;
                 passData.Material = DilationMaterial;
+                passData.Thickness = batch.Thickness;
+                passData.Blur = batch.Blur;
+                passData.MaxRadius = batch.MaxRadius;
 
-                // From dilation0Handle to dilation1Handle
                 builder.UseTexture(passData.Source);
                 builder.SetRenderAttachment(dilation1Handle, 0);
                 builder.AllowPassCulling(false);
 
-                // Blit from the source color to destination color,
-                // using the first shader pass.
                 builder.SetRenderFunc((BlitPassData data, RasterGraphContext context) =>
                     ExecuteBlit(data, context, 0));
             }
 
-            // Vertical dilation pass
-            using (var builder = renderGraph.AddRasterRenderPass<BlitPassData>(VerticalPassName, out var passData))
+            using (var builder = renderGraph.AddRasterRenderPass<BlitPassData>(
+                       $"{VerticalPassName}_{batchIndex}",
+                       out var passData))
             {
-                // Configure pass data
                 passData.Source = dilation1Handle;
                 passData.Material = DilationMaterial;
+                passData.Thickness = batch.Thickness;
+                passData.Blur = batch.Blur;
+                passData.MaxRadius = batch.MaxRadius;
 
-                // From dilation1Handle to screenColorHandle
                 builder.UseTexture(passData.Source);
                 builder.SetRenderAttachment(screenColorHandle, 0);
-
-                // Make sure we also read from the active stencil buffer,
-                // which was written to in the Draw objects-to-outline pass
-                // and is used here to cut out the inside of the outline.
                 builder.SetRenderAttachmentDepth(screenDepthStencilHandle, AccessFlags.Read);
                 builder.AllowPassCulling(false);
 
-                // Blit from the source color to destination (camera) color,
-                // using the second shader pass.
                 builder.SetRenderFunc((BlitPassData data, RasterGraphContext context) =>
                     ExecuteBlit(data, context, 1));
             }
@@ -225,6 +262,7 @@ namespace FuzzPhyte.Utility
                 {
                     Material sourceMaterial = sharedMaterials[materialIndex];
                     ConfigureOutlineDraw(
+                        context,
                         material,
                         outlineColor,
                         alphaMode,
@@ -237,6 +275,7 @@ namespace FuzzPhyte.Utility
         }
 
         private static void ConfigureOutlineDraw(
+            RasterGraphContext context,
             Material material,
             Color outlineColor,
             FPOutlineAlphaMode alphaMode,
@@ -256,11 +295,11 @@ namespace FuzzPhyte.Utility
                 ResolveMainTexture(sourceMaterial, out maskTexture, out maskTextureSt);
             }
 
-            material.SetColor(OutlineColorId, outlineColor);
-            material.SetInt(OutlineAlphaModeId, (int)alphaMode);
-            material.SetFloat(OutlineAlphaCutoffId, Mathf.Clamp01(alphaCutoff));
+            context.cmd.SetGlobalColor(OutlineColorId, outlineColor);
+            context.cmd.SetGlobalInt(OutlineAlphaModeId, (int)alphaMode);
+            context.cmd.SetGlobalFloat(OutlineAlphaCutoffId, Mathf.Clamp01(alphaCutoff));
+            context.cmd.SetGlobalVector(OutlineMaskTextureStId, maskTextureSt);
             material.SetTexture(OutlineMaskTextureId, maskTexture);
-            material.SetVector(OutlineMaskTextureStId, maskTextureSt);
         }
 
         private static void ResolveMainTexture(
@@ -300,7 +339,23 @@ namespace FuzzPhyte.Utility
 
         private static void ExecuteBlit(BlitPassData data, RasterGraphContext context, int pass)
         {
+            data.Material.SetInteger(ThicknessId, data.Thickness);
+            data.Material.SetInteger(BlurId, data.Blur);
+            data.Material.SetInteger(MaxRadiusId, data.MaxRadius);
             Blitter.BlitTexture(context.cmd, data.Source, new Vector4(1f, 1f, 0f, 0f), data.Material, pass);
+        }
+
+        public struct OutlineRenderBatch
+        {
+            public Renderer[] Renderers;
+            public FPOutlineTarget[] Targets;
+            public Color DefaultOutlineColor;
+            public FPOutlineAlphaMode DefaultAlphaMode;
+            public float DefaultAlphaCutoff;
+            public Texture DefaultMaskTexture;
+            public int Thickness;
+            public int Blur;
+            public int MaxRadius;
         }
 
         private class RenderObjectsPassData
@@ -318,6 +373,9 @@ namespace FuzzPhyte.Utility
         {
             internal TextureHandle Source;
             internal Material Material;
+            internal int Thickness;
+            internal int Blur;
+            internal int MaxRadius;
         }
     }
 }

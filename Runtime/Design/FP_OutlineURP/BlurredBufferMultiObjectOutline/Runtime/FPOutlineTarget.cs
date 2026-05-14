@@ -11,6 +11,7 @@ namespace FuzzPhyte.Utility
     {
         [SerializeField] private bool includeChildren = true;
         [SerializeField] private Renderer[] explicitRenderers;
+        [SerializeField] private FPOutlineProfile outlineProfile;
         [SerializeField, ColorUsage(false, true)] private Color outlineColor = Color.cyan;
         [SerializeField] private FPOutlineAlphaMode alphaMode = FPOutlineAlphaMode.MeshSilhouette;
         [SerializeField, Range(0f, 1f)] private float alphaCutoff = 0.5f;
@@ -20,26 +21,32 @@ namespace FuzzPhyte.Utility
 
         public Color OutlineColor
         {
-            get => outlineColor;
+            get => outlineProfile ? outlineProfile.OutlineColor : outlineColor;
             set => outlineColor = value;
         }
 
         public FPOutlineAlphaMode AlphaMode
         {
-            get => alphaMode;
+            get => outlineProfile ? outlineProfile.AlphaMode : alphaMode;
             set => alphaMode = value;
         }
 
         public float AlphaCutoff
         {
-            get => alphaCutoff;
+            get => outlineProfile ? outlineProfile.AlphaCutoff : alphaCutoff;
             set => alphaCutoff = Mathf.Clamp01(value);
         }
 
         public Texture CustomMaskTexture
         {
-            get => customMaskTexture;
+            get => outlineProfile ? outlineProfile.CustomMaskTexture : customMaskTexture;
             set => customMaskTexture = value;
+        }
+
+        public FPOutlineProfile OutlineProfile
+        {
+            get => outlineProfile;
+            set => outlineProfile = value;
         }
 
         public bool IncludeChildren

@@ -12,10 +12,6 @@ namespace FuzzPhyte.Utility
     /// </summary>
     public class FPBlurredBufferMultiObjectOutlineRendererFeature : ScriptableRendererFeature
     {
-        private static readonly int ThicknessId = Shader.PropertyToID("_Thickness");
-        private static readonly int BlurId = Shader.PropertyToID("_Blur");
-        private static readonly int MaxRadiusId = Shader.PropertyToID("_MaxRadius");
-
         [SerializeField] private RenderPassEvent renderEvent = RenderPassEvent.AfterRenderingTransparents;
         [Space, SerializeField] private Material dilationMaterial;
         [SerializeField] private Material outlineMaterial;
@@ -34,6 +30,7 @@ namespace FuzzPhyte.Utility
         private Material _runtimeDilationMaterial;
         private Material _runtimeOutlineMaterial;
         private readonly List<FPOutlineTarget> _activeTargets = new List<FPOutlineTarget>();
+        private readonly List<OutlineTargetGroup> _targetGroups = new List<OutlineTargetGroup>();
 
         private Renderer[] _targetRenderers;
 
@@ -63,31 +60,73 @@ namespace FuzzPhyte.Utility
                 return;
             }
 
-            FPOutlineTarget[] targetSnapshot = null;
-            if (useRegisteredTargets)
+            BuildTargetGroups();
+
+            int batchCount = 0;
+            for (int i = 0; i < _targetGroups.Count; i++)
             {
-                FPOutlineRegistry.GetActiveTargets(_activeTargets);
-                if (_activeTargets.Count > 0)
-                    targetSnapshot = _activeTargets.ToArray();
+                if (_targetGroups[i].Targets.Count > 0)
+                    batchCount++;
             }
 
             bool hasManualRenderers = _targetRenderers != null && _targetRenderers.Length > 0;
-            if ((targetSnapshot == null || targetSnapshot.Length == 0) && !hasManualRenderers)
+            if (hasManualRenderers)
+                batchCount++;
+
+            if (batchCount == 0)
                 return;
+
+            var batches = new FPBlurredBufferMultiObjectOutlinePass.OutlineRenderBatch[batchCount];
+            int batchIndex = 0;
+            for (int i = 0; i < _targetGroups.Count; i++)
+            {
+                OutlineTargetGroup group = _targetGroups[i];
+                if (group.Targets.Count == 0)
+                    continue;
+
+                batches[batchIndex] = new FPBlurredBufferMultiObjectOutlinePass.OutlineRenderBatch
+                {
+                    Targets = group.Targets.ToArray(),
+                    DefaultOutlineColor = defaultOutlineColor,
+                    DefaultAlphaMode = defaultAlphaMode,
+                    DefaultAlphaCutoff = defaultAlphaCutoff,
+                    DefaultMaskTexture = defaultMaskTexture,
+                    Thickness = group.Thickness,
+                    Blur = group.Blur,
+                    MaxRadius = group.MaxRadius
+                };
+                batchIndex++;
+            }
+
+            if (hasManualRenderers)
+            {
+                batches[batchIndex] = new FPBlurredBufferMultiObjectOutlinePass.OutlineRenderBatch
+                {
+                    Renderers = _targetRenderers,
+                    DefaultOutlineColor = defaultOutlineColor,
+                    DefaultAlphaMode = defaultAlphaMode,
+                    DefaultAlphaCutoff = defaultAlphaCutoff,
+                    DefaultMaskTexture = defaultMaskTexture,
+                    Thickness = thickness,
+                    Blur = blur,
+                    MaxRadius = maxRadius
+                };
+            }
 
             // Any variables you may want to update every frame should be set here.
             _outlinePass.RenderEvent = renderEvent;
             _outlinePass.DilationMaterial = resolvedDilationMaterial;
-            resolvedDilationMaterial.SetInteger(ThicknessId, thickness);
-            resolvedDilationMaterial.SetInteger(BlurId, blur);
-            resolvedDilationMaterial.SetInteger(MaxRadiusId, maxRadius);
             _outlinePass.OutlineMaterial = resolvedOutlineMaterial;
             _outlinePass.Renderers = _targetRenderers;
-            _outlinePass.Targets = targetSnapshot;
+            _outlinePass.Targets = null;
+            _outlinePass.Batches = batches;
             _outlinePass.DefaultOutlineColor = defaultOutlineColor;
             _outlinePass.DefaultAlphaMode = defaultAlphaMode;
             _outlinePass.DefaultAlphaCutoff = defaultAlphaCutoff;
             _outlinePass.DefaultMaskTexture = defaultMaskTexture;
+            _outlinePass.DefaultThickness = thickness;
+            _outlinePass.DefaultBlur = blur;
+            _outlinePass.DefaultMaxRadius = maxRadius;
 
             renderer.EnqueuePass(_outlinePass);
         }
@@ -98,6 +137,19 @@ namespace FuzzPhyte.Utility
             CoreUtils.Destroy(_runtimeOutlineMaterial);
             _runtimeDilationMaterial = null;
             _runtimeOutlineMaterial = null;
+        }
+
+        private void BuildTargetGroups()
+        {
+            for (int i = 0; i < _targetGroups.Count; i++)
+                _targetGroups[i].Targets.Clear();
+
+            if (useRegisteredTargets)
+            {
+                FPOutlineRegistry.GetActiveTargets(_activeTargets);
+                for (int i = 0; i < _activeTargets.Count; i++)
+                    AddTargetToGroup(_activeTargets[i]);
+            }
         }
 
         private Material ResolveDilationMaterial()
@@ -120,6 +172,68 @@ namespace FuzzPhyte.Utility
                 _runtimeOutlineMaterial = CoreUtils.CreateEngineMaterial("FuzzPhyte/Outline Color And Stencil");
 
             return _runtimeOutlineMaterial;
+        }
+
+        private void AddTargetToGroup(FPOutlineTarget target)
+        {
+            if (!target)
+                return;
+
+            ResolveDilationSettings(target, out int targetThickness, out int targetBlur, out int targetMaxRadius);
+
+            for (int i = 0; i < _targetGroups.Count; i++)
+            {
+                OutlineTargetGroup group = _targetGroups[i];
+                if (group.Matches(targetThickness, targetBlur, targetMaxRadius))
+                {
+                    group.Targets.Add(target);
+                    return;
+                }
+            }
+
+            var newGroup = new OutlineTargetGroup(targetThickness, targetBlur, targetMaxRadius);
+            newGroup.Targets.Add(target);
+            _targetGroups.Add(newGroup);
+        }
+
+        private void ResolveDilationSettings(
+            FPOutlineTarget target,
+            out int targetThickness,
+            out int targetBlur,
+            out int targetMaxRadius)
+        {
+            FPOutlineProfile profile = target.OutlineProfile;
+            if (profile)
+            {
+                targetThickness = profile.Thickness;
+                targetBlur = profile.Blur;
+                targetMaxRadius = profile.MaxRadius;
+                return;
+            }
+
+            targetThickness = thickness;
+            targetBlur = blur;
+            targetMaxRadius = maxRadius;
+        }
+
+        private sealed class OutlineTargetGroup
+        {
+            public readonly int Thickness;
+            public readonly int Blur;
+            public readonly int MaxRadius;
+            public readonly List<FPOutlineTarget> Targets = new List<FPOutlineTarget>();
+
+            public OutlineTargetGroup(int thickness, int blur, int maxRadius)
+            {
+                Thickness = thickness;
+                Blur = blur;
+                MaxRadius = maxRadius;
+            }
+
+            public bool Matches(int thickness, int blur, int maxRadius)
+            {
+                return Thickness == thickness && Blur == blur && MaxRadius == maxRadius;
+            }
         }
     }
 }
