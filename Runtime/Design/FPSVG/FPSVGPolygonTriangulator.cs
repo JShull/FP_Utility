@@ -20,7 +20,8 @@ namespace FuzzPhyte.Utility
             List<string> warnings = null,
             string regionId = null,
             bool optimizeTriangles = false,
-            int optimizationPasses = 8)
+            int optimizationPasses = 8,
+            bool useZOrderEarSearch = false)
         {
             var triangulation = new FPSVGTriangulation();
             if (outerLoop == null || outerLoop.Count < 3)
@@ -52,7 +53,7 @@ namespace FuzzPhyte.Utility
             }
 
             triangulation.Vertices.AddRange(polygon);
-            EarClip(polygon, triangulation.Triangles, warnings, regionId);
+            EarClip(polygon, triangulation.Triangles, warnings, regionId, useZOrderEarSearch);
             if (optimizeTriangles && triangulation.Triangles.Count >= 6)
             {
                 OptimizeInternalEdges(polygon, triangulation.Triangles, Mathf.Max(0, optimizationPasses));
@@ -182,14 +183,22 @@ namespace FuzzPhyte.Utility
             return false;
         }
 
-        private static void EarClip(IReadOnlyList<Vector2> polygon, List<int> triangles, List<string> warnings, string regionId)
+        private static void EarClip(
+            IReadOnlyList<Vector2> polygon,
+            List<int> triangles,
+            List<string> warnings,
+            string regionId,
+            bool useZOrderEarSearch)
         {
             var indices = new List<int>(polygon.Count);
+            bool[] active = new bool[polygon.Count];
             for (int i = 0; i < polygon.Count; i++)
             {
                 indices.Add(i);
+                active[i] = true;
             }
 
+            ZOrderIndex zOrderIndex = useZOrderEarSearch ? new ZOrderIndex(polygon) : null;
             int guard = polygon.Count * polygon.Count;
             while (indices.Count > 3 && guard-- > 0)
             {
@@ -200,7 +209,7 @@ namespace FuzzPhyte.Utility
                     int currentIndex = indices[i];
                     int nextIndex = indices[(i + 1) % indices.Count];
 
-                    if (!IsEar(previousIndex, currentIndex, nextIndex, polygon, indices))
+                    if (!IsEar(previousIndex, currentIndex, nextIndex, polygon, indices, active, zOrderIndex))
                     {
                         continue;
                     }
@@ -208,6 +217,7 @@ namespace FuzzPhyte.Utility
                     triangles.Add(previousIndex);
                     triangles.Add(currentIndex);
                     triangles.Add(nextIndex);
+                    active[currentIndex] = false;
                     indices.RemoveAt(i);
                     clipped = true;
                     break;
@@ -234,7 +244,14 @@ namespace FuzzPhyte.Utility
             }
         }
 
-        private static bool IsEar(int previousIndex, int currentIndex, int nextIndex, IReadOnlyList<Vector2> polygon, IReadOnlyList<int> liveIndices)
+        private static bool IsEar(
+            int previousIndex,
+            int currentIndex,
+            int nextIndex,
+            IReadOnlyList<Vector2> polygon,
+            IReadOnlyList<int> liveIndices,
+            bool[] active,
+            ZOrderIndex zOrderIndex)
         {
             Vector2 previous = polygon[previousIndex];
             Vector2 current = polygon[currentIndex];
@@ -244,23 +261,33 @@ namespace FuzzPhyte.Utility
                 return false;
             }
 
-            for (int i = 0; i < liveIndices.Count; i++)
+            if (zOrderIndex != null)
             {
-                int testIndex = liveIndices[i];
-                if (testIndex == previousIndex || testIndex == currentIndex || testIndex == nextIndex)
-                {
-                    continue;
-                }
-
-                Vector2 point = polygon[testIndex];
-                if (SamePoint(point, previous) || SamePoint(point, current) || SamePoint(point, next))
-                {
-                    continue;
-                }
-
-                if (PointInTriangle(point, previous, current, next))
+                if (ContainsAnyPointInTriangle(previous, current, next, polygon, active, previousIndex, currentIndex, nextIndex, zOrderIndex))
                 {
                     return false;
+                }
+            }
+            else
+            {
+                for (int i = 0; i < liveIndices.Count; i++)
+                {
+                    int testIndex = liveIndices[i];
+                    if (testIndex == previousIndex || testIndex == currentIndex || testIndex == nextIndex)
+                    {
+                        continue;
+                    }
+
+                    Vector2 point = polygon[testIndex];
+                    if (SamePoint(point, previous) || SamePoint(point, current) || SamePoint(point, next))
+                    {
+                        continue;
+                    }
+
+                    if (PointInTriangle(point, previous, current, next))
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -281,6 +308,46 @@ namespace FuzzPhyte.Utility
             }
 
             return true;
+        }
+
+        private static bool ContainsAnyPointInTriangle(
+            Vector2 a,
+            Vector2 b,
+            Vector2 c,
+            IReadOnlyList<Vector2> polygon,
+            bool[] active,
+            int aIndex,
+            int bIndex,
+            int cIndex,
+            ZOrderIndex zOrderIndex)
+        {
+            Rect bounds = Rect.MinMaxRect(
+                Mathf.Min(a.x, Mathf.Min(b.x, c.x)),
+                Mathf.Min(a.y, Mathf.Min(b.y, c.y)),
+                Mathf.Max(a.x, Mathf.Max(b.x, c.x)),
+                Mathf.Max(a.y, Mathf.Max(b.y, c.y)));
+            List<int> candidates = zOrderIndex.Query(bounds);
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                int testIndex = candidates[i];
+                if (!active[testIndex] || testIndex == aIndex || testIndex == bIndex || testIndex == cIndex)
+                {
+                    continue;
+                }
+
+                Vector2 point = polygon[testIndex];
+                if (SamePoint(point, a) || SamePoint(point, b) || SamePoint(point, c))
+                {
+                    continue;
+                }
+
+                if (PointInTriangle(point, a, b, c))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static float Cross(Vector2 a, Vector2 b, Vector2 c)
@@ -484,6 +551,143 @@ namespace FuzzPhyte.Utility
                 B = b;
                 Opposite = opposite;
                 TriangleStart = triangleStart;
+            }
+        }
+
+        private sealed class ZOrderIndex
+        {
+            private const int QuantizationMax = 65535;
+            private readonly List<ZOrderEntry> entries = new List<ZOrderEntry>();
+            private readonly IReadOnlyList<Vector2> points;
+            private readonly Rect bounds;
+
+            public ZOrderIndex(IReadOnlyList<Vector2> points)
+            {
+                this.points = points;
+                bounds = CalculateBounds(points);
+                for (int i = 0; i < points.Count; i++)
+                {
+                    entries.Add(new ZOrderEntry(i, MortonCode(points[i])));
+                }
+
+                entries.Sort((a, b) => a.Code.CompareTo(b.Code));
+            }
+
+            public List<int> Query(Rect queryBounds)
+            {
+                uint minCode = MortonCode(new Vector2(queryBounds.xMin, queryBounds.yMin));
+                uint maxCode = MortonCode(new Vector2(queryBounds.xMax, queryBounds.yMax));
+                if (minCode > maxCode)
+                {
+                    uint swap = minCode;
+                    minCode = maxCode;
+                    maxCode = swap;
+                }
+
+                int start = LowerBound(minCode);
+                var candidates = new List<int>();
+                for (int i = start; i < entries.Count && entries[i].Code <= maxCode; i++)
+                {
+                    Vector2 point = points[entries[i].Index];
+                    if (point.x >= queryBounds.xMin - Epsilon &&
+                        point.x <= queryBounds.xMax + Epsilon &&
+                        point.y >= queryBounds.yMin - Epsilon &&
+                        point.y <= queryBounds.yMax + Epsilon)
+                    {
+                        candidates.Add(entries[i].Index);
+                    }
+                }
+
+                return candidates;
+            }
+
+            private int LowerBound(uint code)
+            {
+                int low = 0;
+                int high = entries.Count;
+                while (low < high)
+                {
+                    int mid = (low + high) >> 1;
+                    if (entries[mid].Code < code)
+                    {
+                        low = mid + 1;
+                    }
+                    else
+                    {
+                        high = mid;
+                    }
+                }
+
+                return low;
+            }
+
+            private uint MortonCode(Vector2 point)
+            {
+                ushort x = Quantize(point.x, bounds.xMin, bounds.xMax);
+                ushort y = Quantize(point.y, bounds.yMin, bounds.yMax);
+                return InterleaveBits(x, y);
+            }
+
+            private static ushort Quantize(float value, float min, float max)
+            {
+                if (Mathf.Abs(max - min) <= Epsilon)
+                {
+                    return 0;
+                }
+
+                return (ushort)Mathf.Clamp(Mathf.RoundToInt(Mathf.InverseLerp(min, max, value) * QuantizationMax), 0, QuantizationMax);
+            }
+
+            private static uint InterleaveBits(ushort x, ushort y)
+            {
+                uint xx = Part1By1(x);
+                uint yy = Part1By1(y);
+                return xx | (yy << 1);
+            }
+
+            private static uint Part1By1(uint value)
+            {
+                value &= 0x0000ffff;
+                value = (value | (value << 8)) & 0x00FF00FF;
+                value = (value | (value << 4)) & 0x0F0F0F0F;
+                value = (value | (value << 2)) & 0x33333333;
+                value = (value | (value << 1)) & 0x55555555;
+                return value;
+            }
+
+            private static Rect CalculateBounds(IReadOnlyList<Vector2> points)
+            {
+                if (points == null || points.Count == 0)
+                {
+                    return new Rect(0f, 0f, 1f, 1f);
+                }
+
+                float minX = points[0].x;
+                float minY = points[0].y;
+                float maxX = points[0].x;
+                float maxY = points[0].y;
+                for (int i = 1; i < points.Count; i++)
+                {
+                    Vector2 point = points[i];
+                    minX = Mathf.Min(minX, point.x);
+                    minY = Mathf.Min(minY, point.y);
+                    maxX = Mathf.Max(maxX, point.x);
+                    maxY = Mathf.Max(maxY, point.y);
+                }
+
+                return Rect.MinMaxRect(minX, minY, maxX, maxY);
+            }
+        }
+
+        private readonly struct ZOrderEntry
+        {
+            public readonly int Index;
+            public readonly uint Code;
+
+            public ZOrderEntry(int index, uint code)
+            {
+                Index = index;
+                Code = code;
             }
         }
     }

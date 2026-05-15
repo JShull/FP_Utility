@@ -65,7 +65,17 @@ Use `fill="none"` or transparent fill opacity when a region should start unselec
 
 ## Mesh Cleanup Controls
 
+- Triangulation Backend chooses which top/bottom surface tessellator to use.
+  - Custom Ear Clipping uses the in-repo polygon triangulator and is always available.
+  - Unity Vector Graphics uses `com.unity.vectorgraphics` through reflection when that package is installed, then falls back to Custom Ear Clipping if the API is unavailable or the region fails to tessellate.
 - Path Sample Distance controls how densely curves are sampled from SVG paths.
 - Simplify Tolerance removes tiny boundary detail after SVG coordinates are scaled into Unity space.
 - Collinear Tolerance removes points that are nearly on the same straight edge.
 - Optimize Triangles runs a local edge-flip pass to reduce long skinny surface triangles where possible.
+- Use Z-Order Ear Search uses Morton/z-order hashing to reduce the number of candidate vertices checked during ear clipping. This is mainly a performance option for dense SVGs, not a visual-quality option.
+
+## Unity Vector Graphics Backend
+
+The Unity Vector Graphics backend is experimental. The project must have the separate `com.unity.vectorgraphics` package installed; Unity's built-in `com.unity.modules.vectorgraphics` module alone does not expose the required `Unity.VectorGraphics.SVGParser` and `VectorUtils` APIs.
+
+When this backend is selected, each included region is converted into a temporary in-memory SVG path with `fill-rule="evenodd"`. Unity tessellates that temporary path for the top and bottom surfaces. FP Utility still builds the extrusion, side walls, UVs, normals, mesh asset, and optional scene object.

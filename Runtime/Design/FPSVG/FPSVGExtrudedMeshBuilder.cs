@@ -109,13 +109,7 @@ namespace FuzzPhyte.Utility
             List<int> triangles,
             FPSVGMeshBuildReport report)
         {
-            FPSVGTriangulation triangulation = FPSVGPolygonTriangulator.Triangulate(
-                outer,
-                holes,
-                report.Warnings,
-                regionId,
-                settings.OptimizeSurfaceTriangulation,
-                settings.SurfaceOptimizationPasses);
+            FPSVGTriangulation triangulation = TriangulateRegion(regionId, outer, holes, settings, report);
             if (triangulation.Triangles.Count == 0)
             {
                 report.Warnings.Add($"Region '{regionId}' did not generate top or bottom surface triangles.");
@@ -157,6 +151,33 @@ namespace FuzzPhyte.Utility
             }
 
             return triangulation.BridgedHoleIndices;
+        }
+
+        private static FPSVGTriangulation TriangulateRegion(
+            string regionId,
+            List<Vector2> outer,
+            List<List<Vector2>> holes,
+            FPSVGExtruderSettings settings,
+            FPSVGMeshBuildReport report)
+        {
+            if (settings.TriangulationBackend == FPSVGTriangulationBackend.UnityVectorGraphics)
+            {
+                if (FPSVGUnityVectorGraphicsTriangulator.TryTriangulate(outer, holes, settings, out FPSVGTriangulation unityTriangulation, out string message))
+                {
+                    return unityTriangulation;
+                }
+
+                report.Warnings.Add($"Region '{regionId}' could not use Unity Vector Graphics triangulation ({message}). Falling back to custom ear clipping.");
+            }
+
+            return FPSVGPolygonTriangulator.Triangulate(
+                outer,
+                holes,
+                report.Warnings,
+                regionId,
+                settings.OptimizeSurfaceTriangulation,
+                settings.SurfaceOptimizationPasses,
+                settings.UseZOrderEarSearch);
         }
 
         private static void AddSideWalls(

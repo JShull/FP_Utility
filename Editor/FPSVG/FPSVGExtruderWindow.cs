@@ -215,6 +215,12 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.LabelField("Mesh Settings", EditorStyles.boldLabel);
             settings.Scale = EditorGUILayout.FloatField("Scale", settings.Scale);
             settings.ExtrusionDepth = EditorGUILayout.FloatField("Extrusion Depth", settings.ExtrusionDepth);
+            settings.TriangulationBackend = (FPSVGTriangulationBackend)EditorGUILayout.EnumPopup("Triangulation Backend", settings.TriangulationBackend);
+            if (settings.TriangulationBackend == FPSVGTriangulationBackend.UnityVectorGraphics && !FPSVGUnityVectorGraphicsTriangulator.IsAvailable)
+            {
+                EditorGUILayout.HelpBox(FPSVGUnityVectorGraphicsTriangulator.UnavailableReason, MessageType.Info);
+            }
+
             settings.PathSampleDistance = EditorGUILayout.FloatField("Path Sample Distance", settings.PathSampleDistance);
             settings.BoundarySimplifyTolerance = EditorGUILayout.FloatField("Simplify Tolerance", settings.BoundarySimplifyTolerance);
             settings.CollinearTolerance = EditorGUILayout.FloatField("Collinear Tolerance", settings.CollinearTolerance);
@@ -224,6 +230,7 @@ namespace FuzzPhyte.Utility.Editor
                 settings.SurfaceOptimizationPasses = EditorGUILayout.IntSlider("Optimize Passes", settings.SurfaceOptimizationPasses, 0, 32);
             }
 
+            settings.UseZOrderEarSearch = EditorGUILayout.Toggle("Use Z-Order Ear Search", settings.UseZOrderEarSearch);
             settings.CenterPivot = EditorGUILayout.Toggle("Center Pivot", settings.CenterPivot);
             settings.GenerateDoubleSided = EditorGUILayout.Toggle("Generate Double Sided", settings.GenerateDoubleSided);
             settings.RecalculateNormals = EditorGUILayout.Toggle("Recalculate Normals", settings.RecalculateNormals);
