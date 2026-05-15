@@ -6,11 +6,12 @@ namespace FuzzPhyte.Utility.Editor
 
     public static class FPSVGMeshAssetUtility
     {
-        public static Mesh SaveMeshAsset(Mesh mesh, string outputFolder, string meshName)
+        public static Mesh SaveMeshAsset(Mesh mesh, string outputFolder, string meshName, out string message)
         {
+            message = string.Empty;
             if (mesh == null)
             {
-                Debug.LogError("[FP SVG Extruder] No mesh was generated to save.");
+                message = "No mesh was generated to save.";
                 return null;
             }
 
@@ -34,18 +35,18 @@ namespace FuzzPhyte.Utility.Editor
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[FP SVG Extruder] Mesh asset could not be saved: {ex.Message}");
+                message = $"Mesh asset could not be saved: {ex.Message}";
                 return null;
             }
 
             Mesh savedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
             if (savedMesh == null)
             {
-                Debug.LogError($"[FP SVG Extruder] Mesh asset could not be loaded after save: {path}");
+                message = $"Mesh asset could not be loaded after save: {path}";
                 return null;
             }
 
-            Debug.Log($"[FP SVG Extruder] Mesh saved to {path}");
+            message = $"Mesh saved to {path}";
             return savedMesh;
         }
 

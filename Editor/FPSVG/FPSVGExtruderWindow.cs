@@ -514,11 +514,18 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            Mesh savedMesh = FPSVGMeshAssetUtility.SaveMeshAsset(mesh, safeSettings.OutputFolder, safeSettings.OutputMeshName);
+            Mesh savedMesh = FPSVGMeshAssetUtility.SaveMeshAsset(mesh, safeSettings.OutputFolder, safeSettings.OutputMeshName, out string saveMessage);
             if (savedMesh == null)
             {
-                errors.Add("Mesh generation succeeded, but saving the mesh asset failed.");
+                errors.Add(string.IsNullOrWhiteSpace(saveMessage)
+                    ? "Mesh generation succeeded, but saving the mesh asset failed."
+                    : saveMessage);
                 return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(saveMessage))
+            {
+                warnings.Add(saveMessage);
             }
 
             if (createSceneObject)
@@ -553,9 +560,7 @@ namespace FuzzPhyte.Utility.Editor
                 meshCollider.sharedMesh = mesh;
             }
 
-            Selection.activeGameObject = go;
-            EditorGUIUtility.PingObject(go);
-            FP_Utility_Editor.FocusOnObject(go);
+            warnings.Add($"Scene object created: {go.name}");
         }
 
         private void SetAllRegionsIncluded(bool included)
