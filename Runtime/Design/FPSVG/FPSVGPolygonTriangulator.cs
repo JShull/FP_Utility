@@ -7,6 +7,7 @@ namespace FuzzPhyte.Utility
     {
         public readonly List<Vector2> Vertices = new List<Vector2>();
         public readonly List<int> Triangles = new List<int>();
+        public readonly List<int> BridgedHoleIndices = new List<int>();
     }
 
     public static class FPSVGPolygonTriangulator
@@ -37,7 +38,11 @@ namespace FuzzPhyte.Utility
                         continue;
                     }
 
-                    if (!TryBridgeHole(ref polygon, hole))
+                    if (TryBridgeHole(ref polygon, hole))
+                    {
+                        triangulation.BridgedHoleIndices.Add(i);
+                    }
+                    else
                     {
                         warnings?.Add($"Region '{regionId}' hole {i} could not be bridged for triangulation and was skipped.");
                     }

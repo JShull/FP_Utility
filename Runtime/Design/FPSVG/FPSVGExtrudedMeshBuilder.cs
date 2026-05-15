@@ -38,11 +38,20 @@ namespace FuzzPhyte.Utility
                     holes.Add(ToMeshLoop(source.Holes[h], safeSettings.Scale, pivotOffset));
                 }
 
-                AddRegionSurfaces(source.Id, outer, holes, safeSettings.ExtrusionDepth, bounds, pivotOffset, vertices, normals, uvs, triangles, report);
-                AddSideWalls(EnsureWinding(outer, true), safeSettings.ExtrusionDepth, bounds, pivotOffset, vertices, normals, uvs, triangles);
-                for (int h = 0; h < holes.Count; h++)
+                List<int> bridgedHoleIndices = AddRegionSurfaces(source.Id, outer, holes, safeSettings.ExtrusionDepth, bounds, pivotOffset, vertices, normals, uvs, triangles, report);
+                if (bridgedHoleIndices == null)
                 {
-                    AddSideWalls(EnsureWinding(holes[h], false), safeSettings.ExtrusionDepth, bounds, pivotOffset, vertices, normals, uvs, triangles);
+                    continue;
+                }
+
+                AddSideWalls(EnsureWinding(outer, true), safeSettings.ExtrusionDepth, bounds, pivotOffset, vertices, normals, uvs, triangles);
+                for (int h = 0; h < bridgedHoleIndices.Count; h++)
+                {
+                    int holeIndex = bridgedHoleIndices[h];
+                    if (holeIndex >= 0 && holeIndex < holes.Count)
+                    {
+                        AddSideWalls(EnsureWinding(holes[holeIndex], false), safeSettings.ExtrusionDepth, bounds, pivotOffset, vertices, normals, uvs, triangles);
+                    }
                 }
             }
 
@@ -87,7 +96,7 @@ namespace FuzzPhyte.Utility
             return mesh;
         }
 
-        private static void AddRegionSurfaces(
+        private static List<int> AddRegionSurfaces(
             string regionId,
             List<Vector2> outer,
             List<List<Vector2>> holes,
@@ -104,7 +113,7 @@ namespace FuzzPhyte.Utility
             if (triangulation.Triangles.Count == 0)
             {
                 report.Warnings.Add($"Region '{regionId}' did not generate top or bottom surface triangles.");
-                return;
+                return null;
             }
 
             float halfDepth = depth * 0.5f;
@@ -132,14 +141,16 @@ namespace FuzzPhyte.Utility
                 int b = triangulation.Triangles[i + 1];
                 int c = triangulation.Triangles[i + 2];
 
-                triangles.Add(topStart + a);
-                triangles.Add(topStart + b);
                 triangles.Add(topStart + c);
+                triangles.Add(topStart + b);
+                triangles.Add(topStart + a);
 
-                triangles.Add(bottomStart + c);
-                triangles.Add(bottomStart + b);
                 triangles.Add(bottomStart + a);
+                triangles.Add(bottomStart + b);
+                triangles.Add(bottomStart + c);
             }
+
+            return triangulation.BridgedHoleIndices;
         }
 
         private static void AddSideWalls(

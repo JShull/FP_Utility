@@ -16,6 +16,7 @@ namespace FuzzPhyte.Utility.Editor
             IReadOnlyList<FPSVGRegion> regions,
             Rect svgBounds,
             Color labelColor,
+            Color selectionColor,
             out int clickedRegionIndex)
         {
             clickedRegionIndex = -1;
@@ -29,7 +30,7 @@ namespace FuzzPhyte.Utility.Editor
 
             PreviewTransform transform = PreviewTransform.Create(rect, svgBounds);
             Handles.BeginGUI();
-            DrawSelectedFills(regions, transform, BuildSignature(regions));
+            DrawSelectedFills(regions, transform, BuildSignature(regions, selectionColor), selectionColor);
             DrawOutlines(regions, transform, labelColor);
             Handles.EndGUI();
 
@@ -48,19 +49,17 @@ namespace FuzzPhyte.Utility.Editor
             return false;
         }
 
-        private static void DrawSelectedFills(IReadOnlyList<FPSVGRegion> regions, PreviewTransform transform, int signature)
+        private static void DrawSelectedFills(IReadOnlyList<FPSVGRegion> regions, PreviewTransform transform, int signature, Color selectionColor)
         {
             if (signature != cachedSignature)
             {
-                RebuildFillCache(regions, signature);
+                RebuildFillCache(regions, signature, selectionColor);
             }
-
-            Color fill = new Color(FP_Utility_Editor.OkayColor.r, FP_Utility_Editor.OkayColor.g, FP_Utility_Editor.OkayColor.b, 0.24f);
-            Handles.color = fill;
 
             for (int i = 0; i < CachedTriangles.Count; i++)
             {
                 PreviewTriangle triangle = CachedTriangles[i];
+                Handles.color = triangle.FillColor;
                 Handles.DrawAAConvexPolygon(
                     transform.SvgToGui(triangle.A),
                     transform.SvgToGui(triangle.B),
@@ -68,7 +67,7 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        private static void RebuildFillCache(IReadOnlyList<FPSVGRegion> regions, int signature)
+        private static void RebuildFillCache(IReadOnlyList<FPSVGRegion> regions, int signature, Color selectionColor)
         {
             CachedTriangles.Clear();
             cachedSignature = signature;
@@ -77,6 +76,9 @@ namespace FuzzPhyte.Utility.Editor
             for (int i = 0; i < solids.Count; i++)
             {
                 FPSVGRegion solid = solids[i];
+                Color previewFill = solid.HasFillColor
+                    ? new Color(solid.FillColor.r, solid.FillColor.g, solid.FillColor.b, Mathf.Clamp(solid.FillColor.a, 0.18f, 0.38f))
+                    : new Color(selectionColor.r, selectionColor.g, selectionColor.b, Mathf.Clamp(selectionColor.a, 0.18f, 0.38f));
                 List<Vector2> outer = FlipSvgY(solid.OuterLoop);
                 var holes = new List<List<Vector2>>();
                 for (int h = 0; h < solid.Holes.Count; h++)
@@ -90,7 +92,7 @@ namespace FuzzPhyte.Utility.Editor
                     Vector2 a = UnflipSvgY(triangulation.Vertices[triangulation.Triangles[t]]);
                     Vector2 b = UnflipSvgY(triangulation.Vertices[triangulation.Triangles[t + 1]]);
                     Vector2 c = UnflipSvgY(triangulation.Vertices[triangulation.Triangles[t + 2]]);
-                    CachedTriangles.Add(new PreviewTriangle(a, b, c));
+                    CachedTriangles.Add(new PreviewTriangle(a, b, c, previewFill));
                 }
             }
         }
@@ -151,11 +153,15 @@ namespace FuzzPhyte.Utility.Editor
             return new Vector2(point.x, -point.y);
         }
 
-        private static int BuildSignature(IReadOnlyList<FPSVGRegion> regions)
+        private static int BuildSignature(IReadOnlyList<FPSVGRegion> regions, Color selectionColor)
         {
             unchecked
             {
                 int hash = 17;
+                hash = (hash * 31) + Mathf.RoundToInt(selectionColor.r * 255f);
+                hash = (hash * 31) + Mathf.RoundToInt(selectionColor.g * 255f);
+                hash = (hash * 31) + Mathf.RoundToInt(selectionColor.b * 255f);
+                hash = (hash * 31) + Mathf.RoundToInt(selectionColor.a * 255f);
                 if (regions == null)
                 {
                     return hash;
@@ -166,6 +172,11 @@ namespace FuzzPhyte.Utility.Editor
                 {
                     FPSVGRegion region = regions[r];
                     hash = (hash * 31) + (region.Included ? 1 : 0);
+                    hash = (hash * 31) + (region.HasFillColor ? 1 : 0);
+                    hash = (hash * 31) + Mathf.RoundToInt(region.FillColor.r * 255f);
+                    hash = (hash * 31) + Mathf.RoundToInt(region.FillColor.g * 255f);
+                    hash = (hash * 31) + Mathf.RoundToInt(region.FillColor.b * 255f);
+                    hash = (hash * 31) + Mathf.RoundToInt(region.FillColor.a * 255f);
                     hash = AddLoopToHash(hash, region.OuterLoop);
                 }
 
@@ -210,12 +221,14 @@ namespace FuzzPhyte.Utility.Editor
             public readonly Vector2 A;
             public readonly Vector2 B;
             public readonly Vector2 C;
+            public readonly Color FillColor;
 
-            public PreviewTriangle(Vector2 a, Vector2 b, Vector2 c)
+            public PreviewTriangle(Vector2 a, Vector2 b, Vector2 c, Color fillColor)
             {
                 A = a;
                 B = b;
                 C = c;
+                FillColor = fillColor;
             }
         }
 

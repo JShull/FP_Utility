@@ -11,6 +11,10 @@ namespace FuzzPhyte.Utility
         public List<Vector2> OuterLoop = new List<Vector2>();
         public List<List<Vector2>> Holes = new List<List<Vector2>>();
         public bool Included;
+        public bool HasFillColor;
+        public Color FillColor = Color.clear;
+        public bool HasStrokeColor;
+        public Color StrokeColor = Color.clear;
 
         public FPSVGRegion()
         {
@@ -31,7 +35,11 @@ namespace FuzzPhyte.Utility
                 Id = Id,
                 OuterLoop = new List<Vector2>(OuterLoop),
                 Holes = new List<List<Vector2>>(),
-                Included = Included
+                Included = Included,
+                HasFillColor = HasFillColor,
+                FillColor = FillColor,
+                HasStrokeColor = HasStrokeColor,
+                StrokeColor = StrokeColor
             };
         }
     }

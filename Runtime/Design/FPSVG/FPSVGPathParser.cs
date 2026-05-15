@@ -38,6 +38,7 @@ namespace FuzzPhyte.Utility
                 return result;
             }
 
+            Dictionary<string, Dictionary<string, string>> styleClasses = ReadStyleClasses(document);
             int generatedId = 0;
             foreach (XElement element in document.Descendants())
             {
@@ -48,6 +49,7 @@ namespace FuzzPhyte.Utility
                     id = $"{localName}_{generatedId++}";
                 }
 
+                SVGPaintInfo paintInfo = ReadPaintInfo(element, styleClasses);
                 if (!string.IsNullOrWhiteSpace(GetAttribute(element, "transform")))
                 {
                     result.Warnings.Add($"Element '{id}' has a transform. This first SVG extruder pass reads raw geometry and does not apply SVG transforms.");
@@ -58,20 +60,20 @@ namespace FuzzPhyte.Utility
                     switch (localName)
                     {
                         case "path":
-                            ParsePathElement(element, id, pathSampleDistance, result);
+                            ParsePathElement(element, id, pathSampleDistance, paintInfo, result);
                             break;
                         case "polygon":
-                            AddPointListRegion(element, id, true, result);
+                            AddPointListRegion(element, id, true, paintInfo, result);
                             break;
                         case "polyline":
-                            AddPointListRegion(element, id, false, result);
+                            AddPointListRegion(element, id, false, paintInfo, result);
                             break;
                         case "rect":
-                            AddRectRegion(element, id, result);
+                            AddRectRegion(element, id, paintInfo, result);
                             break;
                         case "circle":
                         case "ellipse":
-                            AddEllipseRegion(element, id, pathSampleDistance, result);
+                            AddEllipseRegion(element, id, pathSampleDistance, paintInfo, result);
                             break;
                     }
                 }
@@ -91,7 +93,7 @@ namespace FuzzPhyte.Utility
             return result;
         }
 
-        private static void ParsePathElement(XElement element, string id, float sampleDistance, FPSVGParseResult result)
+        private static void ParsePathElement(XElement element, string id, float sampleDistance, SVGPaintInfo paintInfo, FPSVGParseResult result)
         {
             string data = GetAttribute(element, "d");
             if (string.IsNullOrWhiteSpace(data))
@@ -111,11 +113,11 @@ namespace FuzzPhyte.Utility
                     continue;
                 }
 
-                result.Regions.Add(new FPSVGRegion($"{id}_{i}", loop));
+                result.Regions.Add(CreateRegion($"{id}_{i}", loop, paintInfo));
             }
         }
 
-        private static void AddPointListRegion(XElement element, string id, bool requireClosed, FPSVGParseResult result)
+        private static void AddPointListRegion(XElement element, string id, bool requireClosed, SVGPaintInfo paintInfo, FPSVGParseResult result)
         {
             string points = GetAttribute(element, "points");
             if (string.IsNullOrWhiteSpace(points))
@@ -140,7 +142,7 @@ namespace FuzzPhyte.Utility
             loop = CleanLoop(loop);
             if (loop.Count >= 3 && requireClosed)
             {
-                result.Regions.Add(new FPSVGRegion(id, loop));
+                result.Regions.Add(CreateRegion(id, loop, paintInfo));
             }
             else if (!requireClosed)
             {
@@ -148,7 +150,7 @@ namespace FuzzPhyte.Utility
             }
         }
 
-        private static void AddRectRegion(XElement element, string id, FPSVGParseResult result)
+        private static void AddRectRegion(XElement element, string id, SVGPaintInfo paintInfo, FPSVGParseResult result)
         {
             float x = ReadFloat(GetAttribute(element, "x"), 0f);
             float y = ReadFloat(GetAttribute(element, "y"), 0f);
@@ -160,16 +162,16 @@ namespace FuzzPhyte.Utility
                 return;
             }
 
-            result.Regions.Add(new FPSVGRegion(id, new List<Vector2>
+            result.Regions.Add(CreateRegion(id, new List<Vector2>
             {
                 new Vector2(x, y),
                 new Vector2(x + width, y),
                 new Vector2(x + width, y + height),
                 new Vector2(x, y + height)
-            }));
+            }, paintInfo));
         }
 
-        private static void AddEllipseRegion(XElement element, string id, float sampleDistance, FPSVGParseResult result)
+        private static void AddEllipseRegion(XElement element, string id, float sampleDistance, SVGPaintInfo paintInfo, FPSVGParseResult result)
         {
             bool circle = element.Name.LocalName == "circle";
             float cx = ReadFloat(GetAttribute(element, "cx"), 0f);
@@ -190,7 +192,19 @@ namespace FuzzPhyte.Utility
                 loop.Add(new Vector2(cx + Mathf.Cos(angle) * rx, cy + Mathf.Sin(angle) * ry));
             }
 
-            result.Regions.Add(new FPSVGRegion(id, loop));
+            result.Regions.Add(CreateRegion(id, loop, paintInfo));
+        }
+
+        private static FPSVGRegion CreateRegion(string id, List<Vector2> loop, SVGPaintInfo paintInfo)
+        {
+            return new FPSVGRegion(id, loop)
+            {
+                Included = paintInfo.HasFillColor,
+                HasFillColor = paintInfo.HasFillColor,
+                FillColor = paintInfo.FillColor,
+                HasStrokeColor = paintInfo.HasStrokeColor,
+                StrokeColor = paintInfo.StrokeColor
+            };
         }
 
         private static void CleanupRegions(FPSVGParseResult result)
@@ -283,6 +297,340 @@ namespace FuzzPhyte.Utility
             return attribute == null ? string.Empty : attribute.Value;
         }
 
+        private static SVGPaintInfo ReadPaintInfo(XElement element, IReadOnlyDictionary<string, Dictionary<string, string>> styleClasses)
+        {
+            var paintInfo = new SVGPaintInfo();
+            string fill = GetInheritedPresentationValue(element, "fill", styleClasses);
+            string stroke = GetInheritedPresentationValue(element, "stroke", styleClasses);
+            float opacity = ReadOpacity(GetInheritedPresentationValue(element, "opacity", styleClasses), 1f);
+            float fillOpacity = ReadOpacity(GetInheritedPresentationValue(element, "fill-opacity", styleClasses), 1f);
+            float strokeOpacity = ReadOpacity(GetInheritedPresentationValue(element, "stroke-opacity", styleClasses), 1f);
+
+            if (TryReadColor(fill, opacity * fillOpacity, out Color fillColor))
+            {
+                paintInfo.HasFillColor = true;
+                paintInfo.FillColor = fillColor;
+            }
+
+            if (TryReadColor(stroke, opacity * strokeOpacity, out Color strokeColor))
+            {
+                paintInfo.HasStrokeColor = true;
+                paintInfo.StrokeColor = strokeColor;
+            }
+
+            return paintInfo;
+        }
+
+        private static string GetInheritedPresentationValue(
+            XElement element,
+            string property,
+            IReadOnlyDictionary<string, Dictionary<string, string>> styleClasses)
+        {
+            for (XElement current = element; current != null; current = current.Parent)
+            {
+                string styleValue = GetStyleValue(GetAttribute(current, "style"), property);
+                if (!string.IsNullOrWhiteSpace(styleValue))
+                {
+                    return styleValue.Trim();
+                }
+
+                string directValue = GetAttribute(current, property);
+                if (!string.IsNullOrWhiteSpace(directValue))
+                {
+                    return directValue.Trim();
+                }
+
+                string classValue = GetClassStyleValue(current, property, styleClasses);
+                if (!string.IsNullOrWhiteSpace(classValue))
+                {
+                    return classValue.Trim();
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static Dictionary<string, Dictionary<string, string>> ReadStyleClasses(XDocument document)
+        {
+            var styleClasses = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+            if (document == null)
+            {
+                return styleClasses;
+            }
+
+            foreach (XElement styleElement in document.Descendants().Where(element => element.Name.LocalName == "style"))
+            {
+                string css = styleElement.Value;
+                foreach (Match match in Regex.Matches(css, @"\.([A-Za-z_][\w-]*)\s*\{([^}]*)\}", RegexOptions.Singleline))
+                {
+                    string className = match.Groups[1].Value.Trim();
+                    Dictionary<string, string> declarations = ParseStyleDeclarations(match.Groups[2].Value);
+                    if (string.IsNullOrWhiteSpace(className) || declarations.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    if (!styleClasses.TryGetValue(className, out Dictionary<string, string> existing))
+                    {
+                        styleClasses[className] = declarations;
+                        continue;
+                    }
+
+                    foreach (KeyValuePair<string, string> pair in declarations)
+                    {
+                        existing[pair.Key] = pair.Value;
+                    }
+                }
+            }
+
+            return styleClasses;
+        }
+
+        private static Dictionary<string, string> ParseStyleDeclarations(string style)
+        {
+            var declarationsByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(style))
+            {
+                return declarationsByName;
+            }
+
+            string[] declarations = style.Split(';');
+            for (int i = 0; i < declarations.Length; i++)
+            {
+                string declaration = declarations[i];
+                int colonIndex = declaration.IndexOf(':');
+                if (colonIndex <= 0)
+                {
+                    continue;
+                }
+
+                string key = declaration.Substring(0, colonIndex).Trim();
+                string value = declaration.Substring(colonIndex + 1).Trim();
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                declarationsByName[key] = value;
+            }
+
+            return declarationsByName;
+        }
+
+        private static string GetClassStyleValue(
+            XElement element,
+            string property,
+            IReadOnlyDictionary<string, Dictionary<string, string>> styleClasses)
+        {
+            if (styleClasses == null || styleClasses.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            string classAttribute = GetAttribute(element, "class");
+            if (string.IsNullOrWhiteSpace(classAttribute))
+            {
+                return string.Empty;
+            }
+
+            string[] classNames = classAttribute.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = classNames.Length - 1; i >= 0; i--)
+            {
+                string className = classNames[i].TrimStart('.');
+                if (!styleClasses.TryGetValue(className, out Dictionary<string, string> declarations))
+                {
+                    continue;
+                }
+
+                if (declarations.TryGetValue(property, out string value) && !string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static string GetStyleValue(string style, string property)
+        {
+            Dictionary<string, string> declarations = ParseStyleDeclarations(style);
+            return declarations.TryGetValue(property, out string value) ? value : string.Empty;
+        }
+
+        private static float ReadOpacity(string value, float fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return fallback;
+            }
+
+            value = value.Trim();
+            if (value.EndsWith("%", StringComparison.Ordinal))
+            {
+                float percent = ReadFloat(value.Substring(0, value.Length - 1), fallback * 100f);
+                return Mathf.Clamp01(percent / 100f);
+            }
+
+            return Mathf.Clamp01(ReadFloat(value, fallback));
+        }
+
+        private static bool TryReadColor(string value, float alphaMultiplier, out Color color)
+        {
+            color = Color.clear;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            value = value.Trim();
+            if (value.Equals("none", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("transparent", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("url(", StringComparison.OrdinalIgnoreCase) ||
+                alphaMultiplier <= 0f)
+            {
+                return false;
+            }
+
+            if (TryReadHexColor(value, alphaMultiplier, out color) ||
+                TryReadRgbColor(value, alphaMultiplier, out color) ||
+                TryReadNamedColor(value, alphaMultiplier, out color))
+            {
+                return color.a > 0f;
+            }
+
+            return false;
+        }
+
+        private static bool TryReadHexColor(string value, float alphaMultiplier, out Color color)
+        {
+            color = Color.clear;
+            if (!value.StartsWith("#", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string hex = value.Substring(1);
+            if (hex.Length == 3 || hex.Length == 4)
+            {
+                string expanded = string.Empty;
+                for (int i = 0; i < hex.Length; i++)
+                {
+                    expanded += hex[i].ToString() + hex[i];
+                }
+
+                hex = expanded;
+            }
+
+            if (hex.Length != 6 && hex.Length != 8)
+            {
+                return false;
+            }
+
+            if (!uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint packed))
+            {
+                return false;
+            }
+
+            float r;
+            float g;
+            float b;
+            float a = 1f;
+            if (hex.Length == 8)
+            {
+                r = ((packed >> 24) & 0xFF) / 255f;
+                g = ((packed >> 16) & 0xFF) / 255f;
+                b = ((packed >> 8) & 0xFF) / 255f;
+                a = (packed & 0xFF) / 255f;
+            }
+            else
+            {
+                r = ((packed >> 16) & 0xFF) / 255f;
+                g = ((packed >> 8) & 0xFF) / 255f;
+                b = (packed & 0xFF) / 255f;
+            }
+
+            color = new Color(r, g, b, a * alphaMultiplier);
+            return true;
+        }
+
+        private static bool TryReadRgbColor(string value, float alphaMultiplier, out Color color)
+        {
+            color = Color.clear;
+            Match match = Regex.Match(value, @"rgba?\(([^)]*)\)", RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            string[] parts = match.Groups[1].Value.Split(',');
+            if (parts.Length < 3)
+            {
+                return false;
+            }
+
+            float r = ReadColorChannel(parts[0]);
+            float g = ReadColorChannel(parts[1]);
+            float b = ReadColorChannel(parts[2]);
+            float a = parts.Length >= 4 ? ReadOpacity(parts[3], 1f) : 1f;
+            color = new Color(r, g, b, a * alphaMultiplier);
+            return true;
+        }
+
+        private static float ReadColorChannel(string value)
+        {
+            value = value.Trim();
+            if (value.EndsWith("%", StringComparison.Ordinal))
+            {
+                return Mathf.Clamp01(ReadFloat(value.Substring(0, value.Length - 1), 0f) / 100f);
+            }
+
+            return Mathf.Clamp01(ReadFloat(value, 0f) / 255f);
+        }
+
+        private static bool TryReadNamedColor(string value, float alphaMultiplier, out Color color)
+        {
+            switch (value.Trim().ToLowerInvariant())
+            {
+                case "white":
+                    color = Color.white;
+                    break;
+                case "black":
+                    color = Color.black;
+                    break;
+                case "red":
+                    color = Color.red;
+                    break;
+                case "green":
+                    color = Color.green;
+                    break;
+                case "blue":
+                    color = Color.blue;
+                    break;
+                case "yellow":
+                    color = Color.yellow;
+                    break;
+                case "cyan":
+                    color = Color.cyan;
+                    break;
+                case "magenta":
+                    color = Color.magenta;
+                    break;
+                case "orange":
+                    color = new Color(1f, 0.5f, 0f, 1f);
+                    break;
+                case "gray":
+                case "grey":
+                    color = Color.gray;
+                    break;
+                default:
+                    color = Color.clear;
+                    return false;
+            }
+
+            color.a *= alphaMultiplier;
+            return true;
+        }
+
         private static float ReadFloat(string value, float fallback)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -299,6 +647,14 @@ namespace FuzzPhyte.Utility
             return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed)
                 ? parsed
                 : fallback;
+        }
+
+        private struct SVGPaintInfo
+        {
+            public bool HasFillColor;
+            public Color FillColor;
+            public bool HasStrokeColor;
+            public Color StrokeColor;
         }
 
         private sealed class PathDataParser

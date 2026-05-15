@@ -5,6 +5,8 @@ namespace FuzzPhyte.Utility
 
     public static class FPSVGRegionDetector
     {
+        private const float Epsilon = 0.000001f;
+
         public static bool PointInPolygon(Vector2 point, IReadOnlyList<Vector2> polygon)
         {
             if (polygon == null || polygon.Count < 3)
@@ -32,6 +34,26 @@ namespace FuzzPhyte.Utility
             }
 
             return inside;
+        }
+
+        public static bool PointInPolygonInclusive(Vector2 point, IReadOnlyList<Vector2> polygon)
+        {
+            if (polygon == null || polygon.Count < 3)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < polygon.Count; i++)
+            {
+                Vector2 a = polygon[i];
+                Vector2 b = polygon[(i + 1) % polygon.Count];
+                if (PointOnSegment(point, a, b))
+                {
+                    return true;
+                }
+            }
+
+            return PointInPolygon(point, polygon);
         }
 
         public static float SignedArea(IReadOnlyList<Vector2> polygon)
@@ -122,7 +144,6 @@ namespace FuzzPhyte.Utility
                     continue;
                 }
 
-                Vector2 sample = regions[child].OuterLoop[0];
                 float childArea = Mathf.Abs(SignedArea(regions[child].OuterLoop));
                 float bestParentArea = float.MaxValue;
                 for (int parent = 0; parent < regions.Count; parent++)
@@ -138,7 +159,7 @@ namespace FuzzPhyte.Utility
                         continue;
                     }
 
-                    if (PointInPolygon(sample, regions[parent].OuterLoop))
+                    if (PolygonContainsPolygon(regions[parent].OuterLoop, regions[child].OuterLoop))
                     {
                         parents[child] = parent;
                         bestParentArea = parentArea;
@@ -147,6 +168,73 @@ namespace FuzzPhyte.Utility
             }
 
             return parents;
+        }
+
+        private static bool PolygonContainsPolygon(IReadOnlyList<Vector2> parent, IReadOnlyList<Vector2> child)
+        {
+            if (parent == null || child == null || parent.Count < 3 || child.Count < 3)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < child.Count; i++)
+            {
+                if (!PointInPolygonInclusive(child[i], parent))
+                {
+                    return false;
+                }
+            }
+
+            for (int p = 0; p < parent.Count; p++)
+            {
+                Vector2 parentA = parent[p];
+                Vector2 parentB = parent[(p + 1) % parent.Count];
+                for (int c = 0; c < child.Count; c++)
+                {
+                    Vector2 childA = child[c];
+                    Vector2 childB = child[(c + 1) % child.Count];
+                    if (SegmentsProperlyIntersect(parentA, parentB, childA, childB))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private static bool PointOnSegment(Vector2 point, Vector2 a, Vector2 b)
+        {
+            float cross = Cross(a, b, point);
+            if (Mathf.Abs(cross) > Epsilon)
+            {
+                return false;
+            }
+
+            float dot = Vector2.Dot(point - a, point - b);
+            return dot <= Epsilon;
+        }
+
+        private static bool SegmentsProperlyIntersect(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+        {
+            if (PointOnSegment(a, c, d) || PointOnSegment(b, c, d) ||
+                PointOnSegment(c, a, b) || PointOnSegment(d, a, b))
+            {
+                return false;
+            }
+
+            float d1 = Cross(a, b, c);
+            float d2 = Cross(a, b, d);
+            float d3 = Cross(c, d, a);
+            float d4 = Cross(c, d, b);
+            return d1 * d2 < -Epsilon && d3 * d4 < -Epsilon;
+        }
+
+        private static float Cross(Vector2 a, Vector2 b, Vector2 c)
+        {
+            Vector2 ab = b - a;
+            Vector2 ac = c - a;
+            return (ab.x * ac.y) - (ab.y * ac.x);
         }
     }
 }

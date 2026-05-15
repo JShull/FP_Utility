@@ -24,19 +24,29 @@ namespace FuzzPhyte.Utility.Editor
         private float previewHeight = 360f;
         [SerializeField]
         private Color regionLabelColor = new Color(1f, 0.82f, 0.25f, 1f);
+        [SerializeField]
+        private Color selectionColor = new Color(0.01f, 0.61f, 0.98f, 0.28f);
 
         private readonly List<FPSVGRegion> regions = new List<FPSVGRegion>();
         private readonly List<string> warnings = new List<string>();
         private readonly List<string> errors = new List<string>();
         private Rect svgBounds = new Rect(0f, 0f, 1f, 1f);
-        private Vector2 scrollPosition;
+        private Vector2 parameterScrollPosition;
+        private Vector2 messageScrollPosition;
         private string loadedSourcePath;
+        private bool outputMeshNameManuallyEdited;
+
+        private const float ParameterPanelWidth = 320f;
+        private const float PreviewHeightControlWidth = 58f;
+        private const float BottomDebugHeight = 108f;
+        private const float WorkspacePadding = 4f;
+        private const float PanelGap = 6f;
 
         [MenuItem("FuzzPhyte/Utility/Rendering/SVG Extruder", priority = FP_UtilityData.ORDER_MENU + 8)]
         public static void ShowWindow()
         {
             var window = GetWindow<FPSVGExtruderWindow>("FP SVG Extruder");
-            window.minSize = new Vector2(420f, 520f);
+            window.minSize = new Vector2(760f, 520f);
             window.SyncSelectionDefaults();
         }
 
@@ -44,42 +54,108 @@ namespace FuzzPhyte.Utility.Editor
         {
             settings ??= FPSVGExtruderSettings.Default;
             previewHeight = Mathf.Clamp(previewHeight <= 0f ? 360f : previewHeight, 160f, 900f);
+            if (string.IsNullOrWhiteSpace(settings.OutputFolder) || settings.OutputFolder == "Assets/GeneratedMeshes")
+            {
+                settings.OutputFolder = "Assets/_FPUtility";
+            }
+
             SyncSelectionDefaults();
         }
 
         private void OnGUI()
         {
-            using (var scrollView = new EditorGUILayout.ScrollViewScope(scrollPosition))
+            GUILayout.Label("FP SVG Extruder", EditorStyles.boldLabel);
+            DrawWorkspace();
+        }
+
+        private void DrawWorkspace()
+        {
+            Rect previousRect = GUILayoutUtility.GetLastRect();
+            float workspaceTop = previousRect.yMax + 4f;
+            Rect workspaceRect = new Rect(
+                WorkspacePadding,
+                workspaceTop,
+                Mathf.Max(100f, position.width - (WorkspacePadding * 2f)),
+                Mathf.Max(100f, position.height - workspaceTop - WorkspacePadding));
+
+            float topHeight = Mathf.Max(180f, workspaceRect.height - BottomDebugHeight - PanelGap);
+            Rect topRect = new Rect(workspaceRect.x, workspaceRect.y, workspaceRect.width, topHeight);
+            Rect debugRect = new Rect(workspaceRect.x, topRect.yMax + PanelGap, workspaceRect.width, workspaceRect.height - topHeight - PanelGap);
+
+            float leftWidth = Mathf.Clamp(ParameterPanelWidth, 240f, Mathf.Max(240f, topRect.width - 260f - PreviewHeightControlWidth - (PanelGap * 2f)));
+            Rect parameterRect = new Rect(topRect.x, topRect.y, leftWidth, topRect.height);
+            Rect heightControlRect = new Rect(parameterRect.xMax + PanelGap, topRect.y, PreviewHeightControlWidth, topRect.height);
+            Rect previewRect = new Rect(heightControlRect.xMax + PanelGap, topRect.y, Mathf.Max(100f, topRect.xMax - heightControlRect.xMax - PanelGap), topRect.height);
+
+            DrawParameterPanelContainer(parameterRect);
+            DrawPreviewHeightControl(heightControlRect);
+            DrawPreviewPanelContainer(previewRect);
+            DrawDebugPanel(debugRect);
+        }
+
+        private void DrawParameterPanelContainer(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, 760f + (regions.Count * 22f));
+
+            parameterScrollPosition = GUI.BeginScrollView(innerRect, parameterScrollPosition, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
+            DrawParameterPanel();
+            GUILayout.EndArea();
+            GUI.EndScrollView();
+        }
+
+        private void DrawParameterPanel()
+        {
+            DrawSourceSettings();
+            FP_Utility_Editor.DrawUILine(Color.gray);
+            DrawMeshSettings();
+            FP_Utility_Editor.DrawUILine(Color.gray);
+            DrawSceneSettings();
+            FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
+            DrawActions();
+            FP_Utility_Editor.DrawUILine(Color.gray);
+            DrawRegionList();
+        }
+
+        private void DrawPreviewHeightControl(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            GUI.Label(new Rect(rect.x + 4f, rect.y + 6f, rect.width - 8f, 18f), "Height", EditorStyles.centeredGreyMiniLabel);
+
+            Rect sliderRect = new Rect(rect.x + 8f, rect.y + 30f, rect.width - 16f, rect.height - 62f);
+            previewHeight = GUI.VerticalSlider(sliderRect, previewHeight, 900f, 160f);
+            previewHeight = Mathf.Clamp(previewHeight, 160f, 900f);
+            GUI.Label(new Rect(rect.x + 4f, rect.yMax - 24f, rect.width - 8f, 18f), Mathf.RoundToInt(previewHeight).ToString(), EditorStyles.centeredGreyMiniLabel);
+        }
+
+        private void DrawPreviewPanelContainer(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            float availablePreviewHeight = Mathf.Max(24f, rect.height - 20f);
+            float drawnPreviewHeight = Mathf.Min(availablePreviewHeight, previewHeight);
+            float previewY = rect.y + 10f + ((availablePreviewHeight - drawnPreviewHeight) * 0.5f);
+            Rect previewRect = new Rect(rect.x + 10f, previewY, rect.width - 20f, drawnPreviewHeight);
+
+            if (FPSVGRegionPreview.Draw(previewRect, regions, svgBounds, regionLabelColor, selectionColor, out int clickedIndex))
             {
-                scrollPosition = scrollView.scrollPosition;
-
-                DrawHeader();
-                FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-
-                DrawSourceSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawMeshSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawPreview();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawSceneSettings();
-                FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-
-                DrawActions();
-                DrawMessages();
+                regions[clickedIndex].Included = !regions[clickedIndex].Included;
+                Repaint();
             }
         }
 
-        private void DrawHeader()
+        private void DrawDebugPanel(Rect rect)
         {
-            GUILayout.Label("FP SVG Extruder", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "Parse closed SVG paths into selectable regions, mark the regions to fill, then generate an extruded mesh asset. " +
-                "Nested unselected regions inside selected regions are treated as holes where the triangulator can bridge them.",
-                MessageType.Info);
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, Mathf.Max(innerRect.height, 34f + ((errors.Count + warnings.Count + 1) * 38f)));
+
+            messageScrollPosition = GUI.BeginScrollView(innerRect, messageScrollPosition, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
+            DrawMessages();
+            GUILayout.EndArea();
+            GUI.EndScrollView();
         }
 
         private void DrawSourceSettings()
@@ -91,6 +167,7 @@ namespace FuzzPhyte.Utility.Editor
             if (EditorGUI.EndChangeCheck())
             {
                 settings.SvgFile = svgSource as TextAsset;
+                outputMeshNameManuallyEdited = false;
                 ParseCurrentSource();
             }
 
@@ -135,31 +212,26 @@ namespace FuzzPhyte.Utility.Editor
             settings.CenterPivot = EditorGUILayout.Toggle("Center Pivot", settings.CenterPivot);
             settings.GenerateDoubleSided = EditorGUILayout.Toggle("Generate Double Sided", settings.GenerateDoubleSided);
             settings.RecalculateNormals = EditorGUILayout.Toggle("Recalculate Normals", settings.RecalculateNormals);
+            EditorGUI.BeginChangeCheck();
             settings.OutputMeshName = EditorGUILayout.TextField("Output Mesh Name", settings.OutputMeshName);
-            settings.OutputFolder = EditorGUILayout.TextField("Output Folder", settings.OutputFolder);
-        }
-
-        private void DrawPreview()
-        {
-            EditorGUILayout.LabelField("Region Preview", EditorStyles.boldLabel);
-            previewHeight = EditorGUILayout.Slider("Preview Height", previewHeight, 160f, 900f);
-            regionLabelColor = EditorGUILayout.ColorField("Label Color", regionLabelColor);
-
-            Rect previewRect = GUILayoutUtility.GetRect(100f, previewHeight, GUILayout.ExpandWidth(true));
-            if (FPSVGRegionPreview.Draw(previewRect, regions, svgBounds, regionLabelColor, out int clickedIndex))
+            if (EditorGUI.EndChangeCheck())
             {
-                regions[clickedIndex].Included = !regions[clickedIndex].Included;
-                Repaint();
+                outputMeshNameManuallyEdited = true;
             }
 
-            EditorGUILayout.HelpBox("Click a closed outline to toggle it as filled. If a selected region contains an unselected child outline, that child is used as a hole.", MessageType.None);
-            DrawRegionList();
+            settings.OutputFolder = EditorGUILayout.TextField("Output Folder", settings.OutputFolder);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("SVG Viewer / Selector", EditorStyles.boldLabel);
+            regionLabelColor = EditorGUILayout.ColorField("Label Color", regionLabelColor);
+            selectionColor = EditorGUILayout.ColorField("Selection Color", selectionColor);
         }
 
         private void DrawRegionList()
         {
             if (regions.Count == 0)
             {
+                EditorGUILayout.HelpBox("Click a closed outline in the preview to toggle it as filled.", MessageType.None);
                 return;
             }
 
@@ -171,6 +243,8 @@ namespace FuzzPhyte.Utility.Editor
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     region.Included = EditorGUILayout.Toggle(region.Included, GUILayout.Width(20f));
+                    Rect swatchRect = GUILayoutUtility.GetRect(16f, 16f, GUILayout.Width(16f), GUILayout.Height(16f));
+                    DrawRegionColorSwatch(swatchRect, region);
                     EditorGUILayout.LabelField(region.Id, GUILayout.MinWidth(120f));
                     EditorGUILayout.LabelField($"{region.OuterLoop.Count} pts", EditorStyles.miniLabel, GUILayout.Width(64f));
                 }
@@ -182,6 +256,23 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             EditorGUILayout.LabelField("Included Regions", includedCount.ToString());
+        }
+
+        private static void DrawRegionColorSwatch(Rect rect, FPSVGRegion region)
+        {
+            Color swatch = region.HasFillColor
+                ? region.FillColor
+                : new Color(0.2f, 0.2f, 0.2f, 1f);
+            EditorGUI.DrawRect(rect, swatch);
+            Handles.BeginGUI();
+            Handles.color = region.HasStrokeColor ? region.StrokeColor : Color.gray;
+            Handles.DrawAAPolyLine(1f,
+                new Vector3(rect.xMin, rect.yMin),
+                new Vector3(rect.xMax, rect.yMin),
+                new Vector3(rect.xMax, rect.yMax),
+                new Vector3(rect.xMin, rect.yMax),
+                new Vector3(rect.xMin, rect.yMin));
+            Handles.EndGUI();
         }
 
         private void DrawSceneSettings()
@@ -217,6 +308,20 @@ namespace FuzzPhyte.Utility.Editor
 
         private void DrawMessages()
         {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField("Debug", EditorStyles.boldLabel);
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.LabelField($"Regions: {regions.Count}", GUILayout.Width(90f));
+                EditorGUILayout.LabelField($"Included: {CountIncludedRegions()}", GUILayout.Width(92f));
+            }
+
+            if (errors.Count == 0 && warnings.Count == 0)
+            {
+                EditorGUILayout.HelpBox("No SVG extruder warnings or errors.", MessageType.None);
+                return;
+            }
+
             for (int i = 0; i < errors.Count; i++)
             {
                 EditorGUILayout.HelpBox(errors[i], MessageType.Error);
@@ -226,6 +331,20 @@ namespace FuzzPhyte.Utility.Editor
             {
                 EditorGUILayout.HelpBox(warnings[i], MessageType.Warning);
             }
+        }
+
+        private int CountIncludedRegions()
+        {
+            int count = 0;
+            for (int i = 0; i < regions.Count; i++)
+            {
+                if (regions[i].Included)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private void HandleDragAndDrop(Rect dropRect)
@@ -246,6 +365,7 @@ namespace FuzzPhyte.Utility.Editor
                     {
                         svgSource = DragAndDrop.objectReferences[0];
                         settings.SvgFile = svgSource as TextAsset;
+                        outputMeshNameManuallyEdited = false;
                         ParseCurrentSource();
                     }
                 }
@@ -287,6 +407,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 svgText = textAsset.text;
                 loadedSourcePath = AssetDatabase.GetAssetPath(textAsset);
+                ApplyDefaultOutputMeshName(loadedSourcePath);
                 return true;
             }
 
@@ -300,6 +421,7 @@ namespace FuzzPhyte.Utility.Editor
                     {
                         svgText = File.ReadAllText(path);
                         loadedSourcePath = path;
+                        ApplyDefaultOutputMeshName(loadedSourcePath);
                         return true;
                     }
                 }
@@ -310,6 +432,20 @@ namespace FuzzPhyte.Utility.Editor
 
             errors.Add("Assign or drop an SVG file before parsing.");
             return false;
+        }
+
+        private void ApplyDefaultOutputMeshName(string sourcePath)
+        {
+            if (outputMeshNameManuallyEdited || string.IsNullOrWhiteSpace(sourcePath))
+            {
+                return;
+            }
+
+            string fileName = Path.GetFileNameWithoutExtension(sourcePath);
+            if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                settings.OutputMeshName = $"{fileName}_GeneratedSVGMesh";
+            }
         }
 
         private void GenerateMesh()

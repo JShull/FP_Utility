@@ -13,8 +13,8 @@ namespace FuzzPhyte.Utility
         public bool CenterPivot = true;
         public bool GenerateDoubleSided;
         public bool RecalculateNormals;
-        public string OutputMeshName = "Generated_SVG_Mesh";
-        public string OutputFolder = "Assets/GeneratedMeshes";
+        public string OutputMeshName = "GeneratedSVGMesh";
+        public string OutputFolder = "Assets/_FPUtility";
 
         public static FPSVGExtruderSettings Default => new FPSVGExtruderSettings();
 
@@ -29,8 +29,8 @@ namespace FuzzPhyte.Utility
                 CenterPivot = CenterPivot,
                 GenerateDoubleSided = GenerateDoubleSided,
                 RecalculateNormals = RecalculateNormals,
-                OutputMeshName = string.IsNullOrWhiteSpace(OutputMeshName) ? "Generated_SVG_Mesh" : OutputMeshName.Trim(),
-                OutputFolder = string.IsNullOrWhiteSpace(OutputFolder) ? "Assets/GeneratedMeshes" : OutputFolder.Trim()
+                OutputMeshName = string.IsNullOrWhiteSpace(OutputMeshName) ? "GeneratedSVGMesh" : OutputMeshName.Trim(),
+                OutputFolder = string.IsNullOrWhiteSpace(OutputFolder) ? "Assets/_FPUtility" : OutputFolder.Trim()
             };
         }
     }

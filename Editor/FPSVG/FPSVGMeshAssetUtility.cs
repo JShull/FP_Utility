@@ -14,8 +14,8 @@ namespace FuzzPhyte.Utility.Editor
                 return null;
             }
 
-            string safeFolder = string.IsNullOrWhiteSpace(outputFolder) ? "Assets/GeneratedMeshes" : outputFolder.Trim();
-            string safeName = string.IsNullOrWhiteSpace(meshName) ? "Generated_SVG_Mesh" : meshName.Trim();
+            string safeFolder = string.IsNullOrWhiteSpace(outputFolder) ? "Assets/_FPUtility" : outputFolder.Trim();
+            string safeName = string.IsNullOrWhiteSpace(meshName) ? "GeneratedSVGMesh" : meshName.Trim();
             safeFolder = safeFolder.Replace("\\", "/");
             if (!safeFolder.StartsWith("Assets"))
             {
