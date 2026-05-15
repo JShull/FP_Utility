@@ -56,7 +56,16 @@ Use `fill="none"` or transparent fill opacity when a region should start unselec
 ## Notes
 
 - Concave regions are triangulated with an in-repo ear-clipping triangulator.
+- Boundary cleanup removes duplicate, nearly collinear, and simplify-tolerance points before triangulation.
+- Triangle optimization flips internal diagonals when it improves local triangle quality.
 - Unselected regions are only treated as holes when they are fully contained by an included region.
 - Overlapping selected regions are generated as separate extrusions; they are not boolean-unioned yet.
 - SVG transforms are detected as warnings and are not applied in this first pass.
 - SVG arc commands are approximated as straight line segments.
+
+## Mesh Cleanup Controls
+
+- Path Sample Distance controls how densely curves are sampled from SVG paths.
+- Simplify Tolerance removes tiny boundary detail after SVG coordinates are scaled into Unity space.
+- Collinear Tolerance removes points that are nearly on the same straight edge.
+- Optimize Triangles runs a local edge-flip pass to reduce long skinny surface triangles where possible.

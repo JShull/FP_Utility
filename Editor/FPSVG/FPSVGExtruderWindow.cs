@@ -216,6 +216,14 @@ namespace FuzzPhyte.Utility.Editor
             settings.Scale = EditorGUILayout.FloatField("Scale", settings.Scale);
             settings.ExtrusionDepth = EditorGUILayout.FloatField("Extrusion Depth", settings.ExtrusionDepth);
             settings.PathSampleDistance = EditorGUILayout.FloatField("Path Sample Distance", settings.PathSampleDistance);
+            settings.BoundarySimplifyTolerance = EditorGUILayout.FloatField("Simplify Tolerance", settings.BoundarySimplifyTolerance);
+            settings.CollinearTolerance = EditorGUILayout.FloatField("Collinear Tolerance", settings.CollinearTolerance);
+            settings.OptimizeSurfaceTriangulation = EditorGUILayout.Toggle("Optimize Triangles", settings.OptimizeSurfaceTriangulation);
+            using (new EditorGUI.DisabledScope(!settings.OptimizeSurfaceTriangulation))
+            {
+                settings.SurfaceOptimizationPasses = EditorGUILayout.IntSlider("Optimize Passes", settings.SurfaceOptimizationPasses, 0, 32);
+            }
+
             settings.CenterPivot = EditorGUILayout.Toggle("Center Pivot", settings.CenterPivot);
             settings.GenerateDoubleSided = EditorGUILayout.Toggle("Generate Double Sided", settings.GenerateDoubleSided);
             settings.RecalculateNormals = EditorGUILayout.Toggle("Recalculate Normals", settings.RecalculateNormals);

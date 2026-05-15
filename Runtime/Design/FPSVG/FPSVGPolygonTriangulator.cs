@@ -18,7 +18,9 @@ namespace FuzzPhyte.Utility
             IReadOnlyList<Vector2> outerLoop,
             IReadOnlyList<List<Vector2>> holes,
             List<string> warnings = null,
-            string regionId = null)
+            string regionId = null,
+            bool optimizeTriangles = false,
+            int optimizationPasses = 8)
         {
             var triangulation = new FPSVGTriangulation();
             if (outerLoop == null || outerLoop.Count < 3)
@@ -51,6 +53,11 @@ namespace FuzzPhyte.Utility
 
             triangulation.Vertices.AddRange(polygon);
             EarClip(polygon, triangulation.Triangles, warnings, regionId);
+            if (optimizeTriangles && triangulation.Triangles.Count >= 6)
+            {
+                OptimizeInternalEdges(polygon, triangulation.Triangles, Mathf.Max(0, optimizationPasses));
+            }
+
             return triangulation;
         }
 
@@ -303,6 +310,181 @@ namespace FuzzPhyte.Utility
         private static bool SamePoint(Vector2 a, Vector2 b)
         {
             return (a - b).sqrMagnitude <= Epsilon;
+        }
+
+        private static void OptimizeInternalEdges(IReadOnlyList<Vector2> polygon, List<int> triangles, int passes)
+        {
+            if (passes <= 0)
+            {
+                return;
+            }
+
+            for (int pass = 0; pass < passes; pass++)
+            {
+                bool changed = false;
+                Dictionary<EdgeKey, List<TriangleEdge>> edgeMap = BuildEdgeMap(triangles);
+                foreach (KeyValuePair<EdgeKey, List<TriangleEdge>> pair in edgeMap)
+                {
+                    List<TriangleEdge> shared = pair.Value;
+                    if (shared.Count != 2)
+                    {
+                        continue;
+                    }
+
+                    if (TryFlipSharedEdge(polygon, triangles, shared[0], shared[1]))
+                    {
+                        changed = true;
+                        break;
+                    }
+                }
+
+                if (!changed)
+                {
+                    return;
+                }
+            }
+        }
+
+        private static Dictionary<EdgeKey, List<TriangleEdge>> BuildEdgeMap(IReadOnlyList<int> triangles)
+        {
+            var edgeMap = new Dictionary<EdgeKey, List<TriangleEdge>>();
+            for (int t = 0; t < triangles.Count; t += 3)
+            {
+                AddEdge(edgeMap, triangles[t], triangles[t + 1], triangles[t + 2], t);
+                AddEdge(edgeMap, triangles[t + 1], triangles[t + 2], triangles[t], t);
+                AddEdge(edgeMap, triangles[t + 2], triangles[t], triangles[t + 1], t);
+            }
+
+            return edgeMap;
+        }
+
+        private static void AddEdge(Dictionary<EdgeKey, List<TriangleEdge>> edgeMap, int a, int b, int opposite, int triangleStart)
+        {
+            var key = new EdgeKey(a, b);
+            if (!edgeMap.TryGetValue(key, out List<TriangleEdge> edges))
+            {
+                edges = new List<TriangleEdge>(2);
+                edgeMap[key] = edges;
+            }
+
+            edges.Add(new TriangleEdge(a, b, opposite, triangleStart));
+        }
+
+        private static bool TryFlipSharedEdge(
+            IReadOnlyList<Vector2> polygon,
+            List<int> triangles,
+            TriangleEdge first,
+            TriangleEdge second)
+        {
+            int a = first.A;
+            int b = first.B;
+            int c = first.Opposite;
+            int d = second.Opposite;
+            if (c == d || a == b || SamePoint(polygon[c], polygon[d]))
+            {
+                return false;
+            }
+
+            Vector2 pa = polygon[a];
+            Vector2 pb = polygon[b];
+            Vector2 pc = polygon[c];
+            Vector2 pd = polygon[d];
+            if (!IsConvexQuad(pc, pa, pd, pb))
+            {
+                return false;
+            }
+
+            float currentQuality = Mathf.Min(TriangleQuality(pa, pc, pb), TriangleQuality(pa, pb, pd));
+            float flippedQuality = Mathf.Min(TriangleQuality(pc, pd, pa), TriangleQuality(pd, pc, pb));
+            if (flippedQuality <= currentQuality + Epsilon)
+            {
+                return false;
+            }
+
+            WriteTriangle(triangles, first.TriangleStart, c, d, a, polygon);
+            WriteTriangle(triangles, second.TriangleStart, d, c, b, polygon);
+            return true;
+        }
+
+        private static bool IsConvexQuad(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+        {
+            float c1 = Cross(a, b, c);
+            float c2 = Cross(b, c, d);
+            float c3 = Cross(c, d, a);
+            float c4 = Cross(d, a, b);
+            bool allPositive = c1 > Epsilon && c2 > Epsilon && c3 > Epsilon && c4 > Epsilon;
+            bool allNegative = c1 < -Epsilon && c2 < -Epsilon && c3 < -Epsilon && c4 < -Epsilon;
+            return allPositive || allNegative;
+        }
+
+        private static float TriangleQuality(Vector2 a, Vector2 b, Vector2 c)
+        {
+            float ab = (a - b).sqrMagnitude;
+            float bc = (b - c).sqrMagnitude;
+            float ca = (c - a).sqrMagnitude;
+            float longest = Mathf.Max(ab, Mathf.Max(bc, ca));
+            if (longest <= Epsilon)
+            {
+                return 0f;
+            }
+
+            return Mathf.Abs(Cross(a, b, c)) / longest;
+        }
+
+        private static void WriteTriangle(List<int> triangles, int start, int a, int b, int c, IReadOnlyList<Vector2> points)
+        {
+            if (Cross(points[a], points[b], points[c]) < 0f)
+            {
+                triangles[start] = a;
+                triangles[start + 1] = c;
+                triangles[start + 2] = b;
+                return;
+            }
+
+            triangles[start] = a;
+            triangles[start + 1] = b;
+            triangles[start + 2] = c;
+        }
+
+        private readonly struct EdgeKey
+        {
+            private readonly int min;
+            private readonly int max;
+
+            public EdgeKey(int a, int b)
+            {
+                min = Mathf.Min(a, b);
+                max = Mathf.Max(a, b);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is EdgeKey other && min == other.min && max == other.max;
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (min * 397) ^ max;
+                }
+            }
+        }
+
+        private readonly struct TriangleEdge
+        {
+            public readonly int A;
+            public readonly int B;
+            public readonly int Opposite;
+            public readonly int TriangleStart;
+
+            public TriangleEdge(int a, int b, int opposite, int triangleStart)
+            {
+                A = a;
+                B = b;
+                Opposite = opposite;
+                TriangleStart = triangleStart;
+            }
         }
     }
 }

@@ -31,14 +31,14 @@ namespace FuzzPhyte.Utility
             for (int i = 0; i < regions.Count; i++)
             {
                 FPSVGRegion source = regions[i];
-                List<Vector2> outer = ToMeshLoop(source.OuterLoop, safeSettings.Scale, pivotOffset);
+                List<Vector2> outer = ToMeshLoop(source.OuterLoop, safeSettings.Scale, pivotOffset, safeSettings);
                 List<List<Vector2>> holes = new List<List<Vector2>>();
                 for (int h = 0; h < source.Holes.Count; h++)
                 {
-                    holes.Add(ToMeshLoop(source.Holes[h], safeSettings.Scale, pivotOffset));
+                    holes.Add(ToMeshLoop(source.Holes[h], safeSettings.Scale, pivotOffset, safeSettings));
                 }
 
-                List<int> bridgedHoleIndices = AddRegionSurfaces(source.Id, outer, holes, safeSettings.ExtrusionDepth, bounds, pivotOffset, vertices, normals, uvs, triangles, report);
+                List<int> bridgedHoleIndices = AddRegionSurfaces(source.Id, outer, holes, safeSettings, bounds, pivotOffset, vertices, normals, uvs, triangles, report);
                 if (bridgedHoleIndices == null)
                 {
                     continue;
@@ -100,7 +100,7 @@ namespace FuzzPhyte.Utility
             string regionId,
             List<Vector2> outer,
             List<List<Vector2>> holes,
-            float depth,
+            FPSVGExtruderSettings settings,
             Bounds2D sourceBounds,
             Vector2 pivotOffset,
             List<Vector3> vertices,
@@ -109,14 +109,20 @@ namespace FuzzPhyte.Utility
             List<int> triangles,
             FPSVGMeshBuildReport report)
         {
-            FPSVGTriangulation triangulation = FPSVGPolygonTriangulator.Triangulate(outer, holes, report.Warnings, regionId);
+            FPSVGTriangulation triangulation = FPSVGPolygonTriangulator.Triangulate(
+                outer,
+                holes,
+                report.Warnings,
+                regionId,
+                settings.OptimizeSurfaceTriangulation,
+                settings.SurfaceOptimizationPasses);
             if (triangulation.Triangles.Count == 0)
             {
                 report.Warnings.Add($"Region '{regionId}' did not generate top or bottom surface triangles.");
                 return null;
             }
 
-            float halfDepth = depth * 0.5f;
+            float halfDepth = settings.ExtrusionDepth * 0.5f;
             int topStart = vertices.Count;
             for (int i = 0; i < triangulation.Vertices.Count; i++)
             {
@@ -211,7 +217,11 @@ namespace FuzzPhyte.Utility
             }
         }
 
-        private static List<Vector2> ToMeshLoop(IReadOnlyList<Vector2> source, float scale, Vector2 pivotOffset)
+        private static List<Vector2> ToMeshLoop(
+            IReadOnlyList<Vector2> source,
+            float scale,
+            Vector2 pivotOffset,
+            FPSVGExtruderSettings settings)
         {
             var loop = new List<Vector2>();
             if (source == null)
@@ -233,7 +243,7 @@ namespace FuzzPhyte.Utility
                 loop.RemoveAt(loop.Count - 1);
             }
 
-            return loop;
+            return FPSVGPolygonCleanup.CleanLoop(loop, settings.BoundarySimplifyTolerance, settings.CollinearTolerance);
         }
 
         private static List<Vector2> EnsureWinding(List<Vector2> loop, bool counterClockwise)

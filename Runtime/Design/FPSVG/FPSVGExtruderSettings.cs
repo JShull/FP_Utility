@@ -10,6 +10,10 @@ namespace FuzzPhyte.Utility
         public float Scale = 0.01f;
         public float ExtrusionDepth = 0.1f;
         public float PathSampleDistance = 2f;
+        public float BoundarySimplifyTolerance = 0.001f;
+        public float CollinearTolerance = 0.0001f;
+        public bool OptimizeSurfaceTriangulation = true;
+        public int SurfaceOptimizationPasses = 8;
         public bool CenterPivot = true;
         public bool GenerateDoubleSided;
         public bool RecalculateNormals;
@@ -26,6 +30,10 @@ namespace FuzzPhyte.Utility
                 Scale = Mathf.Max(0.0001f, Scale),
                 ExtrusionDepth = Mathf.Max(0.0001f, ExtrusionDepth),
                 PathSampleDistance = Mathf.Max(0.01f, PathSampleDistance),
+                BoundarySimplifyTolerance = Mathf.Max(0f, BoundarySimplifyTolerance),
+                CollinearTolerance = Mathf.Max(0f, CollinearTolerance),
+                OptimizeSurfaceTriangulation = OptimizeSurfaceTriangulation,
+                SurfaceOptimizationPasses = Mathf.Clamp(SurfaceOptimizationPasses, 0, 32),
                 CenterPivot = CenterPivot,
                 GenerateDoubleSided = GenerateDoubleSided,
                 RecalculateNormals = RecalculateNormals,
