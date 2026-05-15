@@ -26,15 +26,26 @@ namespace FuzzPhyte.Utility.Editor
 
             mesh.name = safeName;
             string path = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(safeFolder, safeName + ".asset").Replace("\\", "/"));
-            string result = FP_Utility_Editor.CreateAssetAt(mesh, path);
-            Mesh savedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
-            if (savedMesh == null)
+            try
             {
-                Debug.LogError($"[FP SVG Extruder] Mesh asset could not be saved: {result}");
+                AssetDatabase.CreateAsset(mesh, path);
+                EditorUtility.SetDirty(mesh);
+                AssetDatabase.SaveAssets();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[FP SVG Extruder] Mesh asset could not be saved: {ex.Message}");
                 return null;
             }
 
-            Debug.Log($"[FP SVG Extruder] Mesh saved to {result}");
+            Mesh savedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (savedMesh == null)
+            {
+                Debug.LogError($"[FP SVG Extruder] Mesh asset could not be loaded after save: {path}");
+                return null;
+            }
+
+            Debug.Log($"[FP SVG Extruder] Mesh saved to {path}");
             return savedMesh;
         }
 

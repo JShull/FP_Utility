@@ -35,8 +35,9 @@ namespace FuzzPhyte.Utility.Editor
         private Vector2 messageScrollPosition;
         private string loadedSourcePath;
         private bool outputMeshNameManuallyEdited;
+        private bool generateMeshQueued;
 
-        private const float ParameterPanelWidth = 320f;
+        private const float ParameterPanelWidth = 352f;
         private const float PreviewHeightControlWidth = 58f;
         private const float BottomDebugHeight = 108f;
         private const float WorkspacePadding = 4f;
@@ -60,6 +61,12 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             SyncSelectionDefaults();
+        }
+
+        private void OnDisable()
+        {
+            EditorApplication.delayCall -= ExecuteQueuedGenerateMesh;
+            generateMeshQueued = false;
         }
 
         private void OnGUI()
@@ -213,13 +220,13 @@ namespace FuzzPhyte.Utility.Editor
             settings.GenerateDoubleSided = EditorGUILayout.Toggle("Generate Double Sided", settings.GenerateDoubleSided);
             settings.RecalculateNormals = EditorGUILayout.Toggle("Recalculate Normals", settings.RecalculateNormals);
             EditorGUI.BeginChangeCheck();
-            settings.OutputMeshName = EditorGUILayout.TextField("Output Mesh Name", settings.OutputMeshName);
+            settings.OutputMeshName = DrawWideTextField("Output Mesh Name", settings.OutputMeshName);
             if (EditorGUI.EndChangeCheck())
             {
                 outputMeshNameManuallyEdited = true;
             }
 
-            settings.OutputFolder = EditorGUILayout.TextField("Output Folder", settings.OutputFolder);
+            settings.OutputFolder = DrawWideTextField("Output Folder", settings.OutputFolder);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("SVG Viewer / Selector", EditorStyles.boldLabel);
@@ -275,6 +282,15 @@ namespace FuzzPhyte.Utility.Editor
             Handles.EndGUI();
         }
 
+        private static string DrawWideTextField(string label, string value)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(label, GUILayout.Width(118f));
+                return EditorGUILayout.TextField(value);
+            }
+        }
+
         private void DrawSceneSettings()
         {
             EditorGUILayout.LabelField("Scene Output", EditorStyles.boldLabel);
@@ -295,11 +311,12 @@ namespace FuzzPhyte.Utility.Editor
 
             Color originalColor = GUI.color;
             GUI.color = FP_Utility_Editor.OkayColor;
-            using (new EditorGUI.DisabledScope(regions.Count == 0))
+            using (new EditorGUI.DisabledScope(regions.Count == 0 || generateMeshQueued))
             {
-                if (GUILayout.Button("Generate Mesh", GUILayout.Height(32f)))
+                string buttonLabel = generateMeshQueued ? "Generating Mesh..." : "Generate Mesh";
+                if (GUILayout.Button(buttonLabel, GUILayout.Height(32f)))
                 {
-                    GenerateMesh();
+                    QueueGenerateMesh();
                 }
             }
 
@@ -446,6 +463,29 @@ namespace FuzzPhyte.Utility.Editor
             {
                 settings.OutputMeshName = $"{fileName}_GeneratedSVGMesh";
             }
+        }
+
+        private void QueueGenerateMesh()
+        {
+            if (generateMeshQueued)
+            {
+                return;
+            }
+
+            generateMeshQueued = true;
+            EditorApplication.delayCall += ExecuteQueuedGenerateMesh;
+        }
+
+        private void ExecuteQueuedGenerateMesh()
+        {
+            generateMeshQueued = false;
+            if (this == null)
+            {
+                return;
+            }
+
+            GenerateMesh();
+            Repaint();
         }
 
         private void GenerateMesh()
