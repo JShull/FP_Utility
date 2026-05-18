@@ -34,6 +34,8 @@ Shader "FuzzPhyte/Dilation"
             ZTest Always
 
             HLSLPROGRAM
+            #pragma target 3.5
+            #pragma multi_compile_instancing
             #pragma vertex Vert
             #pragma fragment frag_horizontalDist
 
@@ -87,6 +89,8 @@ Shader "FuzzPhyte/Dilation"
             Blend SrcAlpha OneMinusSrcAlpha
 
             HLSLPROGRAM
+            #pragma target 3.5
+            #pragma multi_compile_instancing
             #pragma vertex Vert
             #pragma fragment frag_verticalCompose
 
@@ -160,6 +164,8 @@ Shader "FuzzPhyte/Dilation"
             ZTest Always
 
             HLSLPROGRAM
+            #pragma target 3.5
+            #pragma multi_compile_instancing
             #pragma vertex Vert
             #pragma fragment frag_copyMask
 

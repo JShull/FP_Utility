@@ -26,6 +26,7 @@ namespace FuzzPhyte.Utility
         [SerializeField] private Texture defaultMaskTexture;
         [Header("Performance")]
         [SerializeField, Range(0.25f, 1f)] private float bufferScale = 1f;
+        [SerializeField] private bool warnOnUnsupportedShaders = true;
         [Header("Selection")]
         [SerializeField] private bool useRegisteredTargets = true;
 
@@ -36,6 +37,7 @@ namespace FuzzPhyte.Utility
         private readonly List<OutlineTargetGroup> _targetGroups = new List<OutlineTargetGroup>();
 
         private Renderer[] _targetRenderers;
+        private bool _warnedUnsupportedShader;
 
         public void SetRenderers(Renderer[] targetRenderers)
         {
@@ -59,6 +61,12 @@ namespace FuzzPhyte.Utility
             Material resolvedDilationMaterial = ResolveDilationMaterial();
             Material resolvedOutlineMaterial = ResolveOutlineMaterial();
             if (!resolvedDilationMaterial || !resolvedOutlineMaterial)
+            {
+                return;
+            }
+
+            if (!IsSupportedMaterial(resolvedDilationMaterial, "Dilation") ||
+                !IsSupportedMaterial(resolvedOutlineMaterial, "Outline Color And Stencil"))
             {
                 return;
             }
@@ -190,6 +198,24 @@ namespace FuzzPhyte.Utility
                 _runtimeOutlineMaterial = CoreUtils.CreateEngineMaterial("FuzzPhyte/Outline Color And Stencil");
 
             return _runtimeOutlineMaterial;
+        }
+
+        private bool IsSupportedMaterial(Material material, string materialName)
+        {
+            if (!material || !material.shader || !material.shader.isSupported || material.passCount == 0)
+            {
+                if (warnOnUnsupportedShaders && !_warnedUnsupportedShader)
+                {
+                    _warnedUnsupportedShader = true;
+                    Debug.LogWarning(
+                        $"FP Multi-Object Outliner skipped because {materialName} material/shader is unsupported in this player.",
+                        this);
+                }
+
+                return false;
+            }
+
+            return true;
         }
 
         private void AddTargetToGroup(FPOutlineTarget target)

@@ -26,6 +26,7 @@ Shader "FuzzPhyte/Outline Color And Stencil"
             ZTest LEqual
 
             HLSLPROGRAM
+            #pragma target 3.5
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
