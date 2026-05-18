@@ -18,11 +18,14 @@ namespace FuzzPhyte.Utility
         [Header("Outline")]
         [SerializeField, Min(0)] private int thickness = 5;
         [SerializeField, Min(0)] private int blur = 2;
+        [SerializeField] private bool defaultAutoMaxRadius = true;
         [SerializeField, Range(1, 128)] private int maxRadius = 50;
         [SerializeField, ColorUsage(false, true)] private Color defaultOutlineColor = Color.cyan;
         [SerializeField] private FPOutlineAlphaMode defaultAlphaMode = FPOutlineAlphaMode.MeshSilhouette;
         [SerializeField, Range(0f, 1f)] private float defaultAlphaCutoff = 0.5f;
         [SerializeField] private Texture defaultMaskTexture;
+        [Header("Performance")]
+        [SerializeField, Range(0.25f, 1f)] private float bufferScale = 1f;
         [Header("Selection")]
         [SerializeField] private bool useRegisteredTargets = true;
 
@@ -76,6 +79,11 @@ namespace FuzzPhyte.Utility
             if (batchCount == 0)
                 return;
 
+            ResolveDefaultDilationSettings(
+                out int defaultShaderThickness,
+                out int defaultShaderBlur,
+                out int defaultShaderMaxRadius);
+
             var batches = new FPBlurredBufferMultiObjectOutlinePass.OutlineRenderBatch[batchCount];
             int batchIndex = 0;
             for (int i = 0; i < _targetGroups.Count; i++)
@@ -107,9 +115,9 @@ namespace FuzzPhyte.Utility
                     DefaultAlphaMode = defaultAlphaMode,
                     DefaultAlphaCutoff = defaultAlphaCutoff,
                     DefaultMaskTexture = defaultMaskTexture,
-                    Thickness = thickness,
-                    Blur = blur,
-                    MaxRadius = maxRadius
+                    Thickness = defaultShaderThickness,
+                    Blur = defaultShaderBlur,
+                    MaxRadius = defaultShaderMaxRadius
                 };
             }
 
@@ -124,11 +132,21 @@ namespace FuzzPhyte.Utility
             _outlinePass.DefaultAlphaMode = defaultAlphaMode;
             _outlinePass.DefaultAlphaCutoff = defaultAlphaCutoff;
             _outlinePass.DefaultMaskTexture = defaultMaskTexture;
-            _outlinePass.DefaultThickness = thickness;
-            _outlinePass.DefaultBlur = blur;
-            _outlinePass.DefaultMaxRadius = maxRadius;
+            _outlinePass.DefaultThickness = defaultShaderThickness;
+            _outlinePass.DefaultBlur = defaultShaderBlur;
+            _outlinePass.DefaultMaxRadius = defaultShaderMaxRadius;
+            _outlinePass.BufferScale = OutlineBufferScale;
 
             renderer.EnqueuePass(_outlinePass);
+        }
+
+        private void OnValidate()
+        {
+            thickness = Mathf.Max(0, thickness);
+            blur = Mathf.Max(0, blur);
+            maxRadius = Mathf.Max(1, maxRadius);
+            defaultAlphaCutoff = Mathf.Clamp01(defaultAlphaCutoff);
+            bufferScale = Mathf.Clamp(bufferScale, 0.25f, 1f);
         }
 
         protected override void Dispose(bool disposing)
@@ -205,16 +223,65 @@ namespace FuzzPhyte.Utility
             FPOutlineProfile profile = target.OutlineProfile;
             if (profile)
             {
-                targetThickness = profile.Thickness;
-                targetBlur = profile.Blur;
-                targetMaxRadius = profile.MaxRadius;
+                ResolveDilationSettings(
+                    profile.Thickness,
+                    profile.Blur,
+                    profile.MaxRadius,
+                    profile.AutoMaxRadius,
+                    out targetThickness,
+                    out targetBlur,
+                    out targetMaxRadius);
                 return;
             }
 
-            targetThickness = thickness;
-            targetBlur = blur;
-            targetMaxRadius = maxRadius;
+            ResolveDefaultDilationSettings(
+                out targetThickness,
+                out targetBlur,
+                out targetMaxRadius);
         }
+
+        private void ResolveDefaultDilationSettings(
+            out int targetThickness,
+            out int targetBlur,
+            out int targetMaxRadius)
+        {
+            ResolveDilationSettings(
+                thickness,
+                blur,
+                maxRadius,
+                defaultAutoMaxRadius,
+                out targetThickness,
+                out targetBlur,
+                out targetMaxRadius);
+        }
+
+        private void ResolveDilationSettings(
+            int sourceThickness,
+            int sourceBlur,
+            int sourceMaxRadius,
+            bool autoMaxRadius,
+            out int targetThickness,
+            out int targetBlur,
+            out int targetMaxRadius)
+        {
+            int clampedThickness = Mathf.Max(0, sourceThickness);
+            int clampedBlur = Mathf.Max(0, sourceBlur);
+            int clampedMaxRadius = Mathf.Max(1, sourceMaxRadius);
+            float scale = OutlineBufferScale;
+
+            targetThickness = Mathf.Max(0, Mathf.CeilToInt(clampedThickness * scale));
+            targetBlur = Mathf.Max(0, Mathf.CeilToInt(clampedBlur * scale));
+
+            if (autoMaxRadius)
+            {
+                targetMaxRadius = Mathf.Max(1, targetThickness + targetBlur + 1);
+                return;
+            }
+
+            targetMaxRadius = Mathf.Max(1, Mathf.CeilToInt(clampedMaxRadius * scale));
+        }
+
+        private float OutlineBufferScale => Mathf.Clamp(bufferScale, 0.25f, 1f);
 
         private sealed class OutlineTargetGroup
         {

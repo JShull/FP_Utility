@@ -16,6 +16,7 @@ namespace FuzzPhyte.Utility
         [SerializeField] private Texture customMaskTexture;
         [SerializeField, Min(0)] private int thickness = 5;
         [SerializeField, Min(0)] private int blur = 2;
+        [SerializeField] private bool autoMaxRadius = true;
         [SerializeField, Range(1, 128)] private int maxRadius = 50;
 
         public Color OutlineColor => outlineColor;
@@ -24,6 +25,7 @@ namespace FuzzPhyte.Utility
         public Texture CustomMaskTexture => customMaskTexture;
         public int Thickness => thickness;
         public int Blur => blur;
+        public bool AutoMaxRadius => autoMaxRadius;
         public int MaxRadius => maxRadius;
 
         private void OnValidate()

@@ -28,9 +28,29 @@ To then accommodate that update we've modified all files under the Runtime folde
 - `Custom Mask Texture`: optional mask texture for `CustomMaskTexture`.
 - `Thickness`: opaque outline width in pixels.
 - `Blur`: soft fade width after the thickness band.
+- `Auto Max Radius`: limits shader search radius to the pixels needed by `Thickness + Blur`. Keep this on for most projects.
 - `Max Radius`: maximum search radius for the dilation shader.
 
-Targets with matching `Thickness`, `Blur`, and `Max Radius` are batched together. Different profile sizes are supported, but each unique size group runs another mask/dilation/composite sequence, so keep a small set of shared profiles such as `Thin`, `Default`, and `Hero`.
+Targets with matching resolved `Thickness`, `Blur`, and `Max Radius` are batched together. Different profile sizes are supported, but each unique size group runs another mask/dilation/composite sequence, so keep a small set of shared profiles such as `Thin`, `Default`, and `Hero`.
+
+## Performance Notes
+
+The outline effect is a screen-space render feature. `FPOutlineTarget` registration is lightweight; the expensive work is the render pass:
+
+- Draw selected meshes into a full-size outline mask.
+- Run horizontal dilation.
+- Run vertical dilation and composite back to the camera target.
+
+In XR, the mask must match the camera target and stencil dimensions, so single-pass instanced / multiview render targets can be very large. The dilation shader cost also scales with `Max Radius`: a radius of 50 searches 101 samples horizontally and 101 samples vertically for every pixel in the dilation buffer.
+
+Recommended settings for VR/mobile:
+
+- Keep `Auto Max Radius` enabled on the render feature defaults and on outline profiles.
+- Start with `Buffer Scale = 0.5` on the render feature. This keeps the mask/stencil correct at full resolution, downsamples only the dilation buffer, and composites the result back to the full camera target.
+- Use `Buffer Scale = 0.25` only for soft, chunky highlights where lower outline resolution is acceptable.
+- Keep a small number of profile sizes. Each unique `Thickness`/`Blur`/`Max Radius` group runs another outline batch.
+- Prefer `MeshSilhouette` alpha mode for opaque meshes. `MainTextureAlpha` is useful for cutout textures, but it samples source material textures during the mask draw.
+- Disable `FPOutlineTarget` when the object does not need an outline; inactive targets are skipped before the pass is enqueued.
 
 ## Alpha Modes
 

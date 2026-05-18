@@ -18,6 +18,7 @@ namespace FuzzPhyte.Utility
         private const string DilationTex0Name = "_DilationTexture0";
         private const string DilationTex1Name = "_DilationTexture1";
         private const string DrawOutlineObjectsPassName = "DrawOutlineObjectsPass";
+        private const string DownsampleMaskPassName = "DownsampleOutlineMaskPass";
         private const string HorizontalPassName = "HorizontalDilationPass";
         private const string VerticalPassName = "VerticalDilationPass";
 
@@ -45,16 +46,19 @@ namespace FuzzPhyte.Utility
         public int DefaultThickness { private get; set; } = 5;
         public int DefaultBlur { private get; set; } = 2;
         public int DefaultMaxRadius { private get; set; } = 50;
+        public float BufferScale { private get; set; } = 1f;
 
+        private RenderTextureDescriptor _maskDescriptor;
         private RenderTextureDescriptor _dilationDescriptor;
 
         public FPBlurredBufferMultiObjectOutlinePass()
         {
-            _dilationDescriptor = new RenderTextureDescriptor(
+            _maskDescriptor = new RenderTextureDescriptor(
                 Screen.width,
                 Screen.height,
                 RenderTextureFormat.Default,
                 depthBufferBits: 0);
+            _dilationDescriptor = _maskDescriptor;
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph,
@@ -74,10 +78,15 @@ namespace FuzzPhyte.Utility
 
             // Match the full camera target shape, including XR texture array slices.
             // depthBufferBits must be zero for color textures.
-            _dilationDescriptor = cameraData.cameraTargetDescriptor;
-            _dilationDescriptor.depthBufferBits = 0;
-            _dilationDescriptor.depthStencilFormat = GraphicsFormat.None;
-            _dilationDescriptor.stencilFormat = GraphicsFormat.None;
+            _maskDescriptor = cameraData.cameraTargetDescriptor;
+            _maskDescriptor.depthBufferBits = 0;
+            _maskDescriptor.depthStencilFormat = GraphicsFormat.None;
+            _maskDescriptor.stencilFormat = GraphicsFormat.None;
+
+            _dilationDescriptor = _maskDescriptor;
+            float bufferScale = Mathf.Clamp(BufferScale, 0.25f, 1f);
+            _dilationDescriptor.width = Mathf.Max(1, Mathf.CeilToInt(_dilationDescriptor.width * bufferScale));
+            _dilationDescriptor.height = Mathf.Max(1, Mathf.CeilToInt(_dilationDescriptor.height * bufferScale));
 
             var screenColorHandle = resourceData.activeColorTexture;
             var screenDepthStencilHandle = resourceData.activeDepthTexture;
@@ -124,18 +133,35 @@ namespace FuzzPhyte.Utility
             OutlineRenderBatch batch,
             int batchIndex)
         {
-            var dilation0Handle = UniversalRenderer.CreateRenderGraphTexture(
+            bool useScaledDilationBuffer =
+                _dilationDescriptor.width != _maskDescriptor.width ||
+                _dilationDescriptor.height != _maskDescriptor.height;
+
+            var maskHandle = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph,
-                _dilationDescriptor,
-                $"{DilationTex0Name}_{batchIndex}",
+                _maskDescriptor,
+                $"{DilationTex0Name}_Mask_{batchIndex}",
                 clear: true);
+            var dilation0Handle = TextureHandle.nullHandle;
+            if (useScaledDilationBuffer)
+            {
+                dilation0Handle = UniversalRenderer.CreateRenderGraphTexture(
+                    renderGraph,
+                    _dilationDescriptor,
+                    $"{DilationTex0Name}_{batchIndex}",
+                    clear: true);
+            }
+
             var dilation1Handle = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph,
                 _dilationDescriptor,
                 $"{DilationTex1Name}_{batchIndex}",
                 clear: true);
 
-            if (!dilation0Handle.IsValid() || !dilation1Handle.IsValid())
+            if (!maskHandle.IsValid() || !dilation1Handle.IsValid())
+                return;
+
+            if (useScaledDilationBuffer && !dilation0Handle.IsValid())
                 return;
 
             using (var builder = renderGraph.AddRasterRenderPass<RenderObjectsPassData>(
@@ -150,7 +176,7 @@ namespace FuzzPhyte.Utility
                 passData.DefaultAlphaCutoff = batch.DefaultAlphaCutoff;
                 passData.DefaultMaskTexture = batch.DefaultMaskTexture;
 
-                builder.SetRenderAttachment(dilation0Handle, 0);
+                builder.SetRenderAttachment(maskHandle, 0);
                 builder.SetRenderAttachmentDepth(screenDepthStencilHandle);
                 builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
@@ -159,11 +185,35 @@ namespace FuzzPhyte.Utility
                     ExecuteDrawOutlineObjects(data, context));
             }
 
+            TextureHandle horizontalSourceHandle = maskHandle;
+            if (useScaledDilationBuffer)
+            {
+                using (var builder = renderGraph.AddRasterRenderPass<BlitPassData>(
+                           $"{DownsampleMaskPassName}_{batchIndex}",
+                           out var passData))
+                {
+                    passData.Source = maskHandle;
+                    passData.Material = DilationMaterial;
+                    passData.Thickness = batch.Thickness;
+                    passData.Blur = batch.Blur;
+                    passData.MaxRadius = batch.MaxRadius;
+
+                    builder.UseTexture(passData.Source);
+                    builder.SetRenderAttachment(dilation0Handle, 0);
+                    builder.AllowPassCulling(false);
+
+                    builder.SetRenderFunc((BlitPassData data, RasterGraphContext context) =>
+                        ExecuteBlit(data, context, 2));
+                }
+
+                horizontalSourceHandle = dilation0Handle;
+            }
+
             using (var builder = renderGraph.AddRasterRenderPass<BlitPassData>(
                        $"{HorizontalPassName}_{batchIndex}",
                        out var passData))
             {
-                passData.Source = dilation0Handle;
+                passData.Source = horizontalSourceHandle;
                 passData.Material = DilationMaterial;
                 passData.Thickness = batch.Thickness;
                 passData.Blur = batch.Blur;

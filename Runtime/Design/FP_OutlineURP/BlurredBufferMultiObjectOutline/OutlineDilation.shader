@@ -56,7 +56,7 @@ Shader "FuzzPhyte/Dilation"
                     //float4 buffer = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_BlitTexture, uv);
                     float4 buffer = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, uv, 0);
                     // Define "active" — adjust threshold if you need
-                    if (buffer.a >= 1.0)
+                    if (buffer.a >= 0.5)
                     {
                         int d = abs(x);
                         if (d < bestDist)
@@ -156,6 +156,23 @@ Shader "FuzzPhyte/Dilation"
                 if (bestDist > (float)radius) a = 0;
 
                 return float4(bestColor, a);
+            }
+            ENDHLSL
+        }
+        // PASS 2: Copy/downsample the full-resolution mask into the dilation buffer.
+        Pass
+        {
+            Name "CopyMask"
+            ZTest Always
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment frag_copyMask
+
+            float4 frag_copyMask(Varyings i) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                return SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, i.texcoord, 0);
             }
             ENDHLSL
         }
