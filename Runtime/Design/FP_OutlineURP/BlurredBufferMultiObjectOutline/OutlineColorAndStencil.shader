@@ -16,17 +16,17 @@ Shader "FuzzPhyte/Outline Color And Stencil"
         
         Tags
         {
-            "RenderType" = "Opaque" "RenderPipeline" = "UniversalRenderPipeline"
+            "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline"
         }
 
         Pass
         {
+            Tags { "LightMode" = "SRPDefaultUnlit" }
             ZWrite Off
 
             ZTest LEqual
 
             HLSLPROGRAM
-            #pragma target 3.5
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
