@@ -10,13 +10,34 @@ To then accommodate that update we've modified all files under the Runtime folde
 
 ## Active Project Setup
 
-1. Add `FPBlurredBufferMultiObjectOutlineRendererFeature` to the active URP renderer.
-2. Leave `Dilation Material` and `Outline Material` empty unless you need custom shader/material overrides. The feature creates internal runtime materials from `FuzzPhyte/Dilation` and `FuzzPhyte/Outline Color And Stencil`.
+1. Add `FPBlurredBufferMultiObjectOutlineRendererFeature` or `FPFastMeshOutlineRendererFeature` to the active URP renderer.
+2. Leave the feature material fields empty unless you need custom shader/material overrides. The blurred feature creates runtime materials from `FuzzPhyte/Dilation` and `FuzzPhyte/Outline Color And Stencil`; the fast mesh feature creates one from `FuzzPhyte/Fast Mesh Outline`.
 3. Create one or more outline profiles from `Create/FuzzPhyte/Utility/Outline Profile`.
 4. Add `FPOutlineTarget` to any object that should be outlined.
 5. Assign an `FPOutlineProfile` to the target, or leave it empty to use the render feature defaults.
 
-`FPOutlineTarget` registers itself automatically and can include child renderers or use explicitly assigned renderers. The outline is still a render-feature effect, not a second material slot on the object. A second renderer material would affect normal object rendering and would not drive the screen-space dilation/composite pass.
+`FPOutlineTarget` registers itself automatically and can include child renderers or use explicitly assigned renderers. Both renderer features consume the same target registry, so you can run the fast mesh outline, the blurred screen-space outline, or both.
+
+## Renderer Features
+
+### `FPFastMeshOutlineRendererFeature`
+
+Use this first for VR/mobile selection outlines. It redraws the selected meshes with an expanded backface hull, so cost scales mostly with outlined mesh count and mesh complexity instead of full headset render-target resolution.
+
+- `Outline Material`: optional override. If empty, the feature creates a runtime material from `FuzzPhyte/Fast Mesh Outline`.
+- `Thickness`: default profile-free outline size. Profile `Thickness` also drives this pass.
+- `Width Per Thickness Unit`: converts profile thickness units into world-space mesh expansion. Start around `0.002` and tune per project scale.
+- `Require Depth`: keeps outlines depth-tested against the scene. Disable only if you deliberately want outlines to draw without depth attachment requirements.
+
+Because this is an inverted-hull outline, it is fast but not identical to the blurred effect. It works best on closed meshes with good normals. Very thin, open, flat, or non-manifold meshes may need adjusted normals or a lower width.
+
+For Android builds, either assign the included `FastMeshOutline` material to the feature or add `FuzzPhyte/Fast Mesh Outline` to Always Included Shaders.
+
+### `FPBlurredBufferMultiObjectOutlineRendererFeature`
+
+Use this when you need a soft screen-space silhouette, blur, texture-alpha driven masks, or a glow-like highlight. It renders selected meshes into a mask, dilates that mask, and composites it back to the camera target.
+
+This path is more expensive in XR because the mask is tied to the camera target and the dilation work scales with buffer pixels. Prefer the fast mesh feature for most Android VR selection outlines.
 
 ## Outline Profiles
 

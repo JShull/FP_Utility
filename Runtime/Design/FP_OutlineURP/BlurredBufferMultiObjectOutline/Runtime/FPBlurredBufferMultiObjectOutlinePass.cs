@@ -33,7 +33,11 @@ namespace FuzzPhyte.Utility
         private static readonly int OutlineMaskTextureId = Shader.PropertyToID("_FPOutlineMaskTexture");
         private static readonly int OutlineMaskTextureStId = Shader.PropertyToID("_FPOutlineMaskTexture_ST");
 
-        public RenderPassEvent RenderEvent { private get; set; }
+        public RenderPassEvent RenderEvent
+        {
+            private get => renderPassEvent;
+            set => renderPassEvent = value;
+        }
         public Material DilationMaterial { private get; set; }
         public Material OutlineMaterial { private get; set; }
         public Renderer[] Renderers { get; set; }
@@ -72,9 +76,6 @@ namespace FuzzPhyte.Utility
                 return;
 
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-
-            // Update Settings
-            renderPassEvent = RenderEvent;
 
             // Match the full camera target shape, including XR texture array slices.
             // depthBufferBits must be zero for color textures.
