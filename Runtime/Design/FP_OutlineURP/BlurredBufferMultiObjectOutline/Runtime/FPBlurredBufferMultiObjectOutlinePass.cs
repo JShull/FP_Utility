@@ -177,7 +177,7 @@ namespace FuzzPhyte.Utility
                 passData.DefaultMaskTexture = batch.DefaultMaskTexture;
 
                 builder.SetRenderAttachment(maskHandle, 0);
-                builder.SetRenderAttachmentDepth(screenDepthStencilHandle);
+                builder.SetRenderAttachmentDepth(screenDepthStencilHandle, AccessFlags.Read);
                 builder.AllowGlobalStateModification(true);
                 builder.AllowPassCulling(false);
 
@@ -239,7 +239,6 @@ namespace FuzzPhyte.Utility
 
                 builder.UseTexture(passData.Source);
                 builder.SetRenderAttachment(screenColorHandle, 0);
-                builder.SetRenderAttachmentDepth(screenDepthStencilHandle, AccessFlags.Read);
                 builder.AllowPassCulling(false);
 
                 builder.SetRenderFunc((BlitPassData data, RasterGraphContext context) =>

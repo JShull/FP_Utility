@@ -41,12 +41,12 @@ The outline effect is a screen-space render feature. `FPOutlineTarget` registrat
 - Run horizontal dilation.
 - Run vertical dilation and composite back to the camera target.
 
-In XR, the mask must match the camera target and stencil dimensions, so single-pass instanced / multiview render targets can be very large. The dilation shader cost also scales with `Max Radius`: a radius of 50 searches 101 samples horizontally and 101 samples vertically for every pixel in the dilation buffer.
+In XR, the mask must match the camera target dimensions so single-pass instanced / multiview render targets can be very large. The dilation shader cost also scales with `Max Radius`: a radius of 50 searches 101 samples horizontally and 101 samples vertically for every pixel in the dilation buffer.
 
 Recommended settings for VR/mobile:
 
 - Keep `Auto Max Radius` enabled on the render feature defaults and on outline profiles.
-- Start with `Buffer Scale = 0.5` on the render feature. This keeps the mask/stencil correct at full resolution, downsamples only the dilation buffer, and composites the result back to the full camera target.
+- Start with `Buffer Scale = 0.5` on the render feature. This keeps the visibility mask correct at full resolution, downsamples only the dilation buffer, and composites the result back to the full camera target.
 - Use `Buffer Scale = 0.25` only for soft, chunky highlights where lower outline resolution is acceptable.
 - Keep a small number of profile sizes. Each unique `Thickness`/`Blur`/`Max Radius` group runs another outline batch.
 - Prefer `MeshSilhouette` alpha mode for opaque meshes. `MainTextureAlpha` is useful for cutout textures, but it samples source material textures during the mask draw.

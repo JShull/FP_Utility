@@ -86,21 +86,15 @@ Shader "FuzzPhyte/Dilation"
             ZTest Always
             Blend SrcAlpha OneMinusSrcAlpha
 
-            Stencil
-            {
-                Ref 15
-                Comp NotEqual
-                Pass Zero
-                Fail Zero
-                ZFail Zero
-            }
-
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment frag_verticalCompose
 
             float SoftBandAlpha(float distPx, float thicknessPx, float blurPx)
             {
+                // The original mask pixels belong to the object, not the outline.
+                if (distPx <= 0.5) return 0.0;
+
                 // Fully opaque inside thickness
                 if (distPx <= thicknessPx) return 1.0;
 

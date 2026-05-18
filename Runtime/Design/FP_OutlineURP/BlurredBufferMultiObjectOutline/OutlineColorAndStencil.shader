@@ -23,15 +23,6 @@ Shader "FuzzPhyte/Outline Color And Stencil"
         {
             ZWrite Off
 
-            Stencil
-            {
-                Ref 15
-                Comp Always
-                Pass Replace
-                Fail Keep
-                ZFail Keep
-            }
-            
             ZTest LEqual
 
             HLSLPROGRAM
