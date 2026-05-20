@@ -6,6 +6,137 @@ FP_Utility is designed and built to be a simple set of base classes to be used i
 
 ## Internal Utility Tools
 
+### Simple Convex Generator
+
+Simple Convex Generator is an editor-only mesh collider helper for creating a simplified convex `MeshCollider` asset from an existing mesh or scene object. It is intended for cases where a visual mesh is too detailed for collision, but a box or capsule collider is too rough.
+
+Open the tool from `FuzzPhyte/Utility/Rendering/Simple Convex Generator`.
+
+#### Simple Convex Generator - How To Use It
+
+1. Select or assign a `GameObject`, `MeshFilter`, `SkinnedMeshRenderer`, component, prefab, or raw `Mesh` in the `Object / Mesh` field.
+2. Click `Refresh Preview` to build the transparent convex preview around the source mesh.
+3. Adjust `Decimated Points`, `Surface Planes`, `Merge Angle`, and `Surface Padding` until the collider shape is as tight and simple as needed.
+4. Use the preview window to compare the original rendered mesh against the transparent generated collider mesh.
+5. Click `Generate and Save Mesh` to save the collider mesh asset under the configured output folder.
+6. If `Create Collider Child` is enabled, the tool creates a child object under the selected parent or source object with only a convex `MeshCollider` assigned.
+
+#### Simple Convex Generator - Preview Controls
+
+* Left click and drag in the preview to freely orbit the view.
+* Use the orbit gizmo's `+X`, `-X`, `+Y`, `-Y`, `+Z`, and `-Z` buttons to snap to cardinal views.
+* Drag the `X`, `Y`, or `Z` orbit strips to rotate around a single world axis.
+* Scroll over the preview to zoom. The zoom readout is shown in the overlay.
+* The overlay reports preview vertices, preview triangles, generated-to-source vertex ratio, decimated support points, and `Planes Used` compared to the requested `Surface Planes`.
+
+#### Simple Convex Generator - Settings Notes
+
+* `Decimated Points` controls how many source points are retained as the simplified support set.
+* `Surface Planes` controls the maximum number of convex clipping planes. More planes usually gives a tighter shape; fewer planes gives a simpler collider.
+* `Merge Angle` merges similar plane directions. A higher value can reduce the actual `Planes Used` below the requested `Surface Planes`.
+* `Surface Padding` expands the generated volume. Small values such as `0.001` are usually best for tight collider generation on small assets.
+* `Contain Source Mesh` fits surface planes against the original vertices so the generated convex mesh contains the source mesh.
+* Generated scene children are collider-only. The geometry asset is saved, but the scene child receives only a convex `MeshCollider`, with no `MeshRenderer`.
+
+### FP Mesh Combiner
+
+FP Mesh Combiner is an editor-only tool for baking multiple source meshes into one combined mesh asset. It is intended for scenes or prefab hierarchies where many separate visual or collider meshes should become a single reusable mesh, especially when generating consolidated `MeshCollider` assets.
+
+Open the tool from `FuzzPhyte/Utility/Rendering/FP Mesh Combiner`.
+
+#### FP Mesh Combiner - How To Use It
+
+1. Assign a `Root Object`, or select a scene object and click `Use Current Selection As Root`.
+2. Choose whether to include children and inactive objects.
+3. Enable the source types you want to collect: `MeshFilters`, `SkinnedMeshRenderers`, and/or `MeshColliders`.
+4. Review `Meshes Found (Preview)` to confirm the tool sees the expected sources.
+5. Set the `Combined Mesh Name`.
+6. Click `Combine Meshes and Save Asset`, then choose the asset save location in the project.
+
+The generated mesh is baked into the local space of the chosen root object. This means child transforms are applied to the output vertices, so the saved mesh lines up with the root when used as a collider or debug mesh.
+
+#### FP Mesh Combiner - Output Options
+
+* `Add MeshCollider to Root` assigns the saved combined mesh to a `MeshCollider` on the root object.
+* `Replace Existing Collider` controls whether an existing root `MeshCollider` is reused. If disabled and a root collider already exists, the tool creates a child object for the new collider.
+* `Collider Convex` sets the resulting `MeshCollider.convex` flag.
+* `Collider Is Trigger` sets the resulting `MeshCollider.isTrigger` flag.
+
+#### FP Mesh Combiner - Source Notes
+
+* `Skip 'EditorOnly' Tagged Objects` excludes any source object tagged `EditorOnly`.
+* Mesh colliders are included only when their `sharedMesh` is assigned.
+* If a visual mesh source from the same object has already been included, the matching `MeshCollider` source is skipped to avoid duplicate geometry.
+* Large combined meshes automatically use 32-bit indices when the estimated vertex count is greater than 65,535.
+* The output keeps source submeshes separate, which can be useful for inspection or later processing.
+
+### FP Mesh Generator and Heightmap Editor
+
+FP Mesh Generator is an editor-only tool for building rectangular grid meshes on the XZ plane. The grid can be saved as a mesh asset, created directly in the scene, or connected to an `FPMeshGridData` asset so it can be regenerated later. The related FP Heightmap Editor can inspect, paint, and save heightmap textures that deform those generated grids.
+
+Open the generator from `FuzzPhyte/Utility/Rendering/FP Mesh Generator`.
+
+Open the heightmap editor from `FuzzPhyte/Utility/Rendering/FP Heightmap Editor`, or from the generator with `Open Heightmap Editor`.
+
+#### FP Mesh Generator - How To Use It
+
+1. Optionally assign an `FPMeshGridData` asset in the `Data Asset` field.
+2. Set the grid `Mesh Name`, `Width`, `Length`, `X Segments`, `Y Segments`, and `Center Pivot`.
+3. Optionally assign a heightmap texture and choose `Height Scale`, `Height Offset`, channel, inversion, and X/Y flip settings.
+4. Adjust height processing options such as remap, edge falloff, and terracing.
+5. Set scene output options such as parent, material, `Add MeshCollider`, and `Auto Update Preview`.
+6. Click `Create Scene Object` to create a live scene mesh, or `Save Mesh Asset` to save the generated mesh to the project.
+
+The generated grid uses UV0 coordinates for heightmap sampling. If no heightmap is assigned, the tool generates a flat grid. If a heightmap is assigned, vertices are displaced on the Y axis using the selected texture channel and processing settings.
+
+#### FPMeshGridData
+
+`FPMeshGridData` is a ScriptableObject recipe for grid generation. Create one from `Assets/Create/FuzzPhyte/Utility/Design/Mesh Grid Data`.
+
+The asset stores:
+
+* `GridSettings`, including mesh name, width, length, segment counts, and pivot mode.
+* `HeightmapSettings`, including the heightmap texture, height scale, offset, channel, inversion, and flips.
+* `HeightProcessSettings`, including remap, edge falloff, and terracing.
+
+Use `Load Settings From Data Asset` to pull a recipe into the generator. Use `Save Current Settings To Data Asset` to write the current generator and heightmap settings back into the asset.
+
+When `Create Scene Object` is used with a data asset assigned, the scene object receives an `FPMeshGridInstance`. That instance references the data asset and can regenerate the mesh in edit mode. It also stores preview material, collider preference, and `AutoRegenerateInEditor`.
+
+#### FPMeshGridInstance
+
+`FPMeshGridInstance` is the scene component that turns an `FPMeshGridData` recipe into a mesh. It requires a `MeshFilter` and `MeshRenderer`, and can optionally keep a `MeshCollider` synced with the generated mesh.
+
+Instances can regenerate in several ways:
+
+* Changes to the assigned `FPMeshGridData` trigger regeneration when `AutoRegenerateInEditor` is enabled.
+* The component inspector has `Regenerate Mesh` and `Save Mesh Asset` actions.
+* The menu item `GameObject/FuzzPhyte/Rendering/Regenerate Selected Mesh Grid` regenerates selected grid instances.
+* The heightmap editor can use a selected grid instance as a live preview target while painting a working heightmap copy.
+
+#### FP Heightmap Editor - How It Connects
+
+The FP Heightmap Editor can work with either an `FPMeshGridData` asset or a direct heightmap texture. When opened from the mesh generator, it receives the current data asset and heightmap reference.
+
+Use the heightmap editor to:
+
+* Preview the source texture, grayscale values, or individual red, green, blue, and alpha channels.
+* Inspect texture statistics and a histogram for the selected preview mode.
+* Create a non-destructive working copy of a heightmap.
+* Paint height values with raise, lower, or set brush modes.
+* Use brush size, rotation, softness, strength, set value, and optional brush masks.
+* Save the working copy as a PNG and assign it back to the `FPMeshGridData` heightmap settings.
+* Use `Live Mesh Preview` with an `FPMeshGridInstance` to update the generated grid as brush edits settle.
+
+#### Heightmap Processing Notes
+
+* Heightmaps are sampled through the generated grid's UV0 coordinates.
+* `Use Remap` isolates a useful height range before applying displacement.
+* `Edge Falloff` can soften edges or create rectangular/radial island-like surfaces.
+* `Use Terracing` quantizes height values into stepped levels.
+* `Use GPU Working Copy` enables GPU-backed editing and debug views for source, shader source, mask influence, and final influence.
+* Brush edits are made on a working copy. The original source texture is not changed until a new PNG is saved.
+
 ### FP Header
 
 FP Header is an editor-only hierarchy organization tool for Unity scenes. It lets you create disabled, all-caps GameObjects that act like visual section headers in the standard Unity Hierarchy without forcing the grouped objects into a parent-child transform relationship. This is useful when you want the readability and collapse behavior of folders, but you do not want to change transform inheritance or scene structure.
