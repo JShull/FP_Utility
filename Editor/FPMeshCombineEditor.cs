@@ -44,7 +44,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private Vector2 scrollPos;
 
-        [MenuItem("FuzzPhyte/Utility/Rendering/FP Mesh Combiner", priority = FP_UtilityData.ORDER_MENU + 5)]
+        [MenuItem("FuzzPhyte/Utility/Rendering/FP Mesh Combiner", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 1)]
         public static void ShowWindow()
         {
             var window = GetWindow<FPMeshCombineEditor>("FP Mesh Combiner");

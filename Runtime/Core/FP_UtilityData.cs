@@ -36,8 +36,20 @@ namespace FuzzPhyte.Utility
         public const string AZURE_MANIFESTS_CONTAINER_KEY = "FP_AzureManifestsContainer";
         public const string AZURE_MANIFEST_FILE_NAME_KEY = "FP_AzureManifestFileName";
         public const string AZURE_BLOB_OVERRIDE_URL_KEY = "FP_AzureBlobOverrideURL";
-        // menu order for misc. menus
-        public const int ORDER_MENU = 0;
+        // Menu order for FuzzPhyte editor menu items. Lower priorities appear higher in Unity menus.
+        public const int MENU_FUZZPHYTE_UTILITY = 0;
+        public const int MENU_FUZZPHYTE_HEADER = 1000;
+        public const int MENU_FUZZPHYTE_VARIANTS = 1100;
+
+        public const int MENU_UTILITY_EDITOR = MENU_FUZZPHYTE_UTILITY + 0;
+        public const int MENU_UTILITY_AUDIO = MENU_FUZZPHYTE_UTILITY + 10;
+        public const int MENU_UTILITY_DIAGNOSTICS = MENU_FUZZPHYTE_UTILITY + 20;
+        public const int MENU_UTILITY_RENDERING = MENU_FUZZPHYTE_UTILITY + 30;
+        public const int MENU_UTILITY_SCENE = MENU_FUZZPHYTE_UTILITY + 40;
+        public const int MENU_UTILITY_VIDEO = MENU_FUZZPHYTE_UTILITY + 50;
+        public const int MENU_UTILITY_PACKAGES = MENU_FUZZPHYTE_UTILITY + 60;
+
+        public const int ORDER_MENU = MENU_FUZZPHYTE_UTILITY;
         public const int ORDER_SUBMENU_LVL1 = 150;
         public const int ORDER_SUBMENU_LVL2 = 130;
         public const int ORDER_SUBMENU_LVL3 = 110;

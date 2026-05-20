@@ -9,12 +9,12 @@ namespace FuzzPhyte.Utility.Editor
     public class FPRenderingUtilityEditor: Editor
     {
         #region Menu Items
-        [MenuItem("FuzzPhyte/Utility/Rendering/GI/Enable GI", priority = 90)]
+        [MenuItem("FuzzPhyte/Utility/Rendering/GI/Enable GI", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 20)]
         private static void EnableContributeGlobalIllumination()
         {
             ApplyContributeGlobalIllumination(true);
         }
-        [MenuItem("FuzzPhyte/Utility/Rendering/GI/Disable GI", priority = 91)]
+        [MenuItem("FuzzPhyte/Utility/Rendering/GI/Disable GI", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 21)]
         private static void DisableContributeGlobalIllumination()
         {
             ApplyContributeGlobalIllumination(false);

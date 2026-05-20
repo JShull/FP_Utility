@@ -51,7 +51,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private Vector2 scrollPosition;
 #endregion
-        [MenuItem("FuzzPhyte/Utility/Video/Hash Generator")]
+        [MenuItem("FuzzPhyte/Utility/Video/Hash Generator", priority = FP_UtilityData.MENU_UTILITY_VIDEO)]
         public static void ShowWindow()
         {
             GetWindow<FPVideoHashEditor>("FP Video Hash Generator");

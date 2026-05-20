@@ -21,7 +21,7 @@ namespace FuzzPhyte.Utility.Editor.Video
 
         private Vector2 scrollPosition;
 
-        [MenuItem("FuzzPhyte/Utility/Video/FP Video Sphere Generator", priority = FP_UtilityData.ORDER_MENU + 7)]
+        [MenuItem("FuzzPhyte/Utility/Video/FP Video Sphere Generator", priority = FP_UtilityData.MENU_UTILITY_VIDEO + 1)]
         public static void ShowWindow()
         {
             FPVideoSphereGeneratorWindow window = GetWindow<FPVideoSphereGeneratorWindow>("FP Video Sphere");

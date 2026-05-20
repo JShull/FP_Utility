@@ -29,7 +29,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private Vector2 scroll;
 
-        [MenuItem("FuzzPhyte/Utility/Editor/Readme Tool/Readme Builder")]
+        [MenuItem("FuzzPhyte/Utility/Editor/Readme Tool/Readme Builder", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 30)]
         public static void Open()
         {
             var window = GetWindow<FPReadmeBuilderWindow>();
@@ -44,7 +44,7 @@ namespace FuzzPhyte.Utility.Editor
             return Selection.activeObject is FPReadmeAsset;
         }
 
-        [MenuItem("FuzzPhyte/Utility/Editor/Readme Tool/Edit Readme Asset")]
+        [MenuItem("FuzzPhyte/Utility/Editor/Readme Tool/Edit Readme Asset", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 31)]
         private static void EditSelectedReadme()
         {
             var readme = Selection.activeObject as FPReadmeAsset;

@@ -10,7 +10,7 @@
         /// <summary>
         /// All Non-Unity Assemblies
         /// </summary>
-        [MenuItem("FuzzPhyte/Utility/Editor/Debug/List RuntimeInitializeOnLoad Methods")]
+        [MenuItem("FuzzPhyte/Utility/Editor/Debug/List RuntimeInitializeOnLoad Methods", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 20)]
         public static void ListAll()
         {
             int total = 0;

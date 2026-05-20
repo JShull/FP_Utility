@@ -23,7 +23,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private Vector2 scroll;
 
-        [MenuItem("FuzzPhyte/Utility/Editor/Scene Reference Replacer")]
+        [MenuItem("FuzzPhyte/Utility/Editor/Scene Reference Replacer", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 12)]
         public static void Open()
         {
             var window = GetWindow<FPSceneReferenceReplaceEditorWindow>();

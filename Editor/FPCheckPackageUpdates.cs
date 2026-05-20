@@ -71,7 +71,7 @@ namespace FuzzPhyte.Utility.Editor
         static List<Request> _updateRequests;
         
         // Add a menu item in the Unity Editor under "Tools/FuzzPhyte/Update FP Packages"
-        [MenuItem("FuzzPhyte/Utility/Update Packages")]
+        [MenuItem("FuzzPhyte/Utility/Update Packages", priority = FP_UtilityData.MENU_UTILITY_PACKAGES)]
         public static void RunPackageUpdateCheck()
         {
             CheckForPackageUpdates("com.fuzzphyte.");

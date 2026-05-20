@@ -29,7 +29,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private Vector2 scrollPosition;
 
-        [MenuItem("FuzzPhyte/Utility/Rendering/FP Mesh Generator", priority = FP_UtilityData.ORDER_MENU + 6)]
+        [MenuItem("FuzzPhyte/Utility/Rendering/FP Mesh Generator", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 2)]
         public static void ShowWindow()
         {
             var window = GetWindow<FPMeshGeneratorWindow>("FP Mesh Generator");

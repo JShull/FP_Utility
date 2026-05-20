@@ -1190,9 +1190,9 @@ namespace FuzzPhyte.Utility.Editor
         }
         #endregion
         #region Menu Functions
-        [MenuItem("FuzzPhyte/Header/Enable FP_HHeader",false,priority = FP_UtilityData.ORDER_SUBMENU_LVL7)]
+        [MenuItem("FuzzPhyte/Header/Enable FP_HHeader", false, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER + 1)]
         private static void ToggleHeaderMenuMain() => ToggleHeaderSystem();
-        [MenuItem("FuzzPhyte/Header/Enable FP_HHeader", true, priority = FP_UtilityData.ORDER_SUBMENU_LVL7)]
+        [MenuItem("FuzzPhyte/Header/Enable FP_HHeader", true, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER + 1)]
         private static bool ValidateHeaderMenuMain()
         {
             ValidateHeaderMenu("FuzzPhyte/Header/Enable FP_HHeader");

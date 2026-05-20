@@ -46,7 +46,7 @@ namespace FuzzPhyte.Utility.Editor
         private List<GameObject> trackedObjects = new List<GameObject>();
         private FPRuntimeChangeTracker fpTracker;
         #endregion
-        [MenuItem("FuzzPhyte/Utility/Editor/Data Factory", priority = FP_UtilityData.ORDER_MENU,secondaryPriority = FP_UtilityData.ORDER_SUBMENU_LVL8)]
+        [MenuItem("FuzzPhyte/Utility/Editor/Data Factory", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 2)]
         public static void ShowWindow()
         {
             GetWindow<FP_ItemFactoryEditor>("FP Data Factory");

@@ -7,7 +7,7 @@ namespace FuzzPhyte.Utility.Editor
     {
         private FP_HHeaderData headerData;
 
-        [MenuItem("FuzzPhyte/Header/Header Options", false, priority = FP_UtilityData.ORDER_SUBMENU_LVL6)]
+        [MenuItem("FuzzPhyte/Header/Header Options", false, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER)]
         private static void OpenWindow()
         {
             FP_HHeaderWindow window = GetWindow<FP_HHeaderWindow>("Header Options");

@@ -106,7 +106,7 @@ namespace FuzzPhyte.Utility.Editor
         private const double AnalysisRefreshDelaySeconds = 0.35d;
         private const double LiveMeshPreviewDelaySeconds = 0.12d;
 
-        [MenuItem("FuzzPhyte/Utility/Rendering/FP Heightmap Editor", priority = FP_UtilityData.ORDER_MENU + 7)]
+        [MenuItem("FuzzPhyte/Utility/Rendering/FP Heightmap Editor", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 3)]
         public static void ShowWindow()
         {
             var window = GetWindow<FPHeightmapEditorWindow>("FP Heightmap Editor");

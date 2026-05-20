@@ -43,7 +43,7 @@ namespace FuzzPhyte.Utility.Editor
         private const float WorkspacePadding = 4f;
         private const float PanelGap = 6f;
 
-        [MenuItem("FuzzPhyte/Utility/Rendering/SVG Extruder", priority = FP_UtilityData.ORDER_MENU + 8)]
+        [MenuItem("FuzzPhyte/Utility/Rendering/SVG Extruder", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 4)]
         public static void ShowWindow()
         {
             var window = GetWindow<FPSVGExtruderWindow>("FP SVG Extruder");

@@ -37,7 +37,7 @@ namespace FuzzPhyte.Utility.Interactive.Editor
         private Vector2 _bottomScroll;
 
         #endregion
-        [MenuItem("FuzzPhyte/Variant Builder")]
+        [MenuItem("FuzzPhyte/Variant Builder", priority = FP_UtilityData.MENU_FUZZPHYTE_VARIANTS)]
         public static void Open() => GetWindow<FPVariantBuilderWindow>("FP Variant Builder");
 
         protected virtual void OnDestroy() => ScheduleCleanupPreview();

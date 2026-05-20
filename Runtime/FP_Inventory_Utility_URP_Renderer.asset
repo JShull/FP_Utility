@@ -79,11 +79,14 @@ MonoBehaviour:
   outlineMaterial: {fileID: 0}
   thickness: 4
   blur: 2
+  defaultAutoMaxRadius: 1
   maxRadius: 50
   defaultOutlineColor: {r: 0, g: 1, b: 1, a: 1}
   defaultAlphaMode: 0
   defaultAlphaCutoff: 0.5
   defaultMaskTexture: {fileID: 0}
+  bufferScale: 1
+  warnOnUnsupportedShaders: 1
   useRegisteredTargets: 1
 --- !u!114 &-487527310515065048
 MonoBehaviour:

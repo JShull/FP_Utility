@@ -64,15 +64,63 @@
         private float regionLengthSec = 0.10f; // default 100ms quick region
         private bool regionStartFollowsPlayhead = true; // convenience toggle
 
-        [MenuItem("FuzzPhyte/Audio/Audio Segment Tool", priority = FuzzPhyte.Utility.FP_UtilityData.ORDER_SUBMENU_LVL6)]
+        [MenuItem("FuzzPhyte/Utility/Audio/Segment Tool", priority = FuzzPhyte.Utility.FP_UtilityData.MENU_UTILITY_AUDIO)]
         public static void ShowWindow()
         {
             var win = GetWindow<FPAudioSegmentTool>("FP Audio Segment Tool");
             win.minSize = new Vector2(520, 500);
+            win.SyncSelectedAudioClip();
         }
         private void OnEnable()
         {
             
+        }
+        private void SyncSelectedAudioClip()
+        {
+            if (!TryGetSelectedAudioClip(out AudioClip selectedClip))
+            {
+                return;
+            }
+
+            if (sourceClip == selectedClip)
+            {
+                return;
+            }
+
+            sourceClip = selectedClip;
+            inTime = 0f;
+            outTime = selectedClip.length;
+            playhead = 0f;
+            waveform = null;
+            lastClip = null;
+            lastWaveWidth = 0;
+            Repaint();
+        }
+
+        private static bool TryGetSelectedAudioClip(out AudioClip selectedClip)
+        {
+            selectedClip = null;
+
+            AudioClip clip = Selection.activeObject as AudioClip;
+            if (clip == null)
+            {
+                return false;
+            }
+
+            string assetPath = AssetDatabase.GetAssetPath(clip);
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                return false;
+            }
+
+            string extension = Path.GetExtension(assetPath).ToLowerInvariant();
+            if (extension != ".wav" && extension != ".mp3")
+            {
+                return false;
+            }
+
+            selectedClip = clip;
+            return true;
         }
         private void OnDisable()
         {

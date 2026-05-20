@@ -87,7 +87,7 @@ namespace FuzzPhyte.Utility.Editor
             RequestRefresh();
         }
 
-        [MenuItem("FuzzPhyte/Header/Enable Scene Mesh Picker", false, priority = FP_UtilityData.ORDER_SUBMENU_LVL7 + 1)]
+        [MenuItem("FuzzPhyte/Header/Enable Scene Mesh Picker", false, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER + 2)]
         private static void ToggleSceneMeshPickerMenu()
         {
             bool newValue = !IsEnabled;
@@ -106,13 +106,13 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.RepaintHierarchyWindow();
         }
 
-        [MenuItem("FuzzPhyte/Header/Enable Scene Mesh Picker", true, priority = FP_UtilityData.ORDER_SUBMENU_LVL7 + 1)]
+        [MenuItem("FuzzPhyte/Header/Enable Scene Mesh Picker", true, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER + 2)]
         private static bool ValidateSceneMeshPickerMenu()
         {
             Menu.SetChecked("FuzzPhyte/Header/Enable Scene Mesh Picker", IsEnabled);
             return true;
         }
-        [MenuItem("FuzzPhyte/Header/Debug/Log Mesh Picker Cache", false, 54)]
+        [MenuItem("FuzzPhyte/Header/Debug/Log Mesh Picker Cache", false, FP_UtilityData.MENU_FUZZPHYTE_HEADER + 20)]
         private static void LogMeshPickerCache()
         {
             RebuildCache();
@@ -129,7 +129,7 @@ namespace FuzzPhyte.Utility.Editor
             Debug.Log($"FP_HHeaderMeshPickerCache: cached {cachedTargets.Count} targets across {headerCount} collapsed headers, {meshCount} mesh sources, {triangleCount} triangles.");
         }
 
-        [MenuItem("FuzzPhyte/Header/Debug/Toggle Scene Picker Logging", false, 55)]
+        [MenuItem("FuzzPhyte/Header/Debug/Toggle Scene Picker Logging", false, FP_UtilityData.MENU_FUZZPHYTE_HEADER + 21)]
         private static void ToggleScenePickerLogging()
         {
             debugScenePicking = !debugScenePicking;

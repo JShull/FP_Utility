@@ -6,7 +6,7 @@ namespace FuzzPhyte.Utility.Editor.DebugTools
 
     public static class FPAssetReferenceTracer
     {
-        [MenuItem("FuzzPhyte/Utility/Diagnostics/Trace Selected Asset References")]
+        [MenuItem("FuzzPhyte/Utility/Diagnostics/Trace Selected Asset References", priority = FP_UtilityData.MENU_UTILITY_DIAGNOSTICS)]
         public static void TraceSelectedAssetReferences()
         {
             Object selected = Selection.activeObject;
