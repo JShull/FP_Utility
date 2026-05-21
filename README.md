@@ -137,6 +137,56 @@ Use the heightmap editor to:
 * `Use GPU Working Copy` enables GPU-backed editing and debug views for source, shader source, mask influence, and final influence.
 * Brush edits are made on a working copy. The original source texture is not changed until a new PNG is saved.
 
+### FP Audio Segment Tool
+
+FP Audio Segment Tool is an editor-only AudioClip trimming and cleanup helper. It lets you preview a source clip waveform, choose an in/out segment, add independent mute or cut regions, and export the processed result as a WAV asset.
+
+Open the tool from `FuzzPhyte/Utility/Audio/Segment Tool`.
+
+#### FP Audio Segment Tool - How To Use It
+
+1. Select an AudioClip in the Project window or assign one in the `Source Clip` field.
+2. Use `Segment (In/Out)` to choose the main segment window.
+3. Move the `Playhead` with the slider or by clicking in the waveform.
+4. Use `Set In = Playhead`, `Set Out = Playhead`, `Jump Playhead to In`, and `Jump Playhead to Out` to refine the segment.
+5. Use the region picker to add `Mute` or `Cut` regions independent of the main in/out segment.
+6. Use `Play Segment (in/out)` for the raw segment preview, or `Play Segment + Regions` to preview the segment after mute/cut regions are applied.
+7. Use `Create In-Memory Segment` or `Save Segment as .wav in Assets` to create the output clip.
+
+#### FP Audio Segment Tool - Region Notes
+
+* `Mute` regions preserve timeline length and silence the selected span with edge fades.
+* `Cut` regions remove the selected span and compress time, with small crossfades at joins.
+* Region overlays are drawn on the waveform so the selected cleanup regions stay visible while adjusting the playhead.
+* The processed export path applies the main in/out segment first, then applies region edits within that segment.
+* `Waveform Thickness` controls preview amplitude display only; it does not change the exported audio.
+
+### FP Audio Combine Tool
+
+FP Audio Combine Tool is an editor-only multi-clip audio assembly window. It is intended for building a combined WAV from several AudioClips while preserving per-clip trimming, spacing, ordering, gain, and inclusion settings.
+
+Open the tool from `FuzzPhyte/Utility/Audio/Combine Tool`.
+
+#### FP Audio Combine Tool - How To Use It
+
+1. Add clips with `Add Selected Clip(s)`, `Add Empty Row`, or by dragging AudioClip assets onto the bottom drop area.
+2. For each clip, use `Segment (In/Out)` to trim the source clip without changing its base timeline placement.
+3. Set `Clip Start` directly, use `Set Start = Playhead`, or use `After Previous + Gap` to place clips in sequence.
+4. Use `Nudge This + Later` to shift a clip and following unlocked clips together.
+5. Use the top overview to see all clips at once and drag unlocked clip blocks along the timeline.
+6. Move the `Playhead` with the slider or by clicking in the overview or waveform tracks, then use `Play From Playhead` or `Play All`.
+7. Use `Create In-Memory Combined Clip` or `Save Combined as .wav in Assets` to generate the combined output.
+
+#### FP Audio Combine Tool - Clip Controls
+
+* `Track Color` assigns a visual color per clip; new clips get generated colors automatically.
+* `Clip Gain` adjusts per-clip level before mixing and is reflected in the waveform height and gain bar.
+* `Locked` prevents editing, dragging, reordering, removing, nudging, and auto-layout movement for that row.
+* `Muted` keeps a clip visible in the editor but excludes it from preview and export.
+* The overview and row waveforms draw muted clips dimmed and locked clips with a lock-style highlight.
+* `Set Export Start = Playhead` drops an export-start bookend. Preview/export trims everything before that bookend until `Remove Export Start` is used.
+* `Normalize if mix clips` keeps the final combined output from clipping when overlapping or loud clips exceed full scale.
+
 ### FP Header
 
 FP Header is an editor-only hierarchy organization tool for Unity scenes. It lets you create disabled, all-caps GameObjects that act like visual section headers in the standard Unity Hierarchy without forcing the grouped objects into a parent-child transform relationship. This is useful when you want the readability and collapse behavior of folders, but you do not want to change transform inheritance or scene structure.
@@ -220,17 +270,9 @@ The change is applied to the audio importer's default sample settings and the ac
 * `Save to JSON`
   * Dumps the scanned asset list to a JSON file under `Assets/_FPUtility` by default.
 
-## Setup & Design
+## Software Architecture
 
-FP_Utility is not much by itself and is designed to allow extensions and/or inheritance for other work. An example of this is the FP_Notification.cs file. This is a super simple class that a lot of other projects will be derived from.
-
-SamplesURP will require additional package imports.
-
-* com.unity.render-pipelines.universal
-
-### Software Architecture
-
-FP_Utility has a core data class for ScriptableObjects called FP_Data. This is heavily used for all generic data classes and in other packages there could be further extension of this for generic ScriptableObjects that need a sort of UniqueID. There are additional sub-folders by domain areas. For example, there is a simple IK manager script located in the FuzzPhyte.Utility.Animation namespace. Some of these sub-folders contain their own domain assembly.
+FP_Utility has a core data class for ScriptableObjects called FP_Data. This is heavily used for all generic data classes and in other packages there could be further extension of this for generic ScriptableObjects that need a sort of UniqueID. There are additional sub-folders by domain areas. For example, there is a simple IK manager script located in the FuzzPhyte.Utility.Animation namespace. Some of these sub-folders contain their own domain assembly. There are then sections broken up by Scene asset(s), tools for Audio & Video, and other static/instance utility classes for conversions, enums, states, etc.
 
 ### Ways to Extend
 

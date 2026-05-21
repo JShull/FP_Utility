@@ -42,11 +42,14 @@
         private WaveformCache waveform;
         private int lastWaveWidth;
         private AudioClip lastClip;
-        private float waveformScale = 0.35f; // default narrower look
+        private float waveformScale = 1f;
 
         // Playback tracking for segment preview
         private double segmentPlayStartDsp;   // EditorAudio DSP time when we started preview
         private float segmentDuration;       // seconds; for stopping at `outTime`
+        private float previewPlayheadStart;
+        private float previewPlayheadEnd;
+        private AudioClip activePreviewClip;
         private bool isPlayingSegment;
         private bool autoAdvancePlayhead = true;
 
@@ -125,6 +128,7 @@
         private void OnDisable()
         {
             EditorStopAll();
+            activePreviewClip = null;
             isPlayingSegment = false;
             EditorApplication.update -= OnEditorUpdate;
         }
@@ -137,7 +141,8 @@
             // Keep the UI playhead in sync (optional)
             if (autoAdvancePlayhead)
             {
-                playhead = Mathf.Clamp((float)(inTime + elapsed), 0f, sourceClip.length);
+                float t = segmentDuration > 0f ? Mathf.Clamp01((float)(elapsed / segmentDuration)) : 1f;
+                playhead = Mathf.Clamp(Mathf.Lerp(previewPlayheadStart, previewPlayheadEnd, t), 0f, sourceClip.length);
                 Repaint();
             }
 
@@ -146,6 +151,7 @@
             {
                 isPlayingSegment = false;
                 EditorStopAll();
+                activePreviewClip = null;
                 EditorApplication.update -= OnEditorUpdate;
                 Repaint();
             }
@@ -230,16 +236,6 @@
                 {
                     float min = waveform.min[x];
                     float max = waveform.max[x];
-                    // drawing
-                    float scaledMin = Mathf.Clamp(min * waveformScale, -1f, 1f);
-                    float scaledMax = Mathf.Clamp(max * waveformScale, -1f, 1f);
-
-                    /// Now compute pixel coords using scaledMin/scaledMax (thick mode)
-                    //float yMin = Mathf.Lerp(r.center.y, r.yMax - 2, (1f - scaledMin) * 0.5f);
-                    //float yMax = Mathf.Lerp(r.center.y, r.y + 2, (1f + scaledMax) * 0.5f);
-                    //float px = r.x + x;
-                    //Handles.DrawLine(new Vector3(px, yMin), new Vector3(px, yMax));
-
 
                     // After (centered mapping with padding):
                     float pad = 2f;
@@ -264,6 +260,7 @@
 
                 // Playhead
                 float xHead = Mathf.Lerp(r.x, r.xMax, (clipLen > 0f ? playhead / clipLen : 0f));
+                Handles.color = new Color(1f, 0.72f, 0.25f, 0.95f);
                 Handles.DrawLine(new Vector3(xHead, r.y), new Vector3(xHead, r.yMax));
                 Handles.EndGUI();
                 DrawRegionOverlays(r, clipLen);
@@ -735,6 +732,7 @@
                 if (GUILayout.Button("Preview Full Clip"))
                 {
                     isPlayingSegment = false;
+                    activePreviewClip = null;
                     EditorPreview(sourceClip, 0, false,1);
                 }
 
@@ -743,9 +741,15 @@
                     PlaySegmentFromSource(inTime, outTime);
                 }
 
+                if (GUILayout.Button("Play Segment + Regions"))
+                {
+                    PlayProcessedSegmentFromSource(inTime, outTime);
+                }
+
                 if (GUILayout.Button("Stop Preview"))
                 {
                     isPlayingSegment = false;
+                    activePreviewClip = null;
                     EditorStopAll();
                 }
             }
@@ -1094,6 +1098,7 @@
             // stop anything already playing
             EditorStopAll();
             isPlayingSegment = false;
+            activePreviewClip = null;
             EditorApplication.update -= OnEditorUpdate;
 
             // start preview from the source clip at startSample
@@ -1101,6 +1106,43 @@
 
             // track & auto-stop
             segmentPlayStartDsp = EditorApplication.timeSinceStartup;
+            previewPlayheadStart = start;
+            previewPlayheadEnd = end;
+            isPlayingSegment = true;
+            if (autoAdvancePlayhead) playhead = start;
+
+            EditorApplication.update += OnEditorUpdate;
+        }
+
+        /// <summary>
+        /// Previews the selected in/out range after applying the same cut/mute regions used by export.
+        /// </summary>
+        private void PlayProcessedSegmentFromSource(float inSec, float outSec)
+        {
+            if (sourceClip == null) return;
+
+            float start = Mathf.Clamp(inSec, 0f, sourceClip.length);
+            float end = Mathf.Clamp(outSec <= 0f ? sourceClip.length : outSec, 0f, sourceClip.length);
+            if (end < start) end = start;
+
+            AudioClip processed = BuildProcessedSegmentClip(sourceClip, start, end, regions, fadeMs);
+            if (processed == null)
+            {
+                Debug.LogWarning("No processed segment could be built for preview.");
+                return;
+            }
+
+            EditorStopAll();
+            isPlayingSegment = false;
+            EditorApplication.update -= OnEditorUpdate;
+
+            activePreviewClip = processed;
+            EditorPreview(activePreviewClip, 0, loop: false, volume: 1f);
+
+            segmentDuration = processed.length;
+            segmentPlayStartDsp = EditorApplication.timeSinceStartup;
+            previewPlayheadStart = start;
+            previewPlayheadEnd = end;
             isPlayingSegment = true;
             if (autoAdvancePlayhead) playhead = start;
 
@@ -1116,6 +1158,7 @@
             {
                 isPlayingSegment = false;
                 EditorStopAll();
+                activePreviewClip = null;
                 Repaint();
             }
         }
