@@ -48,6 +48,7 @@ namespace FuzzPhyte.Utility.Editor
         private const float ParameterPanelWidth = 352f;
         private const float WorkspacePadding = 4f;
         private const float PanelGap = 6f;
+        private const float ActionPanelHeight = 90f;
 
         [MenuItem("FuzzPhyte/Utility/Mesh/Mesh Generator", priority = FP_UtilityData.MENU_UTILITY_MESH + 4)]
         public static void ShowWindow()
@@ -114,13 +115,20 @@ namespace FuzzPhyte.Utility.Editor
         {
             GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
             Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
-            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, 820f);
+            Rect actionRect = new Rect(innerRect.x, innerRect.yMax - ActionPanelHeight, innerRect.width, ActionPanelHeight);
+            Rect scrollRect = new Rect(innerRect.x, innerRect.y, innerRect.width, Mathf.Max(40f, innerRect.height - ActionPanelHeight - 6f));
+            Rect viewRect = new Rect(0f, 0f, scrollRect.width - 16f, 820f);
 
-            scrollPosition = GUI.BeginScrollView(innerRect, scrollPosition, viewRect);
+            scrollPosition = GUI.BeginScrollView(scrollRect, scrollPosition, viewRect);
             GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
             DrawParameterPanel();
             GUILayout.EndArea();
             GUI.EndScrollView();
+
+            GUILayout.BeginArea(actionRect);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawActions();
+            GUILayout.EndArea();
         }
 
         private void DrawParameterPanel()
@@ -140,8 +148,6 @@ namespace FuzzPhyte.Utility.Editor
             DrawHeightProcessSettings();
             FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawSceneSettings();
-            FPMeshPreviewEditorUtility.DrawSectionDivider();
-            DrawActions();
 
             if (EditorGUI.EndChangeCheck())
             {
@@ -381,6 +387,7 @@ namespace FuzzPhyte.Utility.Editor
 
             if (Event.current.type != EventType.Repaint)
             {
+                DrawOrbitGizmo(rect);
                 return;
             }
 

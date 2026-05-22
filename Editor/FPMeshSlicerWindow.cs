@@ -88,6 +88,7 @@ namespace FuzzPhyte.Utility.Editor
         private const float BottomDebugHeight = 112f;
         private const float WorkspacePadding = 4f;
         private const float PanelGap = 6f;
+        private const float ActionPanelHeight = 92f;
         private const int PlaneHandleMove = 0;
         private const int PlaneHandleRotateX = 1;
         private const int PlaneHandleRotateY = 2;
@@ -255,13 +256,20 @@ namespace FuzzPhyte.Utility.Editor
         {
             GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
             Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
-            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, 880f);
+            Rect actionRect = new Rect(innerRect.x, innerRect.yMax - ActionPanelHeight, innerRect.width, ActionPanelHeight);
+            Rect scrollRect = new Rect(innerRect.x, innerRect.y, innerRect.width, Mathf.Max(40f, innerRect.height - ActionPanelHeight - 6f));
+            Rect viewRect = new Rect(0f, 0f, scrollRect.width - 16f, 880f);
 
-            parameterScrollPosition = GUI.BeginScrollView(innerRect, parameterScrollPosition, viewRect);
+            parameterScrollPosition = GUI.BeginScrollView(scrollRect, parameterScrollPosition, viewRect);
             GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
             DrawParameterPanel();
             GUILayout.EndArea();
             GUI.EndScrollView();
+
+            GUILayout.BeginArea(actionRect);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawActions();
+            GUILayout.EndArea();
         }
 
         private void DrawParameterPanel()
@@ -277,8 +285,6 @@ namespace FuzzPhyte.Utility.Editor
             DrawPlaneSettings();
             FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawOutputSettings();
-            FPMeshPreviewEditorUtility.DrawSectionDivider();
-            DrawActions();
 
             if (EditorGUI.EndChangeCheck())
             {
@@ -598,6 +604,7 @@ namespace FuzzPhyte.Utility.Editor
             HandlePreviewInput(rect);
             if (Event.current.type != EventType.Repaint)
             {
+                DrawOrbitGizmo(rect);
                 return;
             }
 
