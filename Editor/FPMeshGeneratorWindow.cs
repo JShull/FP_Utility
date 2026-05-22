@@ -2,6 +2,7 @@ namespace FuzzPhyte.Utility.Editor
 {
     using UnityEditor;
     using UnityEngine;
+    using UnityEngine.Rendering;
 
     /// <summary>
     /// Creates a flat rectangular grid mesh that can later be used for heightmap deformation.
@@ -26,14 +27,33 @@ namespace FuzzPhyte.Utility.Editor
         private FPMeshHeightProcessSettings heightProcessSettings = FPMeshHeightProcessSettings.Default;
         [SerializeField]
         private bool autoUpdatePreviewObject = true;
+        [SerializeField]
+        private FPMeshPreviewProjection cameraProjection = FPMeshPreviewProjection.Perspective;
+        [SerializeField]
+        private bool invertCameraOrbit = false;
+        [SerializeField]
+        private bool showVertices = false;
+        [SerializeField]
+        private bool showEdges = false;
 
         private Vector2 scrollPosition;
+        private Mesh previewMesh;
+        private PreviewRenderUtility previewUtility;
+        private Material generatedPreviewMaterial;
+        private Quaternion previewRotation = Quaternion.Euler(38f, -35f, 0f);
+        private float previewZoom = 1.35f;
+        private int activeOrbitAxis = -1;
+        private bool previewDirty = true;
 
-        [MenuItem("FuzzPhyte/Utility/Rendering/FP Mesh Generator", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 2)]
+        private const float ParameterPanelWidth = 352f;
+        private const float WorkspacePadding = 4f;
+        private const float PanelGap = 6f;
+
+        [MenuItem("FuzzPhyte/Utility/Mesh/Mesh Generator", priority = FP_UtilityData.MENU_UTILITY_MESH + 4)]
         public static void ShowWindow()
         {
-            var window = GetWindow<FPMeshGeneratorWindow>("FP Mesh Generator");
-            window.minSize = new Vector2(360f, 320f);
+            var window = GetWindow<FPMeshGeneratorWindow>("Mesh Generator");
+            window.minSize = new Vector2(760f, 520f);
             window.SyncSelectionDefaults();
         }
 
@@ -45,50 +65,112 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             SyncSelectionDefaults();
+            EnsurePreviewUtility();
+            previewDirty = true;
+        }
+
+        private void OnDisable()
+        {
+            CleanupPreviewMesh();
+
+            if (previewUtility != null)
+            {
+                previewUtility.Cleanup();
+                previewUtility = null;
+            }
+
+            if (generatedPreviewMaterial != null)
+            {
+                DestroyImmediate(generatedPreviewMaterial);
+                generatedPreviewMaterial = null;
+            }
         }
 
         private void OnGUI()
         {
+            GUILayout.Label("Mesh Generator", EditorStyles.boldLabel);
+            DrawWorkspace();
+        }
+
+        private void DrawWorkspace()
+        {
+            Rect previousRect = GUILayoutUtility.GetLastRect();
+            float workspaceTop = previousRect.yMax + 4f;
+            Rect workspaceRect = new Rect(
+                WorkspacePadding,
+                workspaceTop,
+                Mathf.Max(100f, position.width - (WorkspacePadding * 2f)),
+                Mathf.Max(100f, position.height - workspaceTop - WorkspacePadding));
+
+            float leftWidth = Mathf.Clamp(ParameterPanelWidth, 260f, Mathf.Max(260f, workspaceRect.width - 280f - PanelGap));
+            Rect parameterRect = new Rect(workspaceRect.x, workspaceRect.y, leftWidth, workspaceRect.height);
+            Rect previewRect = new Rect(parameterRect.xMax + PanelGap, workspaceRect.y, Mathf.Max(100f, workspaceRect.xMax - parameterRect.xMax - PanelGap), workspaceRect.height);
+
+            DrawParameterPanelContainer(parameterRect);
+            DrawPreviewPanelContainer(previewRect);
+        }
+
+        private void DrawParameterPanelContainer(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, 820f);
+
+            scrollPosition = GUI.BeginScrollView(innerRect, scrollPosition, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
+            DrawParameterPanel();
+            GUILayout.EndArea();
+            GUI.EndScrollView();
+        }
+
+        private void DrawParameterPanel()
+        {
             EditorGUI.BeginChangeCheck();
 
-            using (var scrollView = new EditorGUILayout.ScrollViewScope(scrollPosition))
+            DrawHeader();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawDataAssetSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawCameraSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawGridSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawHeightmapSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawHeightProcessSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawSceneSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawActions();
+
+            if (EditorGUI.EndChangeCheck())
             {
-                scrollPosition = scrollView.scrollPosition;
+                previewDirty = true;
+                if (autoUpdatePreviewObject)
+                {
+                    RefreshLastGeneratedPreview();
+                }
 
-                DrawHeader();
-                FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-
-                DrawDataAssetSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawGridSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawHeightmapSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawHeightProcessSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawSceneSettings();
-                FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-
-                DrawActions();
-            }
-
-            if (EditorGUI.EndChangeCheck() && autoUpdatePreviewObject)
-            {
-                RefreshLastGeneratedPreview();
+                Repaint();
             }
         }
 
         private void DrawHeader()
         {
-            GUILayout.Label("FP Mesh Generator", EditorStyles.boldLabel);
+            GUILayout.Label("Mesh Generator", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "Build a flat rectangular grid mesh on the XZ plane. " +
                 "This first pass is intended as the base surface for future heightmap deformation.",
                 MessageType.Info);
+        }
+
+        private void DrawCameraSettings()
+        {
+            EditorGUILayout.LabelField("Camera Properties", EditorStyles.boldLabel);
+            cameraProjection = FPMeshPreviewEditorUtility.DrawProjectionPopup(cameraProjection);
+            invertCameraOrbit = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Invert Camera Orbit", invertCameraOrbit);
+            showVertices = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Show Vertices", showVertices);
+            showEdges = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Show Edges", showEdges);
         }
 
         private void DrawGridSettings()
@@ -271,6 +353,349 @@ namespace FuzzPhyte.Utility.Editor
             return mesh;
         }
 
+        private void DrawPreviewPanelContainer(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect previewRect = new Rect(rect.x + 10f, rect.y + 10f, rect.width - 20f, rect.height - 20f);
+
+            if (Event.current.type == EventType.Repaint && previewDirty)
+            {
+                RebuildPreview();
+            }
+
+            DrawMeshPreview(previewRect);
+        }
+
+        private void DrawMeshPreview(Rect rect)
+        {
+            HandlePreviewInput(rect);
+
+            if (previewMesh == null)
+            {
+                GUI.Label(rect, "Adjust grid settings to preview the generated mesh.", EditorStyles.centeredGreyMiniLabel);
+                return;
+            }
+
+            EnsurePreviewUtility();
+            EnsurePreviewMaterials();
+
+            if (Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            previewUtility.BeginPreview(rect, GUIStyle.none);
+            previewUtility.camera.backgroundColor = new Color(0.12f, 0.12f, 0.12f, 1f);
+            previewUtility.camera.clearFlags = CameraClearFlags.Color;
+            previewUtility.camera.fieldOfView = FPMeshPreviewEditorUtility.DefaultFieldOfView;
+            previewUtility.lights[0].intensity = 1.1f;
+            previewUtility.lights[0].transform.rotation = Quaternion.Euler(35f, 35f, 0f);
+            previewUtility.lights[1].intensity = 0.55f;
+
+            Bounds bounds = CalculatePreviewBounds();
+            float distance = FPMeshPreviewEditorUtility.CalculateFitDistance(bounds, rect) * Mathf.Max(0.5f, previewZoom);
+            Vector3 forward = previewRotation * Vector3.forward;
+            previewUtility.camera.transform.position = bounds.center - (forward * distance);
+            previewUtility.camera.transform.rotation = previewRotation;
+            previewUtility.camera.orthographic = cameraProjection == FPMeshPreviewProjection.Orthographic;
+            if (previewUtility.camera.orthographic)
+            {
+                previewUtility.camera.orthographicSize = FPMeshPreviewEditorUtility.CalculateOrthographicSize(bounds, rect, previewRotation) * Mathf.Max(0.5f, previewZoom);
+            }
+
+            float radius = Mathf.Max(0.1f, bounds.extents.magnitude);
+            previewUtility.camera.nearClipPlane = Mathf.Max(0.001f, distance - (radius * 2.4f));
+            previewUtility.camera.farClipPlane = distance + (radius * 3.4f);
+
+            DrawPreviewMesh(previewMesh, generatedPreviewMaterial);
+            previewUtility.camera.Render();
+            Texture result = previewUtility.EndPreview();
+            GUI.DrawTexture(rect, result, ScaleMode.StretchToFill, false);
+
+            if (showEdges)
+            {
+                FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.EdgeOverlayColor, 1.5f);
+            }
+
+            if (showVertices)
+            {
+                FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.VertexOverlayColor, 2.5f);
+            }
+
+            DrawPreviewOverlay(rect);
+            FPMeshPreviewEditorUtility.DrawSceneOrientationGizmo(rect, previewUtility.camera, cameraProjection);
+            DrawOrbitGizmo(rect);
+        }
+
+        private void RebuildPreview()
+        {
+            previewDirty = false;
+            CleanupPreviewMesh();
+            previewMesh = BuildMesh();
+            if (previewMesh != null)
+            {
+                previewMesh.hideFlags = HideFlags.HideAndDontSave;
+            }
+        }
+
+        private Bounds CalculatePreviewBounds()
+        {
+            if (previewMesh == null)
+            {
+                return new Bounds(Vector3.zero, Vector3.one);
+            }
+
+            Bounds bounds = previewMesh.bounds;
+            if (bounds.size.sqrMagnitude <= 0.0000001f)
+            {
+                bounds.Expand(0.1f);
+            }
+
+            return bounds;
+        }
+
+        private void DrawPreviewMesh(Mesh mesh, Material material)
+        {
+            if (mesh == null || material == null)
+            {
+                return;
+            }
+
+            int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
+            for (int i = 0; i < subMeshCount; i++)
+            {
+                previewUtility.DrawMesh(mesh, Matrix4x4.identity, material, i);
+            }
+        }
+
+        private void DrawPreviewOverlay(Rect rect)
+        {
+            Rect overlayRect = new Rect(rect.x + 8f, rect.y + 8f, 226f, 90f);
+            GUI.Box(overlayRect, GUIContent.none, EditorStyles.helpBox);
+
+            Rect lineRect = new Rect(overlayRect.x + 6f, overlayRect.y + 5f, overlayRect.width - 12f, 18f);
+            GUI.Label(lineRect, $"Preview Vertices: {GetVertexCount(previewMesh)}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Preview Triangles: {GetTriangleCount(previewMesh)}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            FPMeshGridBuildSettings safeSettings = gridSettings.Sanitized();
+            GUI.Label(lineRect, $"Grid: {safeSettings.XSegments} x {safeSettings.YSegments}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Zoom: {previewZoom:0.##}x", EditorStyles.miniLabel);
+        }
+
+        private static int GetVertexCount(Mesh mesh)
+        {
+            return mesh == null ? 0 : mesh.vertexCount;
+        }
+
+        private static int GetTriangleCount(Mesh mesh)
+        {
+            if (mesh == null)
+            {
+                return 0;
+            }
+
+            int triangles = 0;
+            for (int i = 0; i < mesh.subMeshCount; i++)
+            {
+                triangles += (int)(mesh.GetIndexCount(i) / 3);
+            }
+
+            return triangles;
+        }
+
+        private void DrawOrbitGizmo(Rect previewRect)
+        {
+            Rect gizmoRect = GetOrbitGizmoRect(previewRect);
+            GUI.Box(gizmoRect, GUIContent.none, EditorStyles.helpBox);
+
+            GUI.Label(new Rect(gizmoRect.x + 6f, gizmoRect.y + 4f, gizmoRect.width - 12f, 16f), "Orbit", EditorStyles.centeredGreyMiniLabel);
+
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 0), "X", new Color(0.9f, 0.22f, 0.18f, 1f));
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 1), "Y", new Color(0.3f, 0.78f, 0.28f, 1f));
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 2), "Z", new Color(0.22f, 0.48f, 0.95f, 1f));
+
+            Rect buttonsRect = new Rect(gizmoRect.x + 6f, gizmoRect.y + 88f, gizmoRect.width - 12f, 52f);
+            DrawSnapButtons(buttonsRect);
+        }
+
+        private static void DrawAxisHandle(Rect rect, string label, Color color)
+        {
+            EditorGUI.DrawRect(rect, color * new Color(1f, 1f, 1f, 0.78f));
+            GUI.Label(rect, label, EditorStyles.centeredGreyMiniLabel);
+        }
+
+        private void DrawSnapButtons(Rect rect)
+        {
+            const float gap = 3f;
+            float width = (rect.width - (gap * 2f)) / 3f;
+            float height = 22f;
+
+            if (GUI.Button(new Rect(rect.x, rect.y, width, height), "+X", EditorStyles.miniButtonLeft))
+            {
+                SetPreviewView(Vector3.right, Vector3.up);
+            }
+
+            if (GUI.Button(new Rect(rect.x + width + gap, rect.y, width, height), "+Y", EditorStyles.miniButtonMid))
+            {
+                SetPreviewView(Vector3.up, Vector3.back);
+            }
+
+            if (GUI.Button(new Rect(rect.x + ((width + gap) * 2f), rect.y, width, height), "+Z", EditorStyles.miniButtonRight))
+            {
+                SetPreviewView(Vector3.forward, Vector3.up);
+            }
+
+            float y = rect.y + height + 4f;
+            if (GUI.Button(new Rect(rect.x, y, width, height), "-X", EditorStyles.miniButtonLeft))
+            {
+                SetPreviewView(Vector3.left, Vector3.up);
+            }
+
+            if (GUI.Button(new Rect(rect.x + width + gap, y, width, height), "-Y", EditorStyles.miniButtonMid))
+            {
+                SetPreviewView(Vector3.down, Vector3.forward);
+            }
+
+            if (GUI.Button(new Rect(rect.x + ((width + gap) * 2f), y, width, height), "-Z", EditorStyles.miniButtonRight))
+            {
+                SetPreviewView(Vector3.back, Vector3.up);
+            }
+        }
+
+        private void SetPreviewView(Vector3 viewDirection, Vector3 up)
+        {
+            previewRotation = Quaternion.LookRotation(viewDirection, up);
+            Repaint();
+        }
+
+        private static Rect GetOrbitGizmoRect(Rect previewRect)
+        {
+            return new Rect(previewRect.xMax - 128f, previewRect.y + 104f, 120f, 148f);
+        }
+
+        private static Rect GetOrbitAxisRect(Rect gizmoRect, int axis)
+        {
+            return new Rect(gizmoRect.x + 8f, gizmoRect.y + 24f + (axis * 20f), gizmoRect.width - 16f, 16f);
+        }
+
+        private static int GetOrbitAxisAtPosition(Rect previewRect, Vector2 mousePosition)
+        {
+            Rect gizmoRect = GetOrbitGizmoRect(previewRect);
+            for (int i = 0; i < 3; i++)
+            {
+                if (GetOrbitAxisRect(gizmoRect, i).Contains(mousePosition))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private void HandlePreviewInput(Rect rect)
+        {
+            Event current = Event.current;
+            if (!rect.Contains(current.mousePosition))
+            {
+                return;
+            }
+
+            if (current.type == EventType.ScrollWheel)
+            {
+                float zoomFactor = Mathf.Exp(current.delta.y * 0.08f);
+                previewZoom = Mathf.Clamp(previewZoom * zoomFactor, 0.5f, 12f);
+                current.Use();
+                Repaint();
+                return;
+            }
+
+            if (current.type == EventType.MouseDown && current.button == 0)
+            {
+                int axis = GetOrbitAxisAtPosition(rect, current.mousePosition);
+                if (axis >= 0)
+                {
+                    activeOrbitAxis = axis;
+                    current.Use();
+                    return;
+                }
+            }
+
+            if ((current.type == EventType.MouseUp || current.type == EventType.Ignore) && activeOrbitAxis >= 0)
+            {
+                activeOrbitAxis = -1;
+                current.Use();
+                return;
+            }
+
+            if (current.type == EventType.MouseDrag && current.button == 0 && activeOrbitAxis >= 0)
+            {
+                float degrees = (current.delta.x + current.delta.y) * 0.5f;
+                Vector3 axis = activeOrbitAxis == 0
+                    ? Vector3.right
+                    : activeOrbitAxis == 1
+                        ? Vector3.up
+                        : Vector3.forward;
+                previewRotation = Quaternion.AngleAxis(degrees, axis) * previewRotation;
+                current.Use();
+                Repaint();
+                return;
+            }
+
+            if (GetOrbitGizmoRect(rect).Contains(current.mousePosition))
+            {
+                return;
+            }
+
+            if (current.type == EventType.MouseDrag && current.button == 0)
+            {
+                previewRotation = FPMeshPreviewEditorUtility.ApplyUnityStyleOrbit(previewRotation, current.delta, invertCameraOrbit);
+                current.Use();
+                Repaint();
+            }
+        }
+
+        private void EnsurePreviewUtility()
+        {
+            if (previewUtility != null)
+            {
+                return;
+            }
+
+            previewUtility = new PreviewRenderUtility();
+            previewUtility.camera.nearClipPlane = 0.01f;
+            previewUtility.camera.farClipPlane = 5000f;
+        }
+
+        private void EnsurePreviewMaterials()
+        {
+            if (generatedPreviewMaterial != null)
+            {
+                return;
+            }
+
+            generatedPreviewMaterial = new Material(Shader.Find("Hidden/Internal-Colored"))
+            {
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            generatedPreviewMaterial.SetColor("_Color", FPMeshPreviewEditorUtility.PreviewMeshColor);
+            generatedPreviewMaterial.SetInt("_Cull", (int)CullMode.Off);
+            generatedPreviewMaterial.SetInt("_ZWrite", 1);
+            generatedPreviewMaterial.SetInt("_ZTest", (int)CompareFunction.LessEqual);
+        }
+
+        private void CleanupPreviewMesh()
+        {
+            if (previewMesh == null)
+            {
+                return;
+            }
+
+            DestroyImmediate(previewMesh);
+            previewMesh = null;
+        }
+
         private void CreateSceneObject()
         {
             Mesh mesh = BuildMesh();
@@ -340,7 +765,7 @@ namespace FuzzPhyte.Utility.Editor
                 ReplaceSceneMeshReferences(originalMeshReference, savedMesh);
             }
 
-            Debug.Log($"[FP Mesh Generator] Mesh saved to {result}");
+            Debug.Log($"[Mesh Generator] Mesh saved to {result}");
         }
 
         private Mesh ResolveMeshForSaving()

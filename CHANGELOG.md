@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-05-22
+
+### 0.9.6 Added
+
+- [@JShull](https://github.com/jshull)
+  - Mesh Slicer editor workflow
+    - Added `FPMeshSlicerWindow.cs` under `FuzzPhyte/Utility/Mesh/Mesh Slicer`.
+    - Added source mesh slicing with adjustable plane position and rotation, positive/negative/both preview visibility, and keep-positive, keep-negative, or keep-both output modes.
+    - Added optional slice hole repair for closed cut loops without external library dependencies.
+    - Added plane movement and rotation handles, axis-constrained movement, plane front/back colors, plane outline rendering, hover feedback, and Undo support for slicer interactions.
+  - Shared mesh preview tooling
+    - Added `FPMeshPreviewEditorUtility.cs` for common mesh preview colors, projection settings, Unity-style orbit handling, vertex and edge overlays, section dividers, and scene orientation triad drawing.
+    - Added shared `Perspective` / `Orthographic`, `Invert Camera Orbit`, `Show Vertices`, and `Show Edges` preview options across mesh tools.
+
+### 0.9.6 Modified
+
+- [@JShull](https://github.com/jshull)
+  - Mesh editor menu organization
+    - Moved mesh tools under `FuzzPhyte/Utility/Mesh`.
+    - Renamed editor window entries to `Combine Meshes`, `Convex Generator`, `Mesh Slicer`, and `Mesh Generator`.
+  - `FPSimpleConvexGeneratorWindow.cs`
+    - Added `Include Children` source control with a default of disabled.
+    - Updated preview camera controls to use the shared mesh preview utility.
+  - `FPMeshCombineEditor.cs`
+    - Added a right-side preview panel with shared camera controls, source overlay, vertex overlay, and edge overlay options.
+  - `FPMeshGeneratorWindow.cs`
+    - Added a right-side mesh preview panel with shared camera controls, vertex overlay, and edge overlay options.
+  - `README.md`
+    - Updated mesh tool documentation for the new menu paths, current window names, Mesh Slicer workflow, and shared preview controls.
+  - `package.json`
+    - Version bumped to `0.9.6`.
+
 ## [0.9.5] - 2026-05-06
 
 ### 0.9.5 Added

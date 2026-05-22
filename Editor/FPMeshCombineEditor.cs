@@ -29,6 +29,16 @@ namespace FuzzPhyte.Utility.Editor
         private bool includeSkinnedMeshRenderers = true;
         [SerializeField]
         private bool skipEditorOnlyTagged = true;
+        [SerializeField]
+        private FPMeshPreviewProjection cameraProjection = FPMeshPreviewProjection.Perspective;
+        [SerializeField]
+        private bool invertCameraOrbit = false;
+        [SerializeField]
+        private bool showSourceMesh = false;
+        [SerializeField]
+        private bool showVertices = false;
+        [SerializeField]
+        private bool showEdges = false;
 
         // Output options
         [SerializeField]
@@ -43,13 +53,54 @@ namespace FuzzPhyte.Utility.Editor
         private bool isTrigger = false;
 
         private Vector2 scrollPos;
+        private Mesh previewMesh;
+        private PreviewRenderUtility previewUtility;
+        private Material combinedPreviewMaterial;
+        private Material sourcePreviewMaterial;
+        private Quaternion previewRotation = Quaternion.Euler(22f, -35f, 0f);
+        private float previewZoom = 1.45f;
+        private int activeOrbitAxis = -1;
+        private bool previewDirty = true;
 
-        [MenuItem("FuzzPhyte/Utility/Rendering/FP Mesh Combiner", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 1)]
+        private const float ParameterPanelWidth = 352f;
+        private const float WorkspacePadding = 4f;
+        private const float PanelGap = 6f;
+
+        [MenuItem("FuzzPhyte/Utility/Mesh/Combine Meshes", priority = FP_UtilityData.MENU_UTILITY_MESH + 1)]
         public static void ShowWindow()
         {
-            var window = GetWindow<FPMeshCombineEditor>("FP Mesh Combiner");
-            window.minSize = new Vector2(350f, 260f);
+            var window = GetWindow<FPMeshCombineEditor>("Combine Meshes");
+            window.minSize = new Vector2(760f, 420f);
             window.InitDefaults();
+        }
+
+        private void OnEnable()
+        {
+            EnsurePreviewUtility();
+            previewDirty = true;
+        }
+
+        private void OnDisable()
+        {
+            CleanupPreviewMesh();
+
+            if (previewUtility != null)
+            {
+                previewUtility.Cleanup();
+                previewUtility = null;
+            }
+
+            if (combinedPreviewMaterial != null)
+            {
+                DestroyImmediate(combinedPreviewMaterial);
+                combinedPreviewMaterial = null;
+            }
+
+            if (sourcePreviewMaterial != null)
+            {
+                DestroyImmediate(sourcePreviewMaterial);
+                sourcePreviewMaterial = null;
+            }
         }
 
         private void InitDefaults()
@@ -58,6 +109,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 rootObject = Selection.activeGameObject;
                 combinedMeshName = $"{rootObject.name}_CombinedCollider";
+                previewDirty = true;
             }
         }
 
@@ -69,31 +121,70 @@ namespace FuzzPhyte.Utility.Editor
                 rootObject = Selection.activeGameObject;
                 if (string.IsNullOrEmpty(combinedMeshName))
                     combinedMeshName = $"{rootObject.name}_CombinedCollider";
+                previewDirty = true;
             }
 
-            using (var scroll = new EditorGUILayout.ScrollViewScope(scrollPos))
+            GUILayout.Label("Combine Meshes", EditorStyles.boldLabel);
+            DrawWorkspace();
+        }
+
+        private void DrawWorkspace()
+        {
+            Rect previousRect = GUILayoutUtility.GetLastRect();
+            float workspaceTop = previousRect.yMax + 4f;
+            Rect workspaceRect = new Rect(
+                WorkspacePadding,
+                workspaceTop,
+                Mathf.Max(100f, position.width - (WorkspacePadding * 2f)),
+                Mathf.Max(100f, position.height - workspaceTop - WorkspacePadding));
+
+            float leftWidth = Mathf.Clamp(ParameterPanelWidth, 260f, Mathf.Max(260f, workspaceRect.width - 280f - PanelGap));
+            Rect parameterRect = new Rect(workspaceRect.x, workspaceRect.y, leftWidth, workspaceRect.height);
+            Rect previewRect = new Rect(parameterRect.xMax + PanelGap, workspaceRect.y, Mathf.Max(100f, workspaceRect.xMax - parameterRect.xMax - PanelGap), workspaceRect.height);
+
+            DrawParameterPanelContainer(parameterRect);
+            DrawPreviewPanelContainer(previewRect);
+        }
+
+        private void DrawParameterPanelContainer(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, 680f);
+
+            scrollPos = GUI.BeginScrollView(innerRect, scrollPos, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
+            DrawParameterPanel();
+            GUILayout.EndArea();
+            GUI.EndScrollView();
+        }
+
+        private void DrawParameterPanel()
+        {
+            EditorGUI.BeginChangeCheck();
+
+            DrawHeader();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawRootSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawSourceSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawCameraSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawOutputSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawActionButtons();
+
+            if (EditorGUI.EndChangeCheck())
             {
-                scrollPos = scroll.scrollPosition;
-
-                DrawHeader();
-                FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-
-                DrawRootSettings();
-                EditorGUILayout.Space();
-
-                DrawSourceSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawOutputSettings();
-                FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-
-                DrawActionButtons();
+                previewDirty = true;
+                Repaint();
             }
         }
 
         private void DrawHeader()
         {
-            GUILayout.Label("FP Mesh Combiner", EditorStyles.boldLabel);
+            GUILayout.Label("Combine Meshes", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "Combine multiple MeshFilters / SkinnedMeshRenderers / MeshColliders into a single Mesh asset, " +
                 "baked using world-space positions into the local space of the selected root.\n\n" +
@@ -113,9 +204,11 @@ namespace FuzzPhyte.Utility.Editor
                 {
                     combinedMeshName = $"{rootObject.name}_CombinedCollider";
                 }
+
+                previewDirty = true;
             }
 
-            using (new EditorGUI.DisabledScope(rootObject == null))
+            using (new EditorGUI.DisabledScope(Selection.activeGameObject == null))
             {
                 if (GUILayout.Button("Use Current Selection As Root"))
                 {
@@ -124,30 +217,40 @@ namespace FuzzPhyte.Utility.Editor
                     {
                         combinedMeshName = $"{rootObject.name}_CombinedCollider";
                     }
+
+                    previewDirty = true;
                 }
             }
-
-            EditorGUILayout.Space();
         }
 
         private void DrawSourceSettings()
         {
             EditorGUILayout.LabelField("Source Mesh Settings", EditorStyles.boldLabel);
 
-            includeChildren = EditorGUILayout.Toggle("Include Children", includeChildren);
-            includeInactive = EditorGUILayout.Toggle("Include Inactive", includeInactive);
+            includeChildren = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Include Children", includeChildren);
+            includeInactive = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Include Inactive", includeInactive);
 
             EditorGUILayout.Space();
-            includeMeshFilters = EditorGUILayout.Toggle("Include MeshFilters", includeMeshFilters);
-            includeSkinnedMeshRenderers = EditorGUILayout.Toggle("Include SkinnedMeshRenderers", includeSkinnedMeshRenderers);
-            includeMeshColliders = EditorGUILayout.Toggle("Include MeshColliders", includeMeshColliders);
+            includeMeshFilters = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Include MeshFilters", includeMeshFilters);
+            includeSkinnedMeshRenderers = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Include SkinnedMeshRenderers", includeSkinnedMeshRenderers);
+            includeMeshColliders = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Include MeshColliders", includeMeshColliders);
 
-            skipEditorOnlyTagged = EditorGUILayout.Toggle("Skip 'EditorOnly' Tagged Objects", skipEditorOnlyTagged);
+            skipEditorOnlyTagged = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Skip 'EditorOnly' Tagged Objects", skipEditorOnlyTagged);
 
             EditorGUILayout.Space();
 
             int count = PreviewMeshCount();
             EditorGUILayout.LabelField("Meshes Found (Preview)", count.ToString());
+        }
+
+        private void DrawCameraSettings()
+        {
+            EditorGUILayout.LabelField("Camera Properties", EditorStyles.boldLabel);
+            cameraProjection = FPMeshPreviewEditorUtility.DrawProjectionPopup(cameraProjection);
+            invertCameraOrbit = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Invert Camera Orbit", invertCameraOrbit);
+            showSourceMesh = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Show Source Mesh", showSourceMesh);
+            showVertices = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Show Vertices", showVertices);
+            showEdges = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Show Edges", showEdges);
         }
 
         private void DrawOutputSettings()
@@ -157,13 +260,13 @@ namespace FuzzPhyte.Utility.Editor
             combinedMeshName = EditorGUILayout.TextField("Combined Mesh Name", combinedMeshName);
 
             EditorGUILayout.Space();
-            addMeshColliderToRoot = EditorGUILayout.Toggle("Add MeshCollider to Root", addMeshColliderToRoot);
+            addMeshColliderToRoot = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Add MeshCollider to Root", addMeshColliderToRoot);
 
             using (new EditorGUI.DisabledScope(!addMeshColliderToRoot))
             {
-                replaceExistingMeshCollider = EditorGUILayout.Toggle("Replace Existing Collider", replaceExistingMeshCollider);
-                makeColliderConvex = EditorGUILayout.Toggle("Collider Convex", makeColliderConvex);
-                isTrigger = EditorGUILayout.Toggle("Collider Is Trigger", isTrigger);
+                replaceExistingMeshCollider = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Replace Existing Collider", replaceExistingMeshCollider);
+                makeColliderConvex = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Collider Convex", makeColliderConvex);
+                isTrigger = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Collider Is Trigger", isTrigger);
             }
         }
 
@@ -196,6 +299,82 @@ namespace FuzzPhyte.Utility.Editor
                     "Assign a root object and ensure there are MeshFilters, SkinnedMeshRenderers, and/or MeshColliders under it.",
                     MessageType.Warning);
             }
+        }
+
+        private void DrawPreviewPanelContainer(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect previewRect = new Rect(rect.x + 10f, rect.y + 10f, rect.width - 20f, rect.height - 20f);
+
+            if (Event.current.type == EventType.Repaint && previewDirty)
+            {
+                RebuildPreview();
+            }
+
+            DrawMeshPreview(previewRect);
+        }
+
+        private void DrawMeshPreview(Rect rect)
+        {
+            HandlePreviewInput(rect);
+
+            if (rootObject == null)
+            {
+                GUI.Label(rect, "Assign a root object to preview.", EditorStyles.centeredGreyMiniLabel);
+                return;
+            }
+
+            if (previewMesh == null)
+            {
+                GUI.Label(rect, "No mesh sources found for the current settings.", EditorStyles.centeredGreyMiniLabel);
+                return;
+            }
+
+            EnsurePreviewUtility();
+            EnsurePreviewMaterials();
+
+            if (Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            previewUtility.BeginPreview(rect, GUIStyle.none);
+            previewUtility.camera.backgroundColor = new Color(0.12f, 0.12f, 0.12f, 1f);
+            previewUtility.camera.clearFlags = CameraClearFlags.Color;
+            previewUtility.camera.fieldOfView = FPMeshPreviewEditorUtility.DefaultFieldOfView;
+            previewUtility.lights[0].intensity = 1.1f;
+            previewUtility.lights[0].transform.rotation = Quaternion.Euler(35f, 35f, 0f);
+            previewUtility.lights[1].intensity = 0.55f;
+
+            Bounds bounds = CalculatePreviewBounds();
+            float distance = FPMeshPreviewEditorUtility.CalculateFitDistance(bounds, rect) * Mathf.Max(0.5f, previewZoom);
+            Vector3 forward = previewRotation * Vector3.forward;
+            previewUtility.camera.transform.position = bounds.center - (forward * distance);
+            previewUtility.camera.transform.rotation = previewRotation;
+            previewUtility.camera.orthographic = cameraProjection == FPMeshPreviewProjection.Orthographic;
+            if (previewUtility.camera.orthographic)
+            {
+                previewUtility.camera.orthographicSize = FPMeshPreviewEditorUtility.CalculateOrthographicSize(bounds, rect, previewRotation) * Mathf.Max(0.5f, previewZoom);
+            }
+
+            float radius = Mathf.Max(0.1f, bounds.extents.magnitude);
+            previewUtility.camera.nearClipPlane = Mathf.Max(0.001f, distance - (radius * 2.4f));
+            previewUtility.camera.farClipPlane = distance + (radius * 3.4f);
+
+            if (showSourceMesh)
+            {
+                DrawSourcePreviewMeshes();
+            }
+
+            DrawPreviewMesh(previewMesh, combinedPreviewMaterial);
+            previewUtility.camera.Render();
+            Texture result = previewUtility.EndPreview();
+            GUI.DrawTexture(rect, result, ScaleMode.StretchToFill, false);
+
+            DrawMeshOverlays(rect);
+            DrawPreviewOverlay(rect);
+            FPMeshPreviewEditorUtility.DrawSceneOrientationGizmo(rect, previewUtility.camera, cameraProjection);
+            DrawOrbitGizmo(rect);
         }
 
         // --- Core Logic ------------------------------------------------------
@@ -301,6 +480,429 @@ namespace FuzzPhyte.Utility.Editor
             return result;
         }
 
+        private void RebuildPreview()
+        {
+            previewDirty = false;
+            CleanupPreviewMesh();
+
+            var sources = GetSourceMeshes();
+            if (sources.Count == 0)
+            {
+                return;
+            }
+
+            previewMesh = BuildCombinedMesh(sources, "FP_CombinedPreview");
+            if (previewMesh != null)
+            {
+                previewMesh.hideFlags = HideFlags.HideAndDontSave;
+            }
+        }
+
+        private Mesh BuildCombinedMesh(List<MeshSource> sources, string meshName)
+        {
+            var combineInstances = BuildCombineInstances(sources);
+            if (combineInstances.Count == 0)
+            {
+                return null;
+            }
+
+            var combinedMesh = new Mesh
+            {
+                name = string.IsNullOrEmpty(meshName) ? "FP_CombinedCollider" : meshName
+            };
+
+            int estimatedVertexCount = EstimateVertexCount(combineInstances);
+            if (estimatedVertexCount > 65535)
+            {
+                combinedMesh.indexFormat = IndexFormat.UInt32;
+            }
+
+            combinedMesh.CombineMeshes(
+                combineInstances.ToArray(),
+                mergeSubMeshes: false,
+                useMatrices: true);
+
+            combinedMesh.RecalculateBounds();
+            return combinedMesh;
+        }
+
+        private List<CombineInstance> BuildCombineInstances(List<MeshSource> sources)
+        {
+            var combineInstances = new List<CombineInstance>();
+            if (rootObject == null)
+            {
+                return combineInstances;
+            }
+
+            var rootToLocal = rootObject.transform.worldToLocalMatrix;
+
+            foreach (var source in sources)
+            {
+                var mesh = source.Mesh;
+                if (mesh == null || source.Transform == null)
+                {
+                    continue;
+                }
+
+                var localToWorld = source.Transform.localToWorldMatrix;
+                var xform = rootToLocal * localToWorld;
+
+                int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
+                for (int s = 0; s < subMeshCount; s++)
+                {
+                    combineInstances.Add(new CombineInstance
+                    {
+                        mesh = mesh,
+                        subMeshIndex = s,
+                        transform = xform
+                    });
+                }
+            }
+
+            return combineInstances;
+        }
+
+        private static int EstimateVertexCount(List<CombineInstance> combineInstances)
+        {
+            int estimatedVertexCount = 0;
+            foreach (var ci in combineInstances)
+            {
+                if (ci.mesh != null)
+                {
+                    estimatedVertexCount += ci.mesh.vertexCount;
+                }
+            }
+
+            return estimatedVertexCount;
+        }
+
+        private Bounds CalculatePreviewBounds()
+        {
+            if (previewMesh == null)
+            {
+                return new Bounds(Vector3.zero, Vector3.one);
+            }
+
+            Bounds bounds = previewMesh.bounds;
+            if (bounds.size.sqrMagnitude <= 0.0000001f)
+            {
+                bounds.Expand(0.1f);
+            }
+
+            return bounds;
+        }
+
+        private void DrawPreviewMesh(Mesh mesh, Material material)
+        {
+            if (mesh == null || material == null)
+            {
+                return;
+            }
+
+            int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
+            for (int i = 0; i < subMeshCount; i++)
+            {
+                previewUtility.DrawMesh(mesh, Matrix4x4.identity, material, i);
+            }
+        }
+
+        private void DrawSourcePreviewMeshes()
+        {
+            if (rootObject == null)
+            {
+                return;
+            }
+
+            var sources = GetSourceMeshes();
+            var rootToLocal = rootObject.transform.worldToLocalMatrix;
+            for (int i = 0; i < sources.Count; i++)
+            {
+                MeshSource source = sources[i];
+                if (source.Mesh == null || source.Transform == null)
+                {
+                    continue;
+                }
+
+                Matrix4x4 matrix = rootToLocal * source.Transform.localToWorldMatrix;
+                int subMeshCount = Mathf.Max(1, source.Mesh.subMeshCount);
+                for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
+                {
+                    previewUtility.DrawMesh(source.Mesh, matrix, sourcePreviewMaterial, subMesh);
+                }
+            }
+        }
+
+        private void DrawMeshOverlays(Rect rect)
+        {
+            if ((!showVertices && !showEdges) || previewUtility == null || previewUtility.camera == null)
+            {
+                return;
+            }
+
+            if (showSourceMesh && rootObject != null)
+            {
+                var sources = GetSourceMeshes();
+                var rootToLocal = rootObject.transform.worldToLocalMatrix;
+                for (int i = 0; i < sources.Count; i++)
+                {
+                    MeshSource source = sources[i];
+                    if (source.Mesh == null || source.Transform == null)
+                    {
+                        continue;
+                    }
+
+                    Matrix4x4 matrix = rootToLocal * source.Transform.localToWorldMatrix;
+                    if (showEdges)
+                    {
+                        FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, source.Mesh, matrix, FPMeshPreviewEditorUtility.VertexOverlayColor, 1.25f);
+                    }
+
+                    if (showVertices)
+                    {
+                        FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, source.Mesh, matrix, FPMeshPreviewEditorUtility.VertexOverlayColor, 2f);
+                    }
+                }
+            }
+
+            if (showEdges)
+            {
+                FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.EdgeOverlayColor, 1.5f);
+            }
+
+            if (showVertices)
+            {
+                FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.VertexOverlayColor, 2.5f);
+            }
+        }
+
+        private void DrawPreviewOverlay(Rect rect)
+        {
+            Rect overlayRect = new Rect(rect.x + 8f, rect.y + 8f, 226f, 90f);
+            GUI.Box(overlayRect, GUIContent.none, EditorStyles.helpBox);
+
+            Rect lineRect = new Rect(overlayRect.x + 6f, overlayRect.y + 5f, overlayRect.width - 12f, 18f);
+            GUI.Label(lineRect, $"Meshes Found: {PreviewMeshCount()}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Preview Vertices: {GetVertexCount(previewMesh)}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Preview Submeshes: {GetSubMeshCount(previewMesh)}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Zoom: {previewZoom:0.##}x", EditorStyles.miniLabel);
+        }
+
+        private static int GetVertexCount(Mesh mesh)
+        {
+            return mesh == null ? 0 : mesh.vertexCount;
+        }
+
+        private static int GetSubMeshCount(Mesh mesh)
+        {
+            return mesh == null ? 0 : mesh.subMeshCount;
+        }
+
+        private void DrawOrbitGizmo(Rect previewRect)
+        {
+            Rect gizmoRect = GetOrbitGizmoRect(previewRect);
+            GUI.Box(gizmoRect, GUIContent.none, EditorStyles.helpBox);
+
+            GUI.Label(new Rect(gizmoRect.x + 6f, gizmoRect.y + 4f, gizmoRect.width - 12f, 16f), "Orbit", EditorStyles.centeredGreyMiniLabel);
+
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 0), "X", new Color(0.9f, 0.22f, 0.18f, 1f));
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 1), "Y", new Color(0.3f, 0.78f, 0.28f, 1f));
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 2), "Z", new Color(0.22f, 0.48f, 0.95f, 1f));
+
+            Rect buttonsRect = new Rect(gizmoRect.x + 6f, gizmoRect.y + 88f, gizmoRect.width - 12f, 52f);
+            DrawSnapButtons(buttonsRect);
+        }
+
+        private static void DrawAxisHandle(Rect rect, string label, Color color)
+        {
+            EditorGUI.DrawRect(rect, color * new Color(1f, 1f, 1f, 0.78f));
+            GUI.Label(rect, label, EditorStyles.centeredGreyMiniLabel);
+        }
+
+        private void DrawSnapButtons(Rect rect)
+        {
+            const float gap = 3f;
+            float width = (rect.width - (gap * 2f)) / 3f;
+            float height = 22f;
+
+            if (GUI.Button(new Rect(rect.x, rect.y, width, height), "+X", EditorStyles.miniButtonLeft))
+            {
+                SetPreviewView(Vector3.right, Vector3.up);
+            }
+
+            if (GUI.Button(new Rect(rect.x + width + gap, rect.y, width, height), "+Y", EditorStyles.miniButtonMid))
+            {
+                SetPreviewView(Vector3.up, Vector3.back);
+            }
+
+            if (GUI.Button(new Rect(rect.x + ((width + gap) * 2f), rect.y, width, height), "+Z", EditorStyles.miniButtonRight))
+            {
+                SetPreviewView(Vector3.forward, Vector3.up);
+            }
+
+            float y = rect.y + height + 4f;
+            if (GUI.Button(new Rect(rect.x, y, width, height), "-X", EditorStyles.miniButtonLeft))
+            {
+                SetPreviewView(Vector3.left, Vector3.up);
+            }
+
+            if (GUI.Button(new Rect(rect.x + width + gap, y, width, height), "-Y", EditorStyles.miniButtonMid))
+            {
+                SetPreviewView(Vector3.down, Vector3.forward);
+            }
+
+            if (GUI.Button(new Rect(rect.x + ((width + gap) * 2f), y, width, height), "-Z", EditorStyles.miniButtonRight))
+            {
+                SetPreviewView(Vector3.back, Vector3.up);
+            }
+        }
+
+        private void SetPreviewView(Vector3 viewDirection, Vector3 up)
+        {
+            previewRotation = Quaternion.LookRotation(viewDirection, up);
+            Repaint();
+        }
+
+        private static Rect GetOrbitGizmoRect(Rect previewRect)
+        {
+            return new Rect(previewRect.xMax - 128f, previewRect.y + 104f, 120f, 148f);
+        }
+
+        private static Rect GetOrbitAxisRect(Rect gizmoRect, int axis)
+        {
+            return new Rect(gizmoRect.x + 8f, gizmoRect.y + 24f + (axis * 20f), gizmoRect.width - 16f, 16f);
+        }
+
+        private static int GetOrbitAxisAtPosition(Rect previewRect, Vector2 mousePosition)
+        {
+            Rect gizmoRect = GetOrbitGizmoRect(previewRect);
+            for (int i = 0; i < 3; i++)
+            {
+                if (GetOrbitAxisRect(gizmoRect, i).Contains(mousePosition))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private void HandlePreviewInput(Rect rect)
+        {
+            Event current = Event.current;
+            if (!rect.Contains(current.mousePosition))
+            {
+                return;
+            }
+
+            if (current.type == EventType.ScrollWheel)
+            {
+                float zoomFactor = Mathf.Exp(current.delta.y * 0.08f);
+                previewZoom = Mathf.Clamp(previewZoom * zoomFactor, 0.5f, 12f);
+                current.Use();
+                Repaint();
+                return;
+            }
+
+            if (current.type == EventType.MouseDown && current.button == 0)
+            {
+                int axis = GetOrbitAxisAtPosition(rect, current.mousePosition);
+                if (axis >= 0)
+                {
+                    activeOrbitAxis = axis;
+                    current.Use();
+                    return;
+                }
+            }
+
+            if ((current.type == EventType.MouseUp || current.type == EventType.Ignore) && activeOrbitAxis >= 0)
+            {
+                activeOrbitAxis = -1;
+                current.Use();
+                return;
+            }
+
+            if (current.type == EventType.MouseDrag && current.button == 0 && activeOrbitAxis >= 0)
+            {
+                float degrees = (current.delta.x + current.delta.y) * 0.5f;
+                Vector3 axis = activeOrbitAxis == 0
+                    ? Vector3.right
+                    : activeOrbitAxis == 1
+                        ? Vector3.up
+                        : Vector3.forward;
+                previewRotation = Quaternion.AngleAxis(degrees, axis) * previewRotation;
+                current.Use();
+                Repaint();
+                return;
+            }
+
+            if (GetOrbitGizmoRect(rect).Contains(current.mousePosition))
+            {
+                return;
+            }
+
+            if (current.type == EventType.MouseDrag && current.button == 0)
+            {
+                previewRotation = FPMeshPreviewEditorUtility.ApplyUnityStyleOrbit(previewRotation, current.delta, invertCameraOrbit);
+                current.Use();
+                Repaint();
+            }
+        }
+
+        private void EnsurePreviewUtility()
+        {
+            if (previewUtility != null)
+            {
+                return;
+            }
+
+            previewUtility = new PreviewRenderUtility();
+            previewUtility.camera.nearClipPlane = 0.01f;
+            previewUtility.camera.farClipPlane = 5000f;
+        }
+
+        private void EnsurePreviewMaterials()
+        {
+            if (combinedPreviewMaterial == null)
+            {
+                combinedPreviewMaterial = new Material(Shader.Find("Hidden/Internal-Colored"))
+                {
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                combinedPreviewMaterial.SetColor("_Color", FPMeshPreviewEditorUtility.PreviewMeshColor);
+                combinedPreviewMaterial.SetInt("_Cull", (int)CullMode.Off);
+                combinedPreviewMaterial.SetInt("_ZWrite", 1);
+                combinedPreviewMaterial.SetInt("_ZTest", (int)CompareFunction.LessEqual);
+            }
+
+            if (sourcePreviewMaterial == null)
+            {
+                sourcePreviewMaterial = new Material(Shader.Find("Hidden/Internal-Colored"))
+                {
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                sourcePreviewMaterial.SetColor("_Color", new Color(1f, 1f, 1f, 0.18f));
+                sourcePreviewMaterial.SetInt("_Cull", (int)CullMode.Off);
+                sourcePreviewMaterial.SetInt("_ZWrite", 0);
+                sourcePreviewMaterial.SetInt("_ZTest", (int)CompareFunction.LessEqual);
+                sourcePreviewMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                sourcePreviewMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            }
+        }
+
+        private void CleanupPreviewMesh()
+        {
+            if (previewMesh == null)
+            {
+                return;
+            }
+
+            DestroyImmediate(previewMesh);
+            previewMesh = null;
+        }
+
         private bool IsValidSourceObject(GameObject go)
         {
             if (skipEditorOnlyTagged && go.CompareTag("EditorOnly"))
@@ -313,73 +915,24 @@ namespace FuzzPhyte.Utility.Editor
         {
             if (rootObject == null)
             {
-                Debug.LogError("[FP Mesh Combiner] Root object is null.");
+                Debug.LogError("[Combine Meshes] Root object is null.");
                 return;
             }
 
             var sources = GetSourceMeshes();
             if (sources.Count == 0)
             {
-                Debug.LogWarning("[FP Mesh Combiner] No valid source meshes found.");
+                Debug.LogWarning("[Combine Meshes] No valid source meshes found.");
                 return;
             }
 
-            // Build CombineInstances with per-submesh data
-            var combineInstances = new List<CombineInstance>();
-            var rootToLocal = rootObject.transform.worldToLocalMatrix;
+            var combinedMesh = BuildCombinedMesh(sources, string.IsNullOrEmpty(combinedMeshName) ? "FP_CombinedCollider" : combinedMeshName);
 
-            foreach (var source in sources)
+            if (combinedMesh == null)
             {
-                var mesh = source.Mesh;
-                if (mesh == null)
-                    continue;
-
-                var localToWorld = source.Transform.localToWorldMatrix;
-                var xform = rootToLocal * localToWorld;
-
-                int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
-                for (int s = 0; s < subMeshCount; s++)
-                {
-                    var ci = new CombineInstance
-                    {
-                        mesh = mesh,
-                        subMeshIndex = s,
-                        transform = xform
-                    };
-                    combineInstances.Add(ci);
-                }
-            }
-
-            if (combineInstances.Count == 0)
-            {
-                Debug.LogWarning("[FP Mesh Combiner] No CombineInstances created. Aborting.");
+                Debug.LogWarning("[Combine Meshes] No CombineInstances created. Aborting.");
                 return;
             }
-
-            // Create combined mesh
-            var combinedMesh = new Mesh();
-            combinedMesh.name = string.IsNullOrEmpty(combinedMeshName)
-                ? "FP_CombinedCollider"
-                : combinedMeshName;
-
-            // Use 32-bit indices if needed
-            int estimatedVertexCount = 0;
-            foreach (var ci in combineInstances)
-            {
-                if (ci.mesh != null)
-                    estimatedVertexCount += ci.mesh.vertexCount;
-            }
-
-            if (estimatedVertexCount > 65535)
-            {
-                combinedMesh.indexFormat = IndexFormat.UInt32;
-            }
-
-            combinedMesh.CombineMeshes(
-                combineInstances.ToArray(),
-                mergeSubMeshes: false,   // keep submeshes for debugging / optional use
-                useMatrices: true        // bake transforms into vertices
-            );
 
             // Ask user where to save the asset
             string defaultName = string.IsNullOrEmpty(combinedMeshName)
@@ -400,7 +953,7 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             string result = FP_Utility_Editor.CreateAssetAt(combinedMesh, path);
-            Debug.Log($"[FP Mesh Combiner] {result}");
+            Debug.Log($"[Combine Meshes] {result}");
 
             // Optionally hook up a MeshCollider on the root
             if (addMeshColliderToRoot)
@@ -424,7 +977,7 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             EditorUtility.DisplayDialog(
-                "FP Mesh Combiner",
+                "Combine Meshes",
                 $"Combined mesh created with {combinedMesh.subMeshCount} submeshes.\nSaved to:\n{path}",
                 "OK"
             );

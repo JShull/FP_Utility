@@ -6,30 +6,35 @@ FP_Utility is designed and built to be a simple set of base classes to be used i
 
 ## Internal Utility Tools
 
-### Simple Convex Generator
+### Convex Generator
 
-Simple Convex Generator is an editor-only mesh collider helper for creating a simplified convex `MeshCollider` asset from an existing mesh or scene object. It is intended for cases where a visual mesh is too detailed for collision, but a box or capsule collider is too rough.
+Convex Generator is an editor-only mesh collider helper for creating a simplified convex `MeshCollider` asset from an existing mesh or scene object. It is intended for cases where a visual mesh is too detailed for collision, but a box or capsule collider is too rough.
 
-Open the tool from `FuzzPhyte/Utility/Rendering/Simple Convex Generator`.
+Open the tool from `FuzzPhyte/Utility/Mesh/Convex Generator`.
 
-#### Simple Convex Generator - How To Use It
+#### Convex Generator - How To Use It
 
 1. Select or assign a `GameObject`, `MeshFilter`, `SkinnedMeshRenderer`, component, prefab, or raw `Mesh` in the `Object / Mesh` field.
-2. Click `Refresh Preview` to build the transparent convex preview around the source mesh.
-3. Adjust `Decimated Points`, `Surface Planes`, `Merge Angle`, and `Surface Padding` until the collider shape is as tight and simple as needed.
-4. Use the preview window to compare the original rendered mesh against the transparent generated collider mesh.
-5. Click `Generate and Save Mesh` to save the collider mesh asset under the configured output folder.
-6. If `Create Collider Child` is enabled, the tool creates a child object under the selected parent or source object with only a convex `MeshCollider` assigned.
+2. Choose whether `Include Children` should collect meshes below the assigned object. The default is disabled so the selected object is treated directly.
+3. Click `Refresh Preview` to build the transparent convex preview around the source mesh.
+4. Adjust `Decimated Points`, `Surface Planes`, `Merge Angle`, and `Surface Padding` until the collider shape is as tight and simple as needed.
+5. Use the preview window to inspect the transparent generated collider mesh.
+6. Click `Generate and Save Mesh` to save the collider mesh asset under the configured output folder.
+7. If `Create Collider Child` is enabled, the tool creates a child object under the selected parent or source object with only a convex `MeshCollider` assigned.
 
-#### Simple Convex Generator - Preview Controls
+#### Convex Generator - Preview Controls
 
 * Left click and drag in the preview to freely orbit the view.
 * Use the orbit gizmo's `+X`, `-X`, `+Y`, `-Y`, `+Z`, and `-Z` buttons to snap to cardinal views.
 * Drag the `X`, `Y`, or `Z` orbit strips to rotate around a single world axis.
 * Scroll over the preview to zoom. The zoom readout is shown in the overlay.
+* Use `Projection` to switch between `Perspective` and `Orthographic`.
+* Use `Invert Camera Orbit` to flip the preview orbit preference.
+* Enable `Show Vertices` and `Show Edges` to inspect the generated mesh topology. Vertices use the shared orange/gold editor color and mesh faces use the shared blue preview color.
+* The upper-right orientation triad follows Unity's scene view style and shows the current X/Y/Z view orientation.
 * The overlay reports preview vertices, preview triangles, generated-to-source vertex ratio, decimated support points, and `Planes Used` compared to the requested `Surface Planes`.
 
-#### Simple Convex Generator - Settings Notes
+#### Convex Generator - Settings Notes
 
 * `Decimated Points` controls how many source points are retained as the simplified support set.
 * `Surface Planes` controls the maximum number of convex clipping planes. More planes usually gives a tighter shape; fewer planes gives a simpler collider.
@@ -38,13 +43,49 @@ Open the tool from `FuzzPhyte/Utility/Rendering/Simple Convex Generator`.
 * `Contain Source Mesh` fits surface planes against the original vertices so the generated convex mesh contains the source mesh.
 * Generated scene children are collider-only. The geometry asset is saved, but the scene child receives only a convex `MeshCollider`, with no `MeshRenderer`.
 
-### FP Mesh Combiner
+### Mesh Slicer
 
-FP Mesh Combiner is an editor-only tool for baking multiple source meshes into one combined mesh asset. It is intended for scenes or prefab hierarchies where many separate visual or collider meshes should become a single reusable mesh, especially when generating consolidated `MeshCollider` assets.
+Mesh Slicer is an editor-only tool for cutting a source mesh with an adjustable plane and saving the resulting positive side, negative side, or both pieces. It is intended for authoring custom collision or split mesh assets when the cut needs to be inspected before assets are written.
 
-Open the tool from `FuzzPhyte/Utility/Rendering/FP Mesh Combiner`.
+Open the tool from `FuzzPhyte/Utility/Mesh/Mesh Slicer`.
 
-#### FP Mesh Combiner - How To Use It
+#### Mesh Slicer - How To Use It
+
+1. Select or assign a `GameObject`, `MeshFilter`, `SkinnedMeshRenderer`, component, prefab, or raw `Mesh` in the `Object / Mesh` field.
+2. Choose whether `Include Children` should collect child meshes. The default is disabled.
+3. Use `Reference Origin` to frame the preview and plane from either the selected object's pivot or a calculated bounds center.
+4. Adjust the source with `Object Adjustment` if the cut should be previewed with an offset, rotation, or scale.
+5. Move or rotate the `Slice Plane`, use `XY`, `XZ`, or `YZ` to snap it to a major plane, or click `Frame Plane` to refit it to the current source.
+6. Choose `Keep Pieces` to save `Keep Positive`, `Keep Negative`, or `Keep Both`.
+7. Click `Refresh Preview` if `Auto Update Preview` is disabled, then click `Generate and Save Slice Meshes` to save the slice result.
+
+#### Mesh Slicer - Preview Controls
+
+* The kept slice is shown in the shared light blue preview color. Removed slice regions are shown in red.
+* `Show Source Mesh` can overlay the original source, but is disabled by default to avoid z-fighting with the generated slice preview.
+* `Preview Visibility` controls whether the positive side, negative side, or both sides are shown.
+* Enable `Show Vertices` and `Show Edges` to inspect slice topology and repaired caps.
+* The slice plane draws front and back faces with separate colors and an outline so the plane direction and boundary are visible.
+* Drag the plane center to move freely, drag the axis lines to move along an axis, and drag the orbit handles on the plane to rotate it.
+* Left click and drag empty preview space to orbit the camera. Scroll over the preview to zoom.
+* Use `Projection` to switch between `Perspective` and `Orthographic`, and use `Invert Camera Orbit` to flip the camera orbit preference.
+* The upper-right orientation triad follows Unity's scene view style and shows the current X/Y/Z view orientation.
+
+#### Mesh Slicer - Settings Notes
+
+* `Repair Slice Holes` is enabled by default. It attempts to fill closed cut loops so sliced meshes can be saved with capped openings.
+* If a cut creates open or ambiguous loops, the preview warning area reports that the holes could not be fully assembled.
+* `Keep Pieces` defaults to `Keep Positive`.
+* `Auto Update Preview` is enabled by default, but the preview rebuilds only when inputs change or the tool needs a repaint.
+* Undo is supported for source changes, camera settings, object adjustment, plane movement, plane rotation, and slice options.
+
+### Combine Meshes
+
+Combine Meshes is an editor-only tool for baking multiple source meshes into one combined mesh asset. It is intended for scenes or prefab hierarchies where many separate visual or collider meshes should become a single reusable mesh, especially when generating consolidated `MeshCollider` assets.
+
+Open the tool from `FuzzPhyte/Utility/Mesh/Combine Meshes`.
+
+#### Combine Meshes - How To Use It
 
 1. Assign a `Root Object`, or select a scene object and click `Use Current Selection As Root`.
 2. Choose whether to include children and inactive objects.
@@ -55,14 +96,22 @@ Open the tool from `FuzzPhyte/Utility/Rendering/FP Mesh Combiner`.
 
 The generated mesh is baked into the local space of the chosen root object. This means child transforms are applied to the output vertices, so the saved mesh lines up with the root when used as a collider or debug mesh.
 
-#### FP Mesh Combiner - Output Options
+#### Combine Meshes - Preview Controls
+
+* The right-side preview shows the combined mesh before saving.
+* `Show Source Mesh` can overlay source geometry for comparison.
+* Enable `Show Vertices` and `Show Edges` to inspect the combined topology.
+* Use `Projection` to switch between `Perspective` and `Orthographic`, and use `Invert Camera Orbit` to flip the camera orbit preference.
+* The upper-right orientation triad follows Unity's scene view style and shows the current X/Y/Z view orientation.
+
+#### Combine Meshes - Output Options
 
 * `Add MeshCollider to Root` assigns the saved combined mesh to a `MeshCollider` on the root object.
 * `Replace Existing Collider` controls whether an existing root `MeshCollider` is reused. If disabled and a root collider already exists, the tool creates a child object for the new collider.
 * `Collider Convex` sets the resulting `MeshCollider.convex` flag.
 * `Collider Is Trigger` sets the resulting `MeshCollider.isTrigger` flag.
 
-#### FP Mesh Combiner - Source Notes
+#### Combine Meshes - Source Notes
 
 * `Skip 'EditorOnly' Tagged Objects` excludes any source object tagged `EditorOnly`.
 * Mesh colliders are included only when their `sharedMesh` is assigned.
@@ -70,15 +119,15 @@ The generated mesh is baked into the local space of the chosen root object. This
 * Large combined meshes automatically use 32-bit indices when the estimated vertex count is greater than 65,535.
 * The output keeps source submeshes separate, which can be useful for inspection or later processing.
 
-### FP Mesh Generator and Heightmap Editor
+### Mesh Generator and FP Heightmap Editor
 
-FP Mesh Generator is an editor-only tool for building rectangular grid meshes on the XZ plane. The grid can be saved as a mesh asset, created directly in the scene, or connected to an `FPMeshGridData` asset so it can be regenerated later. The related FP Heightmap Editor can inspect, paint, and save heightmap textures that deform those generated grids.
+Mesh Generator is an editor-only tool for building rectangular grid meshes on the XZ plane. The grid can be saved as a mesh asset, created directly in the scene, or connected to an `FPMeshGridData` asset so it can be regenerated later. The related FP Heightmap Editor can inspect, paint, and save heightmap textures that deform those generated grids.
 
-Open the generator from `FuzzPhyte/Utility/Rendering/FP Mesh Generator`.
+Open the generator from `FuzzPhyte/Utility/Mesh/Mesh Generator`.
 
 Open the heightmap editor from `FuzzPhyte/Utility/Rendering/FP Heightmap Editor`, or from the generator with `Open Heightmap Editor`.
 
-#### FP Mesh Generator - How To Use It
+#### Mesh Generator - How To Use It
 
 1. Optionally assign an `FPMeshGridData` asset in the `Data Asset` field.
 2. Set the grid `Mesh Name`, `Width`, `Length`, `X Segments`, `Y Segments`, and `Center Pivot`.
@@ -88,6 +137,13 @@ Open the heightmap editor from `FuzzPhyte/Utility/Rendering/FP Heightmap Editor`
 6. Click `Create Scene Object` to create a live scene mesh, or `Save Mesh Asset` to save the generated mesh to the project.
 
 The generated grid uses UV0 coordinates for heightmap sampling. If no heightmap is assigned, the tool generates a flat grid. If a heightmap is assigned, vertices are displaced on the Y axis using the selected texture channel and processing settings.
+
+#### Mesh Generator - Preview Controls
+
+* The right-side preview shows the generated grid before it is created in the scene or saved as an asset.
+* Enable `Show Vertices` and `Show Edges` to inspect the grid topology and heightmap deformation.
+* Use `Projection` to switch between `Perspective` and `Orthographic`, and use `Invert Camera Orbit` to flip the camera orbit preference.
+* The upper-right orientation triad follows Unity's scene view style and shows the current X/Y/Z view orientation.
 
 #### FPMeshGridData
 

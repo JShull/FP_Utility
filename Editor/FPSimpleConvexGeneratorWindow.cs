@@ -13,6 +13,7 @@ namespace FuzzPhyte.Utility.Editor
     public class FPSimpleConvexGeneratorWindow : EditorWindow
     {
         [SerializeField] private Object sourceObject;
+        [SerializeField] private bool includeChildren = false;
         [SerializeField] private string outputMeshName = "FP_SimpleConvexCollider";
         [SerializeField] private string outputFolder = "Assets/_FPUtility";
         [SerializeField] private int decimatedPointTarget = 32;
@@ -20,6 +21,10 @@ namespace FuzzPhyte.Utility.Editor
         [SerializeField] private float directionMergeAngle = 8f;
         [SerializeField] private float surfacePadding = 0.001f;
         [SerializeField] private bool supportOriginalVertices = true;
+        [SerializeField] private FPMeshPreviewProjection cameraProjection = FPMeshPreviewProjection.Perspective;
+        [SerializeField] private bool invertCameraOrbit = false;
+        [SerializeField] private bool showVertices = false;
+        [SerializeField] private bool showEdges = false;
         [SerializeField] private bool autoUpdatePreview = true;
         [SerializeField] private Transform targetParent;
         [SerializeField] private bool createSceneObject = true;
@@ -71,10 +76,10 @@ namespace FuzzPhyte.Utility.Editor
             public Bounds Bounds;
         }
 
-        [MenuItem("FuzzPhyte/Utility/Rendering/Simple Convex Generator", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 5)]
+        [MenuItem("FuzzPhyte/Utility/Mesh/Convex Generator", priority = FP_UtilityData.MENU_UTILITY_MESH + 2)]
         public static void ShowWindow()
         {
-            FPSimpleConvexGeneratorWindow window = GetWindow<FPSimpleConvexGeneratorWindow>("Simple Convex Generator");
+            FPSimpleConvexGeneratorWindow window = GetWindow<FPSimpleConvexGeneratorWindow>("Convex Generator");
             window.minSize = new Vector2(760f, 520f);
             window.SyncSelectionDefaults();
         }
@@ -111,7 +116,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private void OnGUI()
         {
-            GUILayout.Label("Simple Convex Generator", EditorStyles.boldLabel);
+            GUILayout.Label("Convex Generator", EditorStyles.boldLabel);
             DrawWorkspace();
         }
 
@@ -156,11 +161,13 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUI.BeginChangeCheck();
 
             DrawSourceSettings();
-            FP_Utility_Editor.DrawUILine(Color.gray);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawCameraSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawConvexSettings();
-            FP_Utility_Editor.DrawUILine(Color.gray);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawOutputSettings();
-            FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawActions();
 
             if (EditorGUI.EndChangeCheck())
@@ -184,6 +191,8 @@ namespace FuzzPhyte.Utility.Editor
                 ApplyDefaultOutputName();
                 previewDirty = true;
             }
+
+            includeChildren = EditorGUILayout.Toggle("Include Children", includeChildren);
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -216,6 +225,15 @@ namespace FuzzPhyte.Utility.Editor
             {
                 EditorGUILayout.HelpBox("One or more source meshes are not readable. Enable Read/Write on their import settings before generating a convex asset.", MessageType.Warning);
             }
+        }
+
+        private void DrawCameraSettings()
+        {
+            EditorGUILayout.LabelField("Camera Properties", EditorStyles.boldLabel);
+            cameraProjection = FPMeshPreviewEditorUtility.DrawProjectionPopup(cameraProjection);
+            invertCameraOrbit = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Invert Camera Orbit", invertCameraOrbit);
+            showVertices = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Show Vertices", showVertices);
+            showEdges = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Show Edges", showEdges);
         }
 
         private void DrawConvexSettings()
@@ -284,7 +302,7 @@ namespace FuzzPhyte.Utility.Editor
             GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
             Rect previewRect = new Rect(rect.x + 10f, rect.y + 10f, rect.width - 20f, rect.height - 20f);
 
-            if (autoUpdatePreview && previewDirty && sourceObject != null)
+            if (Event.current.type == EventType.Repaint && autoUpdatePreview && previewDirty && sourceObject != null)
             {
                 RebuildPreview();
             }
@@ -308,16 +326,22 @@ namespace FuzzPhyte.Utility.Editor
             previewUtility.BeginPreview(rect, GUIStyle.none);
             previewUtility.camera.backgroundColor = new Color(0.12f, 0.12f, 0.12f, 1f);
             previewUtility.camera.clearFlags = CameraClearFlags.Color;
-            previewUtility.camera.fieldOfView = 30f;
+            previewUtility.camera.fieldOfView = FPMeshPreviewEditorUtility.DefaultFieldOfView;
             previewUtility.lights[0].intensity = 1.1f;
             previewUtility.lights[0].transform.rotation = Quaternion.Euler(35f, 35f, 0f);
             previewUtility.lights[1].intensity = 0.55f;
 
             Bounds bounds = CalculatePreviewBounds();
-            float distance = CalculateFitDistance(bounds, rect) * Mathf.Max(0.5f, previewZoom);
+            float distance = FPMeshPreviewEditorUtility.CalculateFitDistance(bounds, rect) * Mathf.Max(0.5f, previewZoom);
             Vector3 forward = previewRotation * Vector3.forward;
             previewUtility.camera.transform.position = bounds.center - (forward * distance);
             previewUtility.camera.transform.rotation = previewRotation;
+            previewUtility.camera.orthographic = cameraProjection == FPMeshPreviewProjection.Orthographic;
+            if (previewUtility.camera.orthographic)
+            {
+                previewUtility.camera.orthographicSize = FPMeshPreviewEditorUtility.CalculateOrthographicSize(bounds, rect, previewRotation) * Mathf.Max(0.5f, previewZoom);
+            }
+
             float radius = Mathf.Max(0.1f, bounds.extents.magnitude);
             previewUtility.camera.nearClipPlane = Mathf.Max(0.001f, distance - (radius * 2.4f));
             previewUtility.camera.farClipPlane = distance + (radius * 3.4f);
@@ -329,8 +353,28 @@ namespace FuzzPhyte.Utility.Editor
             Texture result = previewUtility.EndPreview();
             GUI.DrawTexture(rect, result, ScaleMode.StretchToFill, false);
 
+            DrawMeshOverlays(rect);
             DrawPreviewOverlay(rect);
+            FPMeshPreviewEditorUtility.DrawSceneOrientationGizmo(rect, previewUtility.camera, cameraProjection);
             DrawOrbitGizmo(rect);
+        }
+
+        private void DrawMeshOverlays(Rect rect)
+        {
+            if ((!showVertices && !showEdges) || previewUtility == null || previewUtility.camera == null || previewMesh == null)
+            {
+                return;
+            }
+
+            if (showEdges)
+            {
+                FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.EdgeOverlayColor, 1.5f);
+            }
+
+            if (showVertices)
+            {
+                FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.VertexOverlayColor, 2.5f);
+            }
         }
 
         private Bounds CalculatePreviewBounds()
@@ -359,16 +403,6 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return bounds;
-        }
-
-        private float CalculateFitDistance(Bounds bounds, Rect previewRect)
-        {
-            float radius = Mathf.Max(0.1f, bounds.extents.magnitude);
-            float verticalFov = 30f * Mathf.Deg2Rad;
-            float aspect = Mathf.Max(0.1f, previewRect.width / Mathf.Max(1f, previewRect.height));
-            float horizontalFov = 2f * Mathf.Atan(Mathf.Tan(verticalFov * 0.5f) * aspect);
-            float limitingFov = Mathf.Min(verticalFov, horizontalFov);
-            return radius / Mathf.Max(0.01f, Mathf.Sin(limitingFov * 0.5f));
         }
 
         private void DrawPreviewMesh(Mesh mesh, Material material)
@@ -514,7 +548,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private static Rect GetOrbitGizmoRect(Rect previewRect)
         {
-            return new Rect(previewRect.xMax - 128f, previewRect.y + 8f, 120f, 148f);
+            return new Rect(previewRect.xMax - 128f, previewRect.y + 104f, 120f, 148f);
         }
 
         private static Rect GetOrbitAxisRect(Rect gizmoRect, int axis)
@@ -631,8 +665,7 @@ namespace FuzzPhyte.Utility.Editor
 
             if (current.type == EventType.MouseDrag && current.button == 0)
             {
-                Vector2 delta = current.delta;
-                previewRotation = Quaternion.Euler(delta.y * 0.4f, -delta.x * 0.4f, 0f) * previewRotation;
+                previewRotation = FPMeshPreviewEditorUtility.ApplyUnityStyleOrbit(previewRotation, current.delta, invertCameraOrbit);
                 current.Use();
                 Repaint();
             }
@@ -828,26 +861,40 @@ namespace FuzzPhyte.Utility.Editor
             }
             else if (sourceObject is GameObject gameObject)
             {
-                AddGameObjectSources(gameObject, ref summary);
+                AddGameObjectSources(gameObject, includeChildren, ref summary);
             }
             else if (sourceObject is MeshFilter meshFilter)
             {
-                Material[] materials = ResolveRendererMaterials(meshFilter.GetComponent<MeshRenderer>());
-                AddSourceMesh(meshFilter.sharedMesh, Matrix4x4.identity, materials, ref summary);
+                if (includeChildren)
+                {
+                    AddGameObjectSources(meshFilter.gameObject, true, ref summary);
+                }
+                else
+                {
+                    Material[] materials = ResolveRendererMaterials(meshFilter.GetComponent<MeshRenderer>());
+                    AddSourceMesh(meshFilter.sharedMesh, Matrix4x4.identity, materials, ref summary);
+                }
             }
             else if (sourceObject is SkinnedMeshRenderer skinnedMeshRenderer)
             {
-                AddSourceMesh(skinnedMeshRenderer.sharedMesh, Matrix4x4.identity, skinnedMeshRenderer.sharedMaterials, ref summary);
+                if (includeChildren)
+                {
+                    AddGameObjectSources(skinnedMeshRenderer.gameObject, true, ref summary);
+                }
+                else
+                {
+                    AddSourceMesh(skinnedMeshRenderer.sharedMesh, Matrix4x4.identity, skinnedMeshRenderer.sharedMaterials, ref summary);
+                }
             }
             else if (sourceObject is Component component)
             {
-                AddGameObjectSources(component.gameObject, ref summary);
+                AddGameObjectSources(component.gameObject, includeChildren, ref summary);
             }
 
             return summary;
         }
 
-        private void AddGameObjectSources(GameObject gameObject, ref SourceSummary summary)
+        private void AddGameObjectSources(GameObject gameObject, bool includeChildMeshes, ref SourceSummary summary)
         {
             if (gameObject == null)
             {
@@ -855,6 +902,25 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             Matrix4x4 rootToLocal = gameObject.transform.worldToLocalMatrix;
+
+            if (!includeChildMeshes)
+            {
+                MeshFilter meshFilter = gameObject.GetComponent<MeshFilter>();
+                if (meshFilter != null)
+                {
+                    Material[] materials = ResolveRendererMaterials(meshFilter.GetComponent<MeshRenderer>());
+                    AddSourceMesh(meshFilter.sharedMesh, rootToLocal * meshFilter.transform.localToWorldMatrix, materials, ref summary);
+                }
+
+                SkinnedMeshRenderer skinnedMeshRenderer = gameObject.GetComponent<SkinnedMeshRenderer>();
+                if (skinnedMeshRenderer != null)
+                {
+                    AddSourceMesh(skinnedMeshRenderer.sharedMesh, rootToLocal * skinnedMeshRenderer.transform.localToWorldMatrix, skinnedMeshRenderer.sharedMaterials, ref summary);
+                }
+
+                return;
+            }
+
             MeshFilter[] meshFilters = gameObject.GetComponentsInChildren<MeshFilter>(true);
             for (int i = 0; i < meshFilters.Length; i++)
             {
@@ -930,7 +996,7 @@ namespace FuzzPhyte.Utility.Editor
                 generatedPreviewMaterial = new Material(shader)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
-                    color = new Color(0.01f, 0.61f, 0.98f, 0.68f)
+                    color = FPMeshPreviewEditorUtility.PreviewMeshColor
                 };
                 ConfigureTransparentPreviewMaterial(generatedPreviewMaterial, 0.48f);
             }
