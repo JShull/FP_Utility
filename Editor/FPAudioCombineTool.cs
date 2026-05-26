@@ -41,6 +41,8 @@ namespace FuzzPhyte.Utility.Editor
             public float[] min;
             public float[] max;
             public float peak;
+            public bool unavailable;
+            public string unavailableReason;
         }
 
         private readonly List<CombineEntry> entries = new List<CombineEntry>();
@@ -501,8 +503,22 @@ namespace FuzzPhyte.Utility.Editor
 
                 if (entry.waveform != null)
                 {
-                    float effectivePeak = entry.waveform.peak * entry.gain;
-                    EditorGUILayout.LabelField($"Segment Peak: {entry.waveform.peak:F3} | After Gain: {effectivePeak:F3}", EditorStyles.miniLabel);
+                    if (entry.waveform.unavailable)
+                    {
+                        using (new EditorGUILayout.HorizontalScope())
+                        {
+                            EditorGUILayout.LabelField("Segment Peak: unavailable", EditorStyles.miniLabel);
+                            if (GUILayout.Button("Repair Import Settings", GUILayout.Width(170)))
+                            {
+                                RepairClipImportForSampleData(entry);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        float effectivePeak = entry.waveform.peak * entry.gain;
+                        EditorGUILayout.LabelField($"Segment Peak: {entry.waveform.peak:F3} | After Gain: {effectivePeak:F3}", EditorStyles.miniLabel);
+                    }
                 }
             }
         }
@@ -531,9 +547,10 @@ namespace FuzzPhyte.Utility.Editor
             DrawGainBar(segRect, displayColor, entry.gain);
 
             int width = Mathf.Max(1, Mathf.RoundToInt(segRect.width));
+            bool unavailableWaveform = entry.waveform != null && entry.waveform.unavailable;
             if (entry.waveform == null ||
                 entry.lastClip != entry.clip ||
-                entry.lastWaveWidth != width ||
+                (!unavailableWaveform && entry.lastWaveWidth != width) ||
                 !Mathf.Approximately(entry.lastWaveIn, entry.inTime) ||
                 !Mathf.Approximately(entry.lastWaveOut, entry.outTime))
             {
@@ -547,7 +564,12 @@ namespace FuzzPhyte.Utility.Editor
             Handles.BeginGUI();
             Handles.color = Color.Lerp(displayColor, Color.white, entry.muted ? 0.2f : 0.45f);
 
-            if (entry.waveform != null && entry.waveform.min != null && entry.waveform.max != null)
+            if (entry.waveform != null && entry.waveform.unavailable)
+            {
+                GUIStyle unavailableStyle = new GUIStyle(EditorStyles.centeredGreyMiniLabel);
+                GUI.Label(segRect, entry.waveform.unavailableReason, unavailableStyle);
+            }
+            else if (entry.waveform != null && entry.waveform.min != null && entry.waveform.max != null)
             {
                 const float waveformScale = 1f;
                 float pad = 2f;
@@ -825,6 +847,86 @@ namespace FuzzPhyte.Utility.Editor
             return extension == ".wav" || extension == ".mp3" || extension == ".ogg" || extension == ".aiff" || extension == ".aif";
         }
 
+        private void RepairClipImportForSampleData(CombineEntry entry)
+        {
+            if (entry == null || entry.clip == null)
+            {
+                return;
+            }
+
+            string assetPath = AssetDatabase.GetAssetPath(entry.clip);
+            var importer = AssetImporter.GetAtPath(assetPath) as AudioImporter;
+            if (importer == null)
+            {
+                EditorUtility.DisplayDialog("Audio Importer Not Found", $"Could not find an AudioImporter for:\n{assetPath}", "OK");
+                return;
+            }
+
+            string platformName = GetActiveBuildAudioPlatformName();
+            if (!EditorUtility.DisplayDialog(
+                    "Repair Audio Import Settings",
+                    $"Reimport '{entry.clip.name}' with readable PCM sample settings for default and {platformName}?\n\nThis sets Load Type to Decompress On Load, Compression Format to PCM, Preload Audio Data on, and Load In Background off.",
+                    "Repair",
+                    "Cancel"))
+            {
+                return;
+            }
+
+            Undo.RecordObject(importer, "Repair Audio Import Settings");
+
+            AudioImporterSampleSettings defaultSettings = importer.defaultSampleSettings;
+            ApplyReadableAudioSettings(ref defaultSettings);
+            importer.defaultSampleSettings = defaultSettings;
+
+            AudioImporterSampleSettings platformSettings = importer.ContainsSampleSettingsOverride(platformName)
+                ? importer.GetOverrideSampleSettings(platformName)
+                : defaultSettings;
+            ApplyReadableAudioSettings(ref platformSettings);
+
+            if (!importer.SetOverrideSampleSettings(platformName, platformSettings))
+            {
+                Debug.LogWarning($"Could not set audio override for {platformName} at path: {assetPath}");
+            }
+
+            importer.loadInBackground = false;
+            importer.SaveAndReimport();
+            AssetDatabase.Refresh();
+
+            entry.waveform = null;
+            entry.lastClip = null;
+            entry.lastWaveWidth = 0;
+            Repaint();
+        }
+
+        private static void ApplyReadableAudioSettings(ref AudioImporterSampleSettings settings)
+        {
+            settings.loadType = AudioClipLoadType.DecompressOnLoad;
+            settings.compressionFormat = AudioCompressionFormat.PCM;
+            settings.preloadAudioData = true;
+            settings.quality = 1f;
+        }
+
+        private static string GetActiveBuildAudioPlatformName()
+        {
+            string activeBuildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
+            switch (activeBuildTarget)
+            {
+                case "Android":
+                    return "Android";
+                case "iOS":
+                    return "iOS";
+                case "WebGL":
+                    return "WebGL";
+                case "StandaloneWindows":
+                case "StandaloneWindows64":
+                case "StandaloneOSX":
+                case "StandaloneLinux64":
+                    return "Standalone";
+                default:
+                    return activeBuildTarget;
+            }
+        }
+
         private void AssignClip(CombineEntry entry, AudioClip clip)
         {
             bool hadOtherClips = HasOtherClips(entry);
@@ -1086,7 +1188,11 @@ namespace FuzzPhyte.Utility.Editor
                 while (cursor < colEnd)
                 {
                     int toRead = Mathf.Min(bufferFrames, colEnd - cursor);
-                    clip.GetData(buffer, cursor);
+                    if (!clip.GetData(buffer, cursor))
+                    {
+                        return BuildUnavailableWaveformCache(width, $"Waveform unavailable: {clip.name}");
+                    }
+
                     int interleavedCount = toRead * channels;
 
                     for (int i = 0; i < interleavedCount; i += channels)
@@ -1111,6 +1217,20 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return new WaveformCache { width = width, min = min, max = max, peak = peak };
+        }
+
+        private static WaveformCache BuildUnavailableWaveformCache(int width, string reason)
+        {
+            int safeWidth = Mathf.Max(1, width);
+            return new WaveformCache
+            {
+                width = safeWidth,
+                min = new float[safeWidth],
+                max = new float[safeWidth],
+                peak = 0f,
+                unavailable = true,
+                unavailableReason = reason
+            };
         }
 
         private AudioClip BuildCombinedClip(string clipName)
@@ -1172,7 +1292,11 @@ namespace FuzzPhyte.Utility.Editor
             int srcCh = clip.channels;
             int srcFrames = clip.samples;
             float[] src = new float[srcFrames * srcCh];
-            clip.GetData(src, 0);
+            if (!clip.GetData(src, 0))
+            {
+                Debug.LogWarning($"FP Audio Combine Tool skipped '{clip.name}' because Unity could not read its sample data. Reimport the clip as decompressed PCM data before combining it.");
+                return;
+            }
 
             float srcStartSec = Mathf.Clamp(entry.inTime, 0f, clip.length);
             float srcEndSec = Mathf.Clamp(entry.outTime <= 0f ? clip.length : entry.outTime, 0f, clip.length);
