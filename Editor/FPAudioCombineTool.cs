@@ -51,6 +51,7 @@ namespace FuzzPhyte.Utility.Editor
         private float playhead;
         private bool autoAdvancePlayhead = true;
         private bool isPlayingCombined;
+        private AudioClip activeCombinedPreviewClip;
         private double combinedPlayStartTime;
         private float combinedPlayStartOffset;
         private int overviewDragIndex = -1;
@@ -83,6 +84,7 @@ namespace FuzzPhyte.Utility.Editor
         private void OnDisable()
         {
             EditorStopAll();
+            activeCombinedPreviewClip = null;
             isPlayingCombined = false;
             EditorApplication.update -= OnEditorUpdate;
         }
@@ -107,6 +109,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 isPlayingCombined = false;
                 EditorStopAll();
+                activeCombinedPreviewClip = null;
                 EditorApplication.update -= OnEditorUpdate;
                 Repaint();
             }
@@ -164,6 +167,7 @@ namespace FuzzPhyte.Utility.Editor
                 {
                     EditorStopAll();
                     isPlayingCombined = false;
+                    activeCombinedPreviewClip = null;
                     entries.Clear();
                     playhead = 0f;
                     hasExportStartBookend = false;
@@ -206,6 +210,7 @@ namespace FuzzPhyte.Utility.Editor
                 if (GUILayout.Button("Stop Preview", GUILayout.Height(26)))
                 {
                     isPlayingCombined = false;
+                    activeCombinedPreviewClip = null;
                     EditorStopAll();
                     EditorApplication.update -= OnEditorUpdate;
                 }
@@ -1265,6 +1270,11 @@ namespace FuzzPhyte.Utility.Editor
                 peak = Mathf.Max(peak, Mathf.Abs(dst[i]));
             }
 
+            if (peak <= 1e-5f)
+            {
+                Debug.LogWarning("FP Audio Combine Tool built a silent combined preview/export. Check that clips are unmuted, readable, inside the export bookend range, and have gain above 0.");
+            }
+
             if (peak > 1f && normalizeIfClipping)
             {
                 float gain = 1f / peak;
@@ -1390,9 +1400,11 @@ namespace FuzzPhyte.Utility.Editor
 
             EditorStopAll();
             isPlayingCombined = false;
+            activeCombinedPreviewClip = null;
             EditorApplication.update -= OnEditorUpdate;
 
-            EditorPreview(combined, startSample, false, 1f);
+            activeCombinedPreviewClip = combined;
+            EditorPreview(activeCombinedPreviewClip, startSample, false, 1f);
             combinedPlayStartTime = EditorApplication.timeSinceStartup;
             combinedPlayStartOffset = start;
             isPlayingCombined = true;
