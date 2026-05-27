@@ -225,22 +225,28 @@ Open the tool from `FuzzPhyte/Utility/Audio/Combine Tool`.
 
 #### FP Audio Combine Tool - How To Use It
 
-1. Add clips with `Add Selected Clip(s)`, `Add Empty Row`, or by dragging AudioClip assets onto the bottom drop area.
-2. For each clip, use `Segment (In/Out)` to trim the source clip without changing its base timeline placement.
-3. Set `Clip Start` directly, use `Set Start = Playhead`, or use `After Previous + Gap` to place clips in sequence.
-4. Use `Nudge This + Later` to shift a clip and following unlocked clips together.
-5. Use the top overview to see all clips at once and drag unlocked clip blocks along the timeline.
-6. Move the `Playhead` with the slider or by clicking in the overview or waveform tracks, then use `Play From Playhead` or `Play All`.
-7. Use `Create In-Memory Combined Clip` or `Save Combined as .wav in Assets` to generate the combined output.
+1. Open the tool and either assign an existing `FPAudioCombineData` asset in `Mix Data`, or enter a `Name` and `Folder` so `Save` can create one for the current stack.
+2. Drag AudioClip assets onto `Drop AudioClip(s) Here`, or use `+ Add` in the `Stack` panel to create an empty clip row.
+3. Use the left parameter stack to adjust each clip. The matching right-side timeline row updates in the viewer.
+4. For each clip, use `Segment` or the `In` and `Out` fields to trim the source audio. Trimming the left edge holds the clip's timeline position and removes audio from the front instead of sliding the clip earlier.
+5. Place clips with the `Start` field, the `Move` slider, `Start = Playhead`, `After Prev`, or by dragging the clip block directly in the right-side viewer.
+6. Use `+ Fade In` and `+ Fade Out` to add per-clip fades. Drag the fade edge handle to change fade length, or drag the small curve handle on the fade curve to adjust `In C` or `Out C`.
+7. Move the `Playhead` with the slider, by clicking the overview, or by grabbing the playhead handle in the top timeline viewer. Use `Play From Playhead`, `Play From Beginning`, and `Stop` to preview the current mix.
+8. Use `Set Export Start {` and `Set Export End }` to drop export bookends from the playhead. Export start and end are validated so the start cannot sit after the end.
+9. Use `Create In-Memory Combined Clip` or `Save Combined as .wav in Assets` to generate the combined output.
+10. Use `Save` to write the current clip stack, mix settings, bookends, colors, gain, fades, lock states, and mute states back to `FPAudioCombineData`.
 
 #### FP Audio Combine Tool - Clip Controls
 
 * `Track Color` assigns a visual color per clip; new clips get generated colors automatically.
 * `Clip Gain` adjusts per-clip level before mixing and is reflected in the waveform height and gain bar.
+* `+ Fade In` and `+ Fade Out` add non-destructive fades to a clip. Fade duration and fade curve power are shown in the waveform and applied to preview and export.
 * `Locked` prevents editing, dragging, reordering, removing, nudging, and auto-layout movement for that row.
 * `Muted` keeps a clip visible in the editor but excludes it from preview and export.
 * The overview and row waveforms draw muted clips dimmed and locked clips with a lock-style highlight.
-* `Set Export Start = Playhead` drops an export-start bookend. Preview/export trims everything before that bookend until `Remove Export Start` is used.
+* `Auto` lays out unlocked clips in sequence using `Default Gap (sec)`.
+* `x Clear` clears the current stack and export bookends after a warning confirmation. It does not delete saved mix data assets.
+* `Set Export Start {` and `Set Export End }` drop export bookends. Preview/export trims outside those bookends until they are removed or overwritten.
 * `Normalize if mix clips` keeps the final combined output from clipping when overlapping or loud clips exceed full scale.
 
 ### FP Header

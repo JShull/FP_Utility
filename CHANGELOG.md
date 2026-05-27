@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-05-27
+
+### 0.9.7 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP Audio Combine Tool
+    - Added an editor-only multi-clip audio combine workflow under `FuzzPhyte/Utility/Audio/Combine Tool`.
+    - Added a split layout with a left parameter stack and right timeline viewer so each clip's settings line up with its visual waveform row.
+    - Added `FPAudioCombineData` ScriptableObject support for saving and reloading combine stacks, mix settings, export bookends, colors, gain, fades, lock states, and mute states.
+    - Added drag-and-drop AudioClip import into the stack, direct clip dragging in the viewer, stack auto-layout, and protected stack clearing with a confirmation popup.
+    - Added per-clip gain, mute, lock, generated or user-assigned clip colors, export start/end bookends, and normalized mix export.
+    - Added per-clip fade in/out controls with timeline handles for fade duration and curve handles for `In C` / `Out C` fade shape.
+
+### 0.9.7 Modified
+
+- [@JShull](https://github.com/jshull)
+  - FP Audio Combine Tool preview/export
+    - Updated combined preview generation to use an imported temporary WAV preview asset path when available, improving Unity editor preview reliability before export.
+    - Updated waveform drawing and preview/export paths to reflect per-clip gain, fades, mute state, and export bookends.
+    - Added fallback handling for compressed AudioClip waveform reads so compressed clips do not repeatedly spam `AudioClip.GetData()` errors in the editor.
+  - FP Audio Segment Tool
+    - Updated the playhead visual to match the combine tool and set default waveform thickness to `1`.
+    - Added region-aware segment preview so mute/cut regions can be auditioned before export.
+  - `README.md`
+    - Updated audio tool documentation for the current Segment Tool and Combine Tool workflows.
+  - `package.json`
+    - Version bumped to `0.9.7`.
+
 ## [0.9.6] - 2026-05-22
 
 ### 0.9.6 Added

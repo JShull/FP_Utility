@@ -27,7 +27,7 @@ namespace FuzzPhyte.Utility.Editor
         private bool showPolygonKey;
         #endregion
 
-        [MenuItem("FuzzPhyte/Utility/Editor/Keys Manager", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 11)]
+        [MenuItem("FuzzPhyte/Utility/Editor/Testing/Keys Manager", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 11)]
         public static void ShowWindow()
         {
             GetWindow<FP_UtilityKeys>("FP Keys Manager");

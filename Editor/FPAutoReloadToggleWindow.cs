@@ -15,7 +15,7 @@ namespace FuzzPhyte.Utility.Editor
         private Texture disabledIcon;
         private bool loadedTextures;
 
-        [MenuItem("FuzzPhyte/Utility/Editor/Auto Script Reload Toggle", priority = FP_UtilityData.MENU_UTILITY_EDITOR)]
+        //[MenuItem("FuzzPhyte/Utility/Editor/Auto Script Reload Toggle", priority = FP_UtilityData.MENU_UTILITY_EDITOR)]
         public static void ShowWindow()
         {
             GetWindow<FPAutoReloadToggleWindow>("FP Reload");

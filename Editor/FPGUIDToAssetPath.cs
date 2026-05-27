@@ -7,7 +7,7 @@ namespace FuzzPhyte.Utility.Editor
         string guidToLookUp = string.Empty;
         string pathResponse = string.Empty;
 
-        [MenuItem("FuzzPhyte/Utility/Editor/GUIDToAsset", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 10)]
+        [MenuItem("FuzzPhyte/Utility/Editor/Debug/GUIDToAsset", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 10)]
         public static void GUIDWindow()
         {
             FPGUIDToAssetPath window = (FPGUIDToAssetPath)EditorWindow.GetWindowWithRect(typeof(FPGUIDToAssetPath), new Rect(0, 0, 400, 120));

@@ -44,6 +44,7 @@ namespace FuzzPhyte.Utility
         public const int MENU_UTILITY_EDITOR = MENU_FUZZPHYTE_UTILITY + 0;
         public const int MENU_UTILITY_AUDIO = MENU_FUZZPHYTE_UTILITY + 10;
         public const int MENU_UTILITY_DIAGNOSTICS = MENU_FUZZPHYTE_UTILITY + 20;
+        public const int MENU_UTILITY_DIALOGUE = MENU_FUZZPHYTE_UTILITY + 25;
         public const int MENU_UTILITY_RENDERING = MENU_FUZZPHYTE_UTILITY + 30;
         public const int MENU_UTILITY_MESH = MENU_FUZZPHYTE_UTILITY + 31;
         public const int MENU_UTILITY_SCENE = MENU_FUZZPHYTE_UTILITY + 40;

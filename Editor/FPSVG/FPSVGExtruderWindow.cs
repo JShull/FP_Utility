@@ -43,10 +43,10 @@ namespace FuzzPhyte.Utility.Editor
         private const float WorkspacePadding = 4f;
         private const float PanelGap = 6f;
 
-        [MenuItem("FuzzPhyte/Utility/Rendering/SVG Extruder", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 4)]
+        [MenuItem("FuzzPhyte/Utility/Mesh/SVG Extruder", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 4)]
         public static void ShowWindow()
         {
-            var window = GetWindow<FPSVGExtruderWindow>("FP SVG Extruder");
+            var window = GetWindow<FPSVGExtruderWindow>("SVG Extruder");
             window.minSize = new Vector2(760f, 520f);
             window.SyncSelectionDefaults();
         }
@@ -71,7 +71,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private void OnGUI()
         {
-            GUILayout.Label("FP SVG Extruder", EditorStyles.boldLabel);
+            GUILayout.Label("SVG Extruder", EditorStyles.boldLabel);
             DrawWorkspace();
         }
 

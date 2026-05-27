@@ -6,6 +6,7 @@ namespace FuzzPhyte.Utility.Editor
     using System.IO;
     using System.Reflection;
     using System.Collections.Generic;
+    using FuzzPhyte.Utility.Audio;
 
     public class FPAudioCombineTool : EditorWindow
     {
@@ -19,6 +20,12 @@ namespace FuzzPhyte.Utility.Editor
             public Color trackColor;
             public float gain = 1f;
             public bool gainInitialized;
+            public bool fadeInEnabled;
+            public float fadeInDuration;
+            public float fadeInPower = 1f;
+            public bool fadeOutEnabled;
+            public float fadeOutDuration;
+            public float fadeOutPower = 1f;
             public bool locked;
             public bool muted;
             public bool expanded = true;
@@ -46,7 +53,11 @@ namespace FuzzPhyte.Utility.Editor
         }
 
         private readonly List<CombineEntry> entries = new List<CombineEntry>();
-        private Vector2 scroll;
+        private Vector2 parameterScroll;
+        private Vector2 viewerScroll;
+        private Vector2 settingsScroll;
+        private int selectedEntryIndex = -1;
+        private int listDragIndex = -1;
 
         private float playhead;
         private bool autoAdvancePlayhead = true;
@@ -57,27 +68,50 @@ namespace FuzzPhyte.Utility.Editor
         private int overviewDragIndex = -1;
         private float overviewDragOffset;
         private float overviewDragTimelineLength;
+        private bool overviewPlayheadDragging;
+        private int trackDragIndex = -1;
+        private float trackDragOffset;
+        private float trackDragTimelineLength;
+        private int fadeDragIndex = -1;
+        private bool fadeDragIsOut;
+        private int fadeCurveDragIndex = -1;
+        private bool fadeCurveDragIsOut;
 
         private int outputFrequency = 44100;
         private int outputChannels = 2;
         private bool normalizeIfClipping = true;
         private float defaultGapSeconds = 2f;
         private float nudgeSeconds = 0.25f;
+        private FPAudioCombineData activeMixData;
+        private string mixDataFileName = "AudioCombineData";
+        private string mixDataFolder = "Assets/_FPUtility/AudioCombineData";
         private bool hasExportStartBookend;
         private float exportStartBookend;
+        private bool hasExportEndBookend;
+        private float exportEndBookend;
 
         private string exportFileName = "AudioCombined";
         private string exportFolder = "Assets/_FPUtility/AudioExports";
+        private const string PreviewAssetFolder = "Assets/_FPUtility/AudioPreview";
+        private const string PreviewAssetPath = PreviewAssetFolder + "/__FPAudioCombinePreview.wav";
 
         private static readonly Color kTrackBackground = new Color(0.12f, 0.12f, 0.12f);
         private static readonly Color kPlayheadColor = new Color(1f, 0.72f, 0.25f, 0.95f);
         private static readonly Color kExportStartColor = new Color(0.25f, 0.75f, 1f, 0.95f);
+        private const float WorkspacePadding = 4f;
+        private const float PanelGap = 8f;
+        private const float ParameterPanelWidth = 352f;
+        private const float HeaderHeight = 250f;
+        private const float FooterHeight = 164f;
+        private const float ViewerTrackHeight = 252f;
+        private const float StackRowGap = 6f;
+        private const float ViewerScrollbarGutter = 16f;
 
         [MenuItem("FuzzPhyte/Utility/Audio/Combine Tool", priority = FuzzPhyte.Utility.FP_UtilityData.MENU_UTILITY_AUDIO + 1)]
         public static void ShowWindow()
         {
             var win = GetWindow<FPAudioCombineTool>("FP Audio Combine Tool");
-            win.minSize = new Vector2(620, 560);
+            win.minSize = new Vector2(820, 560);
             win.AddSelectedAudioClips(false);
         }
 
@@ -96,7 +130,7 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            float totalLength = CalculateMixTimelineEnd();
+            float totalLength = GetExportEndTime();
             double elapsed = EditorApplication.timeSinceStartup - combinedPlayStartTime;
 
             if (autoAdvancePlayhead)
@@ -117,63 +151,383 @@ namespace FuzzPhyte.Utility.Editor
 
         private void OnGUI()
         {
-            DrawToolbar();
-
+            GUILayout.Space(4f);
             float timelineLength = Mathf.Max(0.01f, CalculateTimelineLength());
             playhead = Mathf.Clamp(playhead, 0f, timelineLength);
             if (hasExportStartBookend)
             {
                 exportStartBookend = Mathf.Clamp(exportStartBookend, 0f, timelineLength);
             }
+            if (hasExportEndBookend)
+            {
+                exportEndBookend = Mathf.Clamp(exportEndBookend, 0f, timelineLength);
+            }
+            EnsureValidExportBookends();
 
-            EditorGUILayout.Space(4);
-            DrawPlaybackUI(timelineLength);
-            EditorGUILayout.Space(6);
-            DrawTimelineOverview(timelineLength);
-            EditorGUILayout.Space(8);
+            if (entries.Count == 0)
+            {
+                selectedEntryIndex = -1;
+            }
+            else if (selectedEntryIndex < 0 || selectedEntryIndex >= entries.Count)
+            {
+                selectedEntryIndex = 0;
+            }
 
-            scroll = EditorGUILayout.BeginScrollView(scroll);
-            DrawEntryList(timelineLength);
-            EditorGUILayout.EndScrollView();
+            if (Event.current.type == EventType.MouseUp)
+            {
+                listDragIndex = -1;
+                trackDragIndex = -1;
+                fadeDragIndex = -1;
+                fadeCurveDragIndex = -1;
+                overviewPlayheadDragging = false;
+            }
 
-            EditorGUILayout.Space(8);
+            DrawWorkspace(timelineLength);
+        }
+
+        private void DrawWorkspace(float timelineLength)
+        {
+            Rect previousRect = GUILayoutUtility.GetLastRect();
+            float workspaceTop = previousRect.yMax + 4f;
+            Rect workspaceRect = new Rect(
+                WorkspacePadding,
+                workspaceTop,
+                Mathf.Max(100f, position.width - (WorkspacePadding * 2f)),
+                Mathf.Max(100f, position.height - workspaceTop - WorkspacePadding));
+
+            float leftWidth = Mathf.Clamp(ParameterPanelWidth, 300f, Mathf.Max(300f, workspaceRect.width - 360f - PanelGap));
+            Rect parameterRect = new Rect(workspaceRect.x, workspaceRect.y, leftWidth, workspaceRect.height);
+            Rect viewerRect = new Rect(parameterRect.xMax + PanelGap, workspaceRect.y, Mathf.Max(100f, workspaceRect.xMax - parameterRect.xMax - PanelGap), workspaceRect.height);
+
+            DrawParameterPanelContainer(parameterRect, timelineLength);
+            DrawViewerPanelContainer(viewerRect, timelineLength);
+        }
+
+        private void DrawParameterPanelContainer(Rect rect, float timelineLength)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            float footerHeight = Mathf.Min(FooterHeight, Mathf.Max(90f, innerRect.height * 0.34f));
+            float headerHeight = Mathf.Min(HeaderHeight, Mathf.Max(118f, innerRect.height * 0.34f));
+            Rect headerRect = new Rect(innerRect.x, innerRect.y, innerRect.width, headerHeight);
+            Rect footerRect = new Rect(innerRect.x, innerRect.yMax - footerHeight, innerRect.width, footerHeight);
+            Rect stackRect = new Rect(innerRect.x, headerRect.yMax + PanelGap, innerRect.width, Mathf.Max(60f, footerRect.y - headerRect.yMax - (PanelGap * 2f)));
+
+            GUI.BeginGroup(headerRect);
+            Rect settingsViewRect = new Rect(0f, 0f, Mathf.Max(10f, headerRect.width - 16f), 372f);
+            settingsScroll = GUI.BeginScrollView(new Rect(0f, 0f, headerRect.width, headerRect.height), settingsScroll, settingsViewRect);
+            GUILayout.BeginArea(settingsViewRect);
+            EditorGUILayout.LabelField("Combine Settings", EditorStyles.boldLabel);
+            DrawToolbar();
+            GUILayout.EndArea();
+            GUI.EndScrollView();
+            GUI.EndGroup();
+
+            DrawParameterStack(stackRect, timelineLength);
+
+            GUILayout.BeginArea(footerRect);
             DrawAudioDropArea(timelineLength);
-            EditorGUILayout.Space(8);
+            EditorGUILayout.Space(4);
             DrawExportUI();
+            GUILayout.EndArea();
+        }
+
+        private void DrawViewerPanelContainer(Rect rect, float timelineLength)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            float footerHeight = Mathf.Min(FooterHeight, Mathf.Max(90f, innerRect.height * 0.34f));
+            float headerHeight = Mathf.Min(HeaderHeight, Mathf.Max(118f, innerRect.height * 0.34f));
+            Rect headerRect = new Rect(innerRect.x, innerRect.y, innerRect.width, headerHeight);
+            Rect stackRect = new Rect(innerRect.x, headerRect.yMax + PanelGap, innerRect.width, Mathf.Max(60f, innerRect.yMax - footerHeight - headerRect.yMax - (PanelGap * 2f)));
+
+            GUILayout.BeginArea(headerRect);
+            EditorGUILayout.LabelField("Timeline Viewer", EditorStyles.boldLabel);
+            DrawPlaybackUI(timelineLength);
+            EditorGUILayout.Space(4);
+            DrawTimelineRuler(timelineLength);
+            DrawTimelineOverview(timelineLength);
+            GUILayout.EndArea();
+
+            DrawViewerStack(stackRect, timelineLength);
+        }
+
+        private void DrawParameterStack(Rect stackRect, float timelineLength)
+        {
+            EditorGUI.DrawRect(stackRect, new Color(0.095f, 0.095f, 0.095f));
+            float rowHeight = ViewerTrackHeight;
+            float viewHeight = Mathf.Max(stackRect.height, entries.Count * (rowHeight + StackRowGap) + StackRowGap);
+            Rect viewRect = new Rect(0f, 0f, Mathf.Max(10f, stackRect.width - 16f), viewHeight);
+
+            parameterScroll = GUI.BeginScrollView(stackRect, parameterScroll, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
+
+            if (entries.Count == 0)
+            {
+                Rect emptyRect = GUILayoutUtility.GetRect(viewRect.width, 54f);
+                GUI.Label(emptyRect, "Add AudioClips to build a stack.", EditorStyles.centeredGreyMiniLabel);
+            }
+            else
+            {
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    Rect rowRect = GUILayoutUtility.GetRect(viewRect.width, rowHeight);
+                    DrawClipParameterRow(rowRect, entries[i], i, timelineLength);
+                    GUILayout.Space(StackRowGap);
+                }
+            }
+
+            GUILayout.EndArea();
+            GUI.EndScrollView();
+        }
+
+        private void DrawViewerStack(Rect stackRect, float timelineLength)
+        {
+            EditorGUI.DrawRect(stackRect, new Color(0.075f, 0.075f, 0.075f));
+            float rowHeight = ViewerTrackHeight;
+            float viewHeight = Mathf.Max(stackRect.height, entries.Count * (rowHeight + StackRowGap) + StackRowGap);
+            Rect viewRect = new Rect(0f, 0f, Mathf.Max(10f, stackRect.width - 16f), viewHeight);
+
+            viewerScroll = parameterScroll;
+            viewerScroll = GUI.BeginScrollView(stackRect, viewerScroll, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
+
+            if (entries.Count == 0)
+            {
+                Rect emptyRect = GUILayoutUtility.GetRect(viewRect.width, 54f);
+                GUI.Label(emptyRect, "Drop AudioClips in the parameter panel to preview the combined timeline.", EditorStyles.centeredGreyMiniLabel);
+            }
+            else
+            {
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    DrawTrack(entries[i], i, timelineLength, rowHeight);
+                    GUILayout.Space(StackRowGap);
+                }
+            }
+
+            GUILayout.EndArea();
+            GUI.EndScrollView();
+            parameterScroll.y = viewerScroll.y;
+        }
+
+        private void DrawClipParameterRow(Rect rowRect, CombineEntry entry, int index, float timelineLength)
+        {
+            bool selected = selectedEntryIndex == index;
+            Color displayColor = entry.muted ? Color.Lerp(entry.trackColor, Color.gray, 0.75f) : entry.trackColor;
+            EditorGUI.DrawRect(rowRect, selected ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.13f, 0.13f, 0.13f));
+            EditorGUI.DrawRect(new Rect(rowRect.x, rowRect.y, 5f, rowRect.height), displayColor);
+
+            Rect handleRect = new Rect(rowRect.x + 8f, rowRect.y + 8f, 16f, rowRect.height - 16f);
+            GUI.Label(handleRect, "=", EditorStyles.centeredGreyMiniLabel);
+            HandleClipReorder(rowRect, handleRect, index);
+
+            Rect contentRect = new Rect(rowRect.x + 28f, rowRect.y + 5f, rowRect.width - 34f, rowRect.height - 10f);
+
+            float y = contentRect.y;
+            const float lineHeight = 18f;
+            const float lineGap = 4f;
+            float originalLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 44f;
+
+            Rect headerRect = new Rect(contentRect.x, y, contentRect.width, lineHeight);
+            Rect removeRect = new Rect(headerRect.xMax - 24f, y, 24f, lineHeight);
+            Rect downRect = new Rect(removeRect.x - 36f, y, 34f, lineHeight);
+            Rect upRect = new Rect(downRect.x - 36f, y, 34f, lineHeight);
+            Rect muteRect = new Rect(upRect.x - 54f, y, 52f, lineHeight);
+            Rect lockRect = new Rect(muteRect.x - 54f, y, 52f, lineHeight);
+            Rect clipButtonRect = new Rect(contentRect.x, y, Mathf.Max(54f, lockRect.x - contentRect.x - 4f), lineHeight);
+
+            if (GUI.Button(clipButtonRect, $"Clip {index + 1}", EditorStyles.miniButtonLeft))
+            {
+                selectedEntryIndex = index;
+            }
+
+            entry.locked = GUI.Toggle(lockRect, entry.locked, "Lock", EditorStyles.radioButton);
+            entry.muted = GUI.Toggle(muteRect, entry.muted, "Mute", EditorStyles.radioButton);
+
+            bool wasEnabled = GUI.enabled;
+            GUI.enabled = wasEnabled && !entry.locked && index > 0 && !entries[index - 1].locked;
+            if (GUI.Button(upRect, "Up", EditorStyles.miniButtonLeft))
+            {
+                SwapEntries(index, index - 1);
+                selectedEntryIndex = index - 1;
+                EditorGUIUtility.labelWidth = originalLabelWidth;
+                GUI.enabled = wasEnabled;
+                return;
+            }
+
+            GUI.enabled = wasEnabled && !entry.locked && index < entries.Count - 1 && !entries[index + 1].locked;
+            if (GUI.Button(downRect, "Dn", EditorStyles.miniButtonMid))
+            {
+                SwapEntries(index, index + 1);
+                selectedEntryIndex = index + 1;
+                EditorGUIUtility.labelWidth = originalLabelWidth;
+                GUI.enabled = wasEnabled;
+                return;
+            }
+
+            GUI.enabled = wasEnabled && !entry.locked;
+            if (GUI.Button(removeRect, "X", EditorStyles.miniButtonRight))
+            {
+                entries.RemoveAt(index);
+                selectedEntryIndex = Mathf.Clamp(index, 0, entries.Count - 1);
+                EditorGUIUtility.labelWidth = originalLabelWidth;
+                GUI.enabled = wasEnabled;
+                return;
+            }
+
+            GUI.enabled = wasEnabled;
+            y += lineHeight + lineGap;
+
+            EditorGUI.BeginDisabledGroup(entry.locked);
+            Rect clipRect = new Rect(contentRect.x, y, contentRect.width, lineHeight);
+            AudioClip newClip = (AudioClip)EditorGUI.ObjectField(clipRect, "Clip", entry.clip, typeof(AudioClip), false);
+            if (newClip != entry.clip)
+            {
+                AssignClip(entry, newClip);
+            }
+
+            if (entry.clip == null)
+            {
+                EditorGUI.EndDisabledGroup();
+                EditorGUIUtility.labelWidth = originalLabelWidth;
+                GUI.Label(new Rect(contentRect.x, y + lineHeight + lineGap, contentRect.width, lineHeight), "Drop an AudioClip into this row.", EditorStyles.miniLabel);
+                return;
+            }
+
+            ClampEntry(entry);
+            y += lineHeight + lineGap;
+
+            Rect colorRect = new Rect(contentRect.x, y, 42f, lineHeight);
+            Rect gainRect = new Rect(colorRect.xMax + 4f, y, contentRect.width - colorRect.width - 52f, lineHeight);
+            Rect zeroDbRect = new Rect(contentRect.xMax - 42f, y, 42f, lineHeight);
+            entry.trackColor = EditorGUI.ColorField(colorRect, GUIContent.none, entry.trackColor);
+            entry.gain = EditorGUI.Slider(gainRect, "Gain", entry.gain, 0f, 1.25f);
+            if (GUI.Button(zeroDbRect, "0 dB", EditorStyles.miniButton))
+            {
+                entry.gain = 1f;
+            }
+            y += lineHeight + lineGap;
+
+            Rect segmentRect = new Rect(contentRect.x, y, contentRect.width, lineHeight);
+            EditorGUI.MinMaxSlider(segmentRect, "Segment", ref entry.inTime, ref entry.outTime, 0f, entry.clip.length);
+            y += lineHeight + lineGap;
+
+            float thirdWidth = (contentRect.width - 8f) / 3f;
+            Rect inRect = new Rect(contentRect.x, y, thirdWidth, lineHeight);
+            Rect outRect = new Rect(inRect.xMax + 4f, y, thirdWidth, lineHeight);
+            Rect startRect = new Rect(outRect.xMax + 4f, y, thirdWidth, lineHeight);
+            EditorGUIUtility.labelWidth = 28f;
+            entry.inTime = EditorGUI.FloatField(inRect, "In", entry.inTime);
+            entry.outTime = EditorGUI.FloatField(outRect, "Out", entry.outTime);
+            EditorGUIUtility.labelWidth = 36f;
+            entry.timelineStart = Mathf.Max(0f, EditorGUI.FloatField(startRect, "Start", entry.timelineStart));
+            y += lineHeight + lineGap;
+
+            Rect moveRect = new Rect(contentRect.x, y, contentRect.width, lineHeight);
+            EditorGUIUtility.labelWidth = 44f;
+            float segmentStart = entry.SegmentTimelineStart;
+            float moveMax = Mathf.Max(segmentStart, timelineLength - entry.SegmentLength, timelineLength + defaultGapSeconds);
+            segmentStart = EditorGUI.Slider(moveRect, "Move", segmentStart, 0f, moveMax);
+            entry.timelineStart = Mathf.Max(0f, segmentStart - entry.inTime);
+            y += lineHeight + lineGap;
+
+            Rect fadeToggleRect = new Rect(contentRect.x, y, contentRect.width, lineHeight);
+            float toggleWidth = (fadeToggleRect.width - 4f) * 0.5f;
+            entry.fadeInEnabled = GUI.Toggle(new Rect(fadeToggleRect.x, y, toggleWidth, lineHeight), entry.fadeInEnabled, "+ Fade In");
+            entry.fadeOutEnabled = GUI.Toggle(new Rect(fadeToggleRect.x + toggleWidth + 4f, y, toggleWidth, lineHeight), entry.fadeOutEnabled, "+ Fade Out");
+            y += lineHeight + lineGap;
+
+            Rect fadeFieldRect = new Rect(contentRect.x, y, contentRect.width, lineHeight);
+            float fadeFieldWidth = (fadeFieldRect.width - 4f) * 0.5f;
+            EditorGUIUtility.labelWidth = 38f;
+            entry.fadeInDuration = Mathf.Clamp(EditorGUI.FloatField(new Rect(fadeFieldRect.x, y, fadeFieldWidth, lineHeight), "In", entry.fadeInDuration), 0f, entry.SegmentLength);
+            entry.fadeOutDuration = Mathf.Clamp(EditorGUI.FloatField(new Rect(fadeFieldRect.x + fadeFieldWidth + 4f, y, fadeFieldWidth, lineHeight), "Out", entry.fadeOutDuration), 0f, entry.SegmentLength);
+            y += lineHeight + lineGap;
+
+            Rect fadePowerRect = new Rect(contentRect.x, y, contentRect.width, lineHeight);
+            EditorGUIUtility.labelWidth = 44f;
+            entry.fadeInPower = ClampFadePower(EditorGUI.FloatField(new Rect(fadePowerRect.x, y, fadeFieldWidth, lineHeight), "In C", entry.fadeInPower));
+            entry.fadeOutPower = ClampFadePower(EditorGUI.FloatField(new Rect(fadePowerRect.x + fadeFieldWidth + 4f, y, fadeFieldWidth, lineHeight), "Out C", entry.fadeOutPower));
+            y += lineHeight + lineGap;
+
+            Rect startButtonRect = new Rect(contentRect.x, y, (contentRect.width - 4f) * 0.5f, lineHeight);
+            Rect afterButtonRect = new Rect(startButtonRect.xMax + 4f, y, startButtonRect.width, lineHeight);
+            if (GUI.Button(startButtonRect, "Start = Playhead", EditorStyles.miniButtonLeft))
+            {
+                entry.timelineStart = Mathf.Max(0f, playhead - entry.inTime);
+            }
+
+            if (GUI.Button(afterButtonRect, "After Prev", EditorStyles.miniButtonRight))
+            {
+                if (index > 0)
+                {
+                    entry.timelineStart = Mathf.Max(0f, entries[index - 1].SegmentTimelineEnd + defaultGapSeconds - entry.inTime);
+                }
+            }
+            y += lineHeight + lineGap;
+
+            EditorGUI.EndDisabledGroup();
+            EditorGUIUtility.labelWidth = originalLabelWidth;
+
+            string detail = $"{entry.SegmentLength:F3}s | Start {entry.SegmentTimelineStart:F3}s | End {entry.SegmentTimelineEnd:F3}s";
+            GUI.Label(new Rect(contentRect.x, y, contentRect.width, lineHeight), detail, EditorStyles.miniLabel);
+        }
+
+        private void HandleClipReorder(Rect rowRect, Rect handleRect, int index)
+        {
+            Event evt = Event.current;
+            if (evt == null)
+            {
+                return;
+            }
+
+            if (evt.type == EventType.MouseDown && rowRect.Contains(evt.mousePosition))
+            {
+                selectedEntryIndex = index;
+                if (handleRect.Contains(evt.mousePosition) && !entries[index].locked)
+                {
+                    listDragIndex = index;
+                    evt.Use();
+                }
+            }
+            else if (evt.type == EventType.MouseDrag && listDragIndex >= 0 && rowRect.Contains(evt.mousePosition) && listDragIndex != index)
+            {
+                if (!entries[listDragIndex].locked && !entries[index].locked)
+                {
+                    SwapEntries(listDragIndex, index);
+                    selectedEntryIndex = index;
+                    listDragIndex = index;
+                    Repaint();
+                    evt.Use();
+                }
+            }
+        }
+
+        private void DrawTimelineRuler(float timelineLength)
+        {
+            Rect fullRect = GUILayoutUtility.GetRect(10f, 10000f, 22f, 22f);
+            EditorGUI.DrawRect(fullRect, new Color(0.10f, 0.10f, 0.10f));
+            Rect rulerRect = ReserveViewerScrollbarGutter(fullRect);
+
+            Handles.BeginGUI();
+            Handles.color = new Color(1f, 1f, 1f, 0.18f);
+            int majorTicks = Mathf.Clamp(Mathf.CeilToInt(timelineLength), 1, 16);
+            for (int i = 0; i <= majorTicks; i++)
+            {
+                float time = timelineLength * (i / (float)majorTicks);
+                float x = Mathf.Lerp(rulerRect.x, rulerRect.xMax, i / (float)majorTicks);
+                Handles.DrawLine(new Vector3(x, rulerRect.yMax - 10f), new Vector3(x, rulerRect.yMax));
+                GUI.Label(new Rect(x + 3f, rulerRect.y + 1f, 54f, 16f), $"{time:F1}", EditorStyles.miniLabel);
+            }
+
+            Handles.EndGUI();
         }
 
         private void DrawToolbar()
         {
-            EditorGUILayout.LabelField("Audio Combine", EditorStyles.boldLabel);
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Add Selected Clip(s)", GUILayout.Height(24)))
-                {
-                    AddSelectedAudioClips(true);
-                }
-
-                if (GUILayout.Button("Add Empty Row", GUILayout.Height(24)))
-                {
-                    entries.Add(new CombineEntry { trackColor = GenerateTrackColor(entries.Count) });
-                }
-
-                if (GUILayout.Button("Auto Layout", GUILayout.Height(24)))
-                {
-                    AutoLayoutEntries();
-                }
-
-                if (GUILayout.Button("Clear", GUILayout.Height(24)))
-                {
-                    EditorStopAll();
-                    isPlayingCombined = false;
-                    activeCombinedPreviewClip = null;
-                    entries.Clear();
-                    playhead = 0f;
-                    hasExportStartBookend = false;
-                    exportStartBookend = 0f;
-                }
-            }
+            DrawMixDataUI();
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -185,15 +539,190 @@ namespace FuzzPhyte.Utility.Editor
             {
                 outputFrequency = Mathf.Max(8000, EditorGUILayout.IntField("Output Hz", outputFrequency));
                 outputChannels = EditorGUILayout.IntPopup("Output Channels", outputChannels, new[] { "Mono", "Stereo" }, new[] { 1, 2 });
-                normalizeIfClipping = EditorGUILayout.ToggleLeft("Normalize if mix clips", normalizeIfClipping, GUILayout.Width(160));
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                normalizeIfClipping = EditorGUILayout.ToggleLeft("Normalize if mix clips", normalizeIfClipping);
+            }
+
+            DrawStackActionsPanel();
+        }
+
+        private void DrawMixDataUI()
+        {
+            EditorGUI.BeginChangeCheck();
+            activeMixData = (FPAudioCombineData)EditorGUILayout.ObjectField("Mix Data", activeMixData, typeof(FPAudioCombineData), false);
+            if (EditorGUI.EndChangeCheck() && activeMixData != null)
+            {
+                CacheMixAssetPathFields(activeMixData);
+                LoadMixData(activeMixData);
+            }
+
+            GUIStyle wrappedTextArea = new GUIStyle(EditorStyles.textArea)
+            {
+                wordWrap = true
+            };
+
+            EditorGUILayout.LabelField("Name", EditorStyles.miniLabel);
+            mixDataFileName = EditorGUILayout.TextArea(mixDataFileName, wrappedTextArea, GUILayout.MinHeight(38f), GUILayout.ExpandWidth(true));
+            EditorGUILayout.LabelField("Folder", EditorStyles.miniLabel);
+            mixDataFolder = EditorGUILayout.TextArea(mixDataFolder, wrappedTextArea, GUILayout.MinHeight(38f), GUILayout.ExpandWidth(true));
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                bool wasEnabled = GUI.enabled;
+                GUI.enabled = wasEnabled && activeMixData != null;
+                if (GUILayout.Button("Load", GUILayout.Height(22f)))
+                {
+                    LoadMixData(activeMixData);
+                }
+
+                GUI.enabled = wasEnabled;
+                if (GUILayout.Button("Save", GUILayout.Height(22f)))
+                {
+                    SaveMixData();
+                }
+            }
+        }
+
+        private void DrawStackActionsPanel()
+        {
+            EditorGUILayout.Space(4f);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                GUIStyle warningLabel = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    normal = { textColor = FP_Utility_Editor.WarningColor }
+                };
+                EditorGUILayout.LabelField("Stack", warningLabel);
+
+                DrawStackActionButtons();
+            }
+        }
+
+        private void DrawStackActionButtons()
+        {
+            const float buttonHeight = 24f;
+            const float gap = 4f;
+            Rect rowRect = GUILayoutUtility.GetRect(1f, 10000f, buttonHeight, buttonHeight);
+            float buttonWidth = Mathf.Floor((rowRect.width - (gap * 2f)) / 3f);
+            Rect addRect = new Rect(rowRect.x, rowRect.y, buttonWidth, buttonHeight);
+            Rect autoRect = new Rect(addRect.xMax + gap, rowRect.y, buttonWidth, buttonHeight);
+            Rect clearRect = new Rect(autoRect.xMax + gap, rowRect.y, rowRect.xMax - autoRect.xMax - gap, buttonHeight);
+
+            Color oldBackground = GUI.backgroundColor;
+
+            GUI.backgroundColor = FP_Utility_Editor.OkayColor;
+            if (GUI.Button(addRect, "+ Add"))
+            {
+                entries.Add(new CombineEntry { trackColor = GenerateTrackColor(entries.Count) });
+            }
+
+            GUI.backgroundColor = FP_Utility_Editor.TextActiveColor;
+            if (GUI.Button(autoRect, "Auto"))
+            {
+                AutoLayoutEntries();
+            }
+
+            GUI.backgroundColor = FP_Utility_Editor.WarningColor;
+            if (GUI.Button(clearRect, "x Clear"))
+            {
+                ClearStackWithConfirmation();
+            }
+
+            GUI.backgroundColor = oldBackground;
+        }
+
+        private void ClearStackWithConfirmation()
+        {
+            ClearStackConfirmWindow.Show(this);
+        }
+
+        private void ClearStack()
+        {
+            EditorStopAll();
+            isPlayingCombined = false;
+            activeCombinedPreviewClip = null;
+            entries.Clear();
+            selectedEntryIndex = -1;
+            playhead = 0f;
+            hasExportStartBookend = false;
+            exportStartBookend = 0f;
+            hasExportEndBookend = false;
+            exportEndBookend = 0f;
+            Repaint();
+        }
+
+        private sealed class ClearStackConfirmWindow : EditorWindow
+        {
+            private FPAudioCombineTool owner;
+
+            public static void Show(FPAudioCombineTool owner)
+            {
+                if (owner == null)
+                {
+                    return;
+                }
+
+                var window = CreateInstance<ClearStackConfirmWindow>();
+                window.owner = owner;
+                window.titleContent = new GUIContent("Clear Stack");
+
+                Vector2 size = new Vector2(420f, 148f);
+                Rect parent = owner.position;
+                window.position = new Rect(
+                    parent.x + ((parent.width - size.x) * 0.5f),
+                    parent.y + ((parent.height - size.y) * 0.5f),
+                    size.x,
+                    size.y);
+                window.minSize = size;
+                window.maxSize = size;
+                window.ShowUtility();
+                window.Focus();
+            }
+
+            private void OnGUI()
+            {
+                if (owner == null)
+                {
+                    Close();
+                    return;
+                }
+
+                if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape)
+                {
+                    Close();
+                    GUIUtility.ExitGUI();
+                }
+
+                EditorGUILayout.Space(10f);
+                EditorGUILayout.LabelField("Clear Audio Combine Stack", EditorStyles.boldLabel);
+                EditorGUILayout.Space(4f);
+                EditorGUILayout.HelpBox("Clear all clips and export bookends from the current audio combine stack? This does not delete saved mix data assets, but unsaved window changes will be lost.", MessageType.Warning);
+
+                GUILayout.FlexibleSpace();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Cancel", GUILayout.Height(26f)))
+                    {
+                        Close();
+                    }
+
+                    Color oldBackground = GUI.backgroundColor;
+                    GUI.backgroundColor = FP_Utility_Editor.WarningColor;
+                    if (GUILayout.Button("Clear Stack", GUILayout.Height(26f)))
+                    {
+                        owner.ClearStack();
+                        Close();
+                    }
+                    GUI.backgroundColor = oldBackground;
+                }
             }
         }
 
         private void DrawPlaybackUI(float timelineLength)
         {
-            playhead = EditorGUILayout.Slider("Playhead", playhead, 0f, timelineLength);
-            autoAdvancePlayhead = EditorGUILayout.ToggleLeft("Auto-advance playhead during preview", autoAdvancePlayhead);
-
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Play From Playhead", GUILayout.Height(26)))
@@ -201,13 +730,13 @@ namespace FuzzPhyte.Utility.Editor
                     PlayCombinedFrom(playhead);
                 }
 
-                if (GUILayout.Button("Play All", GUILayout.Height(26)))
+                if (GUILayout.Button("Play From Beginning", GUILayout.Height(26)))
                 {
                     playhead = 0f;
                     PlayCombinedFrom(0f);
                 }
 
-                if (GUILayout.Button("Stop Preview", GUILayout.Height(26)))
+                if (GUILayout.Button("Stop", GUILayout.Height(26)))
                 {
                     isPlayingCombined = false;
                     activeCombinedPreviewClip = null;
@@ -218,29 +747,26 @@ namespace FuzzPhyte.Utility.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Set Export Start = Playhead", GUILayout.Height(24)))
+                if (GUILayout.Button("Set Export Start {", GUILayout.Height(24)))
                 {
-                    exportStartBookend = Mathf.Clamp(playhead, 0f, timelineLength);
-                    hasExportStartBookend = true;
+                    SetExportStartBookend(playhead, timelineLength);
                 }
 
-                GUI.enabled = hasExportStartBookend;
-                if (GUILayout.Button("Remove Export Start", GUILayout.Height(24), GUILayout.Width(160)))
+                if (GUILayout.Button("Set Export End }", GUILayout.Height(24)))
                 {
-                    hasExportStartBookend = false;
-                    exportStartBookend = 0f;
+                    SetExportEndBookend(playhead, timelineLength);
                 }
-                GUI.enabled = true;
-
-                string label = hasExportStartBookend ? $"Export starts at {exportStartBookend:F3}s" : "Export starts at 0.000s";
-                EditorGUILayout.LabelField(label, EditorStyles.miniLabel, GUILayout.Width(170));
             }
+
+            playhead = EditorGUILayout.Slider("Playhead", playhead, 0f, timelineLength);
+            autoAdvancePlayhead = EditorGUILayout.ToggleLeft("Auto-advance playhead during preview", autoAdvancePlayhead);
         }
 
         private void DrawTimelineOverview(float timelineLength)
         {
-            Rect r = GUILayoutUtility.GetRect(10, 10000, 58, 58);
-            EditorGUI.DrawRect(r, new Color(0.08f, 0.08f, 0.08f));
+            Rect fullRect = GUILayoutUtility.GetRect(10, 10000, 58, 58);
+            EditorGUI.DrawRect(fullRect, new Color(0.08f, 0.08f, 0.08f));
+            Rect r = ReserveViewerScrollbarGutter(fullRect);
 
             if (entries.Count == 0)
             {
@@ -264,14 +790,21 @@ namespace FuzzPhyte.Utility.Editor
                 Handles.DrawSolidRectangleWithOutline(sourceBlock, WithAlpha(displayColor, e.muted ? 0.07f : 0.12f), WithAlpha(displayColor, e.muted ? 0.12f : 0.2f));
                 Handles.DrawSolidRectangleWithOutline(block, WithAlpha(displayColor, e.muted ? 0.13f : 0.34f), WithAlpha(Color.Lerp(displayColor, Color.white, 0.25f), e.muted ? 0.45f : 0.9f));
                 DrawGainBarHandles(block, e.trackColor, e.gain);
-                DrawStateBadgesHandles(block, e.locked, e.muted);
+            DrawStateBadgesHandles(block, e.locked, e.muted);
             }
 
-            DrawPlayheadLine(r, timelineLength);
+            DrawPlayheadLine(r, timelineLength, true);
             DrawExportStartLine(r, timelineLength);
+            DrawExportEndLine(r, timelineLength);
             Handles.EndGUI();
 
             HandleOverviewInput(r, timelineLength);
+        }
+
+        private static Rect ReserveViewerScrollbarGutter(Rect rect)
+        {
+            rect.width = Mathf.Max(1f, rect.width - ViewerScrollbarGutter);
+            return rect;
         }
 
         private Rect BuildSourceRect(Rect r, CombineEntry entry, float timelineLength, float y, float height)
@@ -296,9 +829,21 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
+            Rect playheadGrabRect = BuildPlayheadGrabRect(r, timelineLength);
+            EditorGUIUtility.AddCursorRect(playheadGrabRect, MouseCursor.SlideArrow);
+
             if (evt.type == EventType.MouseDown && r.Contains(evt.mousePosition))
             {
                 float mouseTime = RectToTime(r, timelineLength, evt.mousePosition.x);
+                if (playheadGrabRect.Contains(evt.mousePosition))
+                {
+                    overviewPlayheadDragging = true;
+                    playhead = Mathf.Clamp(mouseTime, 0f, timelineLength);
+                    Repaint();
+                    evt.Use();
+                    return;
+                }
+
                 for (int i = entries.Count - 1; i >= 0; i--)
                 {
                     var e = entries[i];
@@ -325,6 +870,17 @@ namespace FuzzPhyte.Utility.Editor
                 SetPlayheadFromRect(r, timelineLength);
                 evt.Use();
             }
+            else if (evt.type == EventType.MouseDrag && overviewPlayheadDragging)
+            {
+                SetPlayheadFromRect(r, timelineLength);
+                Repaint();
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseUp && overviewPlayheadDragging)
+            {
+                overviewPlayheadDragging = false;
+                evt.Use();
+            }
             else if (evt.type == EventType.MouseDrag && overviewDragIndex >= 0)
             {
                 float dragLength = Mathf.Max(timelineLength, overviewDragTimelineLength);
@@ -339,6 +895,12 @@ namespace FuzzPhyte.Utility.Editor
                 overviewDragIndex = -1;
                 evt.Use();
             }
+        }
+
+        private Rect BuildPlayheadGrabRect(Rect r, float timelineLength)
+        {
+            float xHead = Mathf.Lerp(r.x, r.xMax, timelineLength > 0f ? Mathf.Clamp01(playhead / timelineLength) : 0f);
+            return new Rect(xHead - 7f, r.y, 14f, r.height);
         }
 
         private static float RectToTime(Rect r, float timelineLength, float x)
@@ -550,6 +1112,7 @@ namespace FuzzPhyte.Utility.Editor
             Rect segRect = new Rect(xStart, r.y, Mathf.Max(1f, xEnd - xStart), r.height);
             EditorGUI.DrawRect(segRect, WithAlpha(displayColor, entry.muted ? 0.1f : 0.22f));
             DrawGainBar(segRect, displayColor, entry.gain);
+            DrawFadeOverlays(segRect, entry, displayColor);
 
             int width = Mathf.Max(1, Mathf.RoundToInt(segRect.width));
             bool unavailableWaveform = entry.waveform != null && entry.waveform.unavailable;
@@ -582,8 +1145,10 @@ namespace FuzzPhyte.Utility.Editor
 
                 for (int x = 0; x < entry.waveform.width && segRect.x + x < segRect.xMax; x++)
                 {
-                    float min = Mathf.Clamp(entry.waveform.min[x] * entry.gain, -1f, 1f);
-                    float max = Mathf.Clamp(entry.waveform.max[x] * entry.gain, -1f, 1f);
+                    float segmentTime = entry.waveform.width <= 1 ? 0f : entry.SegmentLength * (x / (float)(entry.waveform.width - 1));
+                    float fadeGain = CalculateFadeGain(entry, segmentTime);
+                    float min = Mathf.Clamp(entry.waveform.min[x] * entry.gain * fadeGain, -1f, 1f);
+                    float max = Mathf.Clamp(entry.waveform.max[x] * entry.gain * fadeGain, -1f, 1f);
                     float yTop = segRect.center.y - (max * half * waveformScale);
                     float yBottom = segRect.center.y - (min * half * waveformScale);
                     yTop = Mathf.Clamp(yTop, segRect.y + pad, segRect.yMax - pad);
@@ -598,8 +1163,10 @@ namespace FuzzPhyte.Utility.Editor
             Handles.DrawSolidRectangleWithOutline(sourceRect, new Color(0f, 0f, 0f, 0f), WithAlpha(displayColor, entry.muted ? 0.12f : 0.22f));
             Handles.DrawSolidRectangleWithOutline(segRect, new Color(0f, 0f, 0f, 0f), WithAlpha(Color.Lerp(displayColor, Color.white, 0.25f), entry.muted ? 0.45f : 0.85f));
             DrawStateBadgesHandles(segRect, entry.locked, entry.muted);
+            DrawFadeHandles(segRect, entry, displayColor);
             DrawPlayheadLine(r, timelineLength);
             DrawExportStartLine(r, timelineLength);
+            DrawExportEndLine(r, timelineLength);
             Handles.EndGUI();
 
             GUIStyle labelStyle = new GUIStyle(EditorStyles.miniBoldLabel)
@@ -609,16 +1176,303 @@ namespace FuzzPhyte.Utility.Editor
             string state = entry.locked && entry.muted ? " [LOCKED, MUTED]" : entry.locked ? " [LOCKED]" : entry.muted ? " [MUTED]" : string.Empty;
             GUI.Label(new Rect(r.x + 6f, r.y + 3f, r.width - 12f, 18f), $"{index + 1}: {entry.clip.name}{state}", labelStyle);
 
-            if (!entry.locked && Event.current.type == EventType.MouseDown && r.Contains(Event.current.mousePosition))
+            HandleTrackInput(r, segRect, entry, index, timelineLength);
+        }
+
+        private static void DrawFadeOverlays(Rect segmentRect, CombineEntry entry, Color trackColor)
+        {
+            if (entry.SegmentLength <= 0f)
             {
-                SetPlayheadFromRect(r, timelineLength);
-                Event.current.Use();
+                return;
+            }
+
+            if (entry.fadeInEnabled && entry.fadeInDuration > 0f)
+            {
+                float width = Mathf.Clamp(segmentRect.width * (entry.fadeInDuration / entry.SegmentLength), 1f, segmentRect.width);
+                Rect fadeRect = new Rect(segmentRect.x, segmentRect.y, width, segmentRect.height);
+                EditorGUI.DrawRect(fadeRect, new Color(0f, 0f, 0f, 0.24f));
+                EditorGUI.DrawRect(new Rect(fadeRect.xMax - 3f, fadeRect.y, 3f, fadeRect.height), Color.Lerp(trackColor, Color.white, 0.45f));
+            }
+
+            if (entry.fadeOutEnabled && entry.fadeOutDuration > 0f)
+            {
+                float width = Mathf.Clamp(segmentRect.width * (entry.fadeOutDuration / entry.SegmentLength), 1f, segmentRect.width);
+                Rect fadeRect = new Rect(segmentRect.xMax - width, segmentRect.y, width, segmentRect.height);
+                EditorGUI.DrawRect(fadeRect, new Color(0f, 0f, 0f, 0.24f));
+                EditorGUI.DrawRect(new Rect(fadeRect.x, fadeRect.y, 3f, fadeRect.height), Color.Lerp(trackColor, Color.white, 0.45f));
             }
         }
 
-        private void DrawPlayheadLine(Rect r, float timelineLength)
+        private static void DrawFadeHandles(Rect segmentRect, CombineEntry entry, Color trackColor)
+        {
+            if (entry.SegmentLength <= 0f)
+            {
+                return;
+            }
+
+            Color handleColor = Color.Lerp(trackColor, Color.white, 0.55f);
+            if (entry.fadeInEnabled)
+            {
+                float width = Mathf.Clamp(segmentRect.width * (entry.fadeInDuration / entry.SegmentLength), 0f, segmentRect.width);
+                float x = segmentRect.x + width;
+                Handles.DrawSolidRectangleWithOutline(new Rect(x - 2f, segmentRect.y, 4f, segmentRect.height), handleColor, new Color(0f, 0f, 0f, 0.35f));
+                Rect fadeRect = new Rect(segmentRect.x, segmentRect.y, width, segmentRect.height);
+                DrawFadeCurve(fadeRect, entry.fadeInPower, false, handleColor);
+                DrawFadeCurveHandle(fadeRect, entry.fadeInPower, false, handleColor);
+            }
+
+            if (entry.fadeOutEnabled)
+            {
+                float width = Mathf.Clamp(segmentRect.width * (entry.fadeOutDuration / entry.SegmentLength), 0f, segmentRect.width);
+                float x = segmentRect.xMax - width;
+                Handles.DrawSolidRectangleWithOutline(new Rect(x - 2f, segmentRect.y, 4f, segmentRect.height), handleColor, new Color(0f, 0f, 0f, 0.35f));
+                Rect fadeRect = new Rect(segmentRect.xMax - width, segmentRect.y, width, segmentRect.height);
+                DrawFadeCurve(fadeRect, entry.fadeOutPower, true, handleColor);
+                DrawFadeCurveHandle(fadeRect, entry.fadeOutPower, true, handleColor);
+            }
+        }
+
+        private static void DrawFadeCurve(Rect fadeRect, float power, bool fadeOut, Color curveColor)
+        {
+            if (fadeRect.width < 4f)
+            {
+                return;
+            }
+
+            power = ClampFadePower(power);
+            Handles.color = curveColor;
+            Vector3 previous = Vector3.zero;
+            const int steps = 18;
+            float pad = 6f;
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                float gain = fadeOut ? Mathf.Pow(1f - t, power) : Mathf.Pow(t, power);
+                float x = Mathf.Lerp(fadeRect.x, fadeRect.xMax, t);
+                float y = Mathf.Lerp(fadeRect.yMax - pad, fadeRect.y + pad, gain);
+                Vector3 point = new Vector3(x, y);
+                if (i > 0)
+                {
+                    Handles.DrawLine(previous, point);
+                }
+
+                previous = point;
+            }
+        }
+
+        private static void DrawFadeCurveHandle(Rect fadeRect, float power, bool fadeOut, Color curveColor)
+        {
+            Rect handleRect = BuildFadeCurveHandleRect(fadeRect, power, fadeOut);
+            if (handleRect.width <= 0f)
+            {
+                return;
+            }
+
+            Handles.DrawSolidRectangleWithOutline(handleRect, Color.Lerp(curveColor, Color.white, 0.2f), new Color(0f, 0f, 0f, 0.65f));
+        }
+
+        private static Rect BuildFadeCurveHandleRect(Rect fadeRect, float power, bool fadeOut)
+        {
+            if (fadeRect.width < 12f || fadeRect.height < 12f)
+            {
+                return Rect.zero;
+            }
+
+            power = ClampFadePower(power);
+            const float t = 0.5f;
+            const float size = 10f;
+            const float pad = 6f;
+            float gain = fadeOut ? Mathf.Pow(1f - t, power) : Mathf.Pow(t, power);
+            float x = Mathf.Lerp(fadeRect.x, fadeRect.xMax, t);
+            float y = Mathf.Lerp(fadeRect.yMax - pad, fadeRect.y + pad, gain);
+            return new Rect(x - (size * 0.5f), y - (size * 0.5f), size, size);
+        }
+
+        private void HandleTrackInput(Rect trackRect, Rect segmentRect, CombineEntry entry, int index, float timelineLength)
+        {
+            Event evt = Event.current;
+            if (evt == null)
+            {
+                return;
+            }
+
+            if (!entry.locked)
+            {
+                EditorGUIUtility.AddCursorRect(segmentRect, MouseCursor.MoveArrow);
+                Rect fadeInHandle = BuildFadeInHandleRect(segmentRect, entry);
+                Rect fadeOutHandle = BuildFadeOutHandleRect(segmentRect, entry);
+                Rect fadeInCurveHandle = BuildFadeCurveHandleRect(BuildFadeInRect(segmentRect, entry), entry.fadeInPower, false);
+                Rect fadeOutCurveHandle = BuildFadeCurveHandleRect(BuildFadeOutRect(segmentRect, entry), entry.fadeOutPower, true);
+                if (entry.fadeInEnabled)
+                {
+                    EditorGUIUtility.AddCursorRect(fadeInHandle, MouseCursor.ResizeHorizontal);
+                    EditorGUIUtility.AddCursorRect(fadeInCurveHandle, MouseCursor.ResizeVertical);
+                }
+
+                if (entry.fadeOutEnabled)
+                {
+                    EditorGUIUtility.AddCursorRect(fadeOutHandle, MouseCursor.ResizeHorizontal);
+                    EditorGUIUtility.AddCursorRect(fadeOutCurveHandle, MouseCursor.ResizeVertical);
+                }
+            }
+
+            if (evt.type == EventType.MouseDown && trackRect.Contains(evt.mousePosition))
+            {
+                selectedEntryIndex = index;
+                float mouseTime = RectToTime(trackRect, timelineLength, evt.mousePosition.x);
+
+                if (!entry.locked && entry.fadeInEnabled && BuildFadeCurveHandleRect(BuildFadeInRect(segmentRect, entry), entry.fadeInPower, false).Contains(evt.mousePosition))
+                {
+                    fadeCurveDragIndex = index;
+                    fadeCurveDragIsOut = false;
+                }
+                else if (!entry.locked && entry.fadeOutEnabled && BuildFadeCurveHandleRect(BuildFadeOutRect(segmentRect, entry), entry.fadeOutPower, true).Contains(evt.mousePosition))
+                {
+                    fadeCurveDragIndex = index;
+                    fadeCurveDragIsOut = true;
+                }
+                else if (!entry.locked && entry.fadeInEnabled && BuildFadeInHandleRect(segmentRect, entry).Contains(evt.mousePosition))
+                {
+                    fadeDragIndex = index;
+                    fadeDragIsOut = false;
+                }
+                else if (!entry.locked && entry.fadeOutEnabled && BuildFadeOutHandleRect(segmentRect, entry).Contains(evt.mousePosition))
+                {
+                    fadeDragIndex = index;
+                    fadeDragIsOut = true;
+                }
+                else if (!entry.locked && segmentRect.Contains(evt.mousePosition))
+                {
+                    trackDragIndex = index;
+                    trackDragOffset = mouseTime - entry.timelineStart;
+                    trackDragTimelineLength = timelineLength;
+                }
+                else
+                {
+                    playhead = Mathf.Clamp(mouseTime, 0f, timelineLength);
+                }
+
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseDrag && fadeDragIndex == index)
+            {
+                float mouseTime = RectToTime(trackRect, timelineLength, evt.mousePosition.x);
+                if (fadeDragIsOut)
+                {
+                    entry.fadeOutDuration = Mathf.Clamp(entry.SegmentTimelineEnd - mouseTime, 0f, entry.SegmentLength);
+                }
+                else
+                {
+                    entry.fadeInDuration = Mathf.Clamp(mouseTime - entry.SegmentTimelineStart, 0f, entry.SegmentLength);
+                }
+
+                Repaint();
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseUp && fadeDragIndex == index)
+            {
+                fadeDragIndex = -1;
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseDrag && fadeCurveDragIndex == index)
+            {
+                if (fadeCurveDragIsOut)
+                {
+                    entry.fadeOutPower = PointerYToFadePower(trackRect, evt.mousePosition.y);
+                }
+                else
+                {
+                    entry.fadeInPower = PointerYToFadePower(trackRect, evt.mousePosition.y);
+                }
+
+                Repaint();
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseUp && fadeCurveDragIndex == index)
+            {
+                fadeCurveDragIndex = -1;
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseDrag && trackDragIndex == index)
+            {
+                float dragLength = Mathf.Max(timelineLength, trackDragTimelineLength);
+                float mouseTime = RectToTime(trackRect, dragLength, evt.mousePosition.x);
+                entry.timelineStart = Mathf.Max(0f, mouseTime - trackDragOffset);
+                Repaint();
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseUp && trackDragIndex == index)
+            {
+                trackDragIndex = -1;
+                evt.Use();
+            }
+        }
+
+        private static Rect BuildFadeInHandleRect(Rect segmentRect, CombineEntry entry)
+        {
+            float x = segmentRect.x;
+            if (entry.SegmentLength > 0f)
+            {
+                x += segmentRect.width * Mathf.Clamp01(entry.fadeInDuration / entry.SegmentLength);
+            }
+
+            return new Rect(x - 6f, segmentRect.y, 12f, segmentRect.height);
+        }
+
+        private static Rect BuildFadeInRect(Rect segmentRect, CombineEntry entry)
+        {
+            if (entry.SegmentLength <= 0f)
+            {
+                return Rect.zero;
+            }
+
+            float width = Mathf.Clamp(segmentRect.width * (entry.fadeInDuration / entry.SegmentLength), 0f, segmentRect.width);
+            return new Rect(segmentRect.x, segmentRect.y, width, segmentRect.height);
+        }
+
+        private static Rect BuildFadeOutHandleRect(Rect segmentRect, CombineEntry entry)
+        {
+            float x = segmentRect.xMax;
+            if (entry.SegmentLength > 0f)
+            {
+                x -= segmentRect.width * Mathf.Clamp01(entry.fadeOutDuration / entry.SegmentLength);
+            }
+
+            return new Rect(x - 6f, segmentRect.y, 12f, segmentRect.height);
+        }
+
+        private static Rect BuildFadeOutRect(Rect segmentRect, CombineEntry entry)
+        {
+            if (entry.SegmentLength <= 0f)
+            {
+                return Rect.zero;
+            }
+
+            float width = Mathf.Clamp(segmentRect.width * (entry.fadeOutDuration / entry.SegmentLength), 0f, segmentRect.width);
+            return new Rect(segmentRect.xMax - width, segmentRect.y, width, segmentRect.height);
+        }
+
+        private static float PointerYToFadePower(Rect trackRect, float mouseY)
+        {
+            const float pad = 6f;
+            float usableHeight = Mathf.Max(1f, trackRect.height - (pad * 2f));
+            float gainAtMidpoint = Mathf.Clamp01((trackRect.yMax - pad - mouseY) / usableHeight);
+            gainAtMidpoint = Mathf.Clamp(gainAtMidpoint, Mathf.Pow(0.5f, 4f), Mathf.Pow(0.5f, 0.25f));
+            return ClampFadePower(Mathf.Log(gainAtMidpoint) / Mathf.Log(0.5f));
+        }
+
+        private void DrawPlayheadLine(Rect r, float timelineLength, bool drawHandle = false)
         {
             float xHead = Mathf.Lerp(r.x, r.xMax, timelineLength > 0f ? Mathf.Clamp01(playhead / timelineLength) : 0f);
+            if (drawHandle)
+            {
+                Rect lineRect = new Rect(xHead - 1.5f, r.y, 3f, r.height);
+                Rect capRect = new Rect(xHead - 6f, r.y, 12f, 7f);
+                Handles.DrawSolidRectangleWithOutline(lineRect, kPlayheadColor, new Color(0f, 0f, 0f, 0f));
+                Handles.DrawSolidRectangleWithOutline(capRect, Color.Lerp(kPlayheadColor, Color.white, 0.18f), new Color(0f, 0f, 0f, 0.35f));
+                return;
+            }
+
             Handles.color = kPlayheadColor;
             Handles.DrawLine(new Vector3(xHead, r.y), new Vector3(xHead, r.yMax));
         }
@@ -634,6 +1488,20 @@ namespace FuzzPhyte.Utility.Editor
             Handles.color = kExportStartColor;
             Handles.DrawLine(new Vector3(xHead, r.y), new Vector3(xHead, r.yMax));
             Rect cap = new Rect(xHead - 4f, r.y, 8f, 5f);
+            Handles.DrawSolidRectangleWithOutline(cap, kExportStartColor, new Color(0f, 0f, 0f, 0f));
+        }
+
+        private void DrawExportEndLine(Rect r, float timelineLength)
+        {
+            if (!hasExportEndBookend)
+            {
+                return;
+            }
+
+            float xHead = Mathf.Lerp(r.x, r.xMax, timelineLength > 0f ? Mathf.Clamp01(exportEndBookend / timelineLength) : 0f);
+            Handles.color = kExportStartColor;
+            Handles.DrawLine(new Vector3(xHead, r.y), new Vector3(xHead, r.yMax));
+            Rect cap = new Rect(xHead - 4f, r.yMax - 5f, 8f, 5f);
             Handles.DrawSolidRectangleWithOutline(cap, kExportStartColor, new Color(0f, 0f, 0f, 0f));
         }
 
@@ -1005,6 +1873,10 @@ namespace FuzzPhyte.Utility.Editor
             {
                 entry.inTime = 0f;
                 entry.outTime = 0f;
+                entry.fadeInDuration = 0f;
+                entry.fadeOutDuration = 0f;
+                entry.fadeInPower = ClampFadePower(entry.fadeInPower);
+                entry.fadeOutPower = ClampFadePower(entry.fadeOutPower);
                 entry.timelineStart = Mathf.Max(0f, entry.timelineStart);
                 return;
             }
@@ -1022,7 +1894,16 @@ namespace FuzzPhyte.Utility.Editor
                 entry.outTime = entry.inTime;
             }
 
+            entry.fadeInDuration = Mathf.Clamp(entry.fadeInDuration, 0f, entry.SegmentLength);
+            entry.fadeOutDuration = Mathf.Clamp(entry.fadeOutDuration, 0f, entry.SegmentLength);
+            entry.fadeInPower = ClampFadePower(entry.fadeInPower);
+            entry.fadeOutPower = ClampFadePower(entry.fadeOutPower);
             entry.timelineStart = Mathf.Max(0f, entry.timelineStart);
+        }
+
+        private static float ClampFadePower(float power)
+        {
+            return Mathf.Clamp(power <= 0f ? 1f : power, 0.25f, 4f);
         }
 
         private void AutoLayoutEntries()
@@ -1097,6 +1978,225 @@ namespace FuzzPhyte.Utility.Editor
             entries[b] = tmp;
         }
 
+        private void LoadMixData(FPAudioCombineData data)
+        {
+            if (data == null)
+            {
+                return;
+            }
+
+            EditorStopAll();
+            isPlayingCombined = false;
+            activeCombinedPreviewClip = null;
+            EditorApplication.update -= OnEditorUpdate;
+
+            activeMixData = data;
+            CacheMixAssetPathFields(data);
+
+            outputFrequency = Mathf.Max(8000, data.OutputFrequency);
+            outputChannels = Mathf.Clamp(data.OutputChannels, 1, 2);
+            normalizeIfClipping = data.NormalizeIfClipping;
+            defaultGapSeconds = Mathf.Max(0f, data.DefaultGapSeconds);
+            nudgeSeconds = Mathf.Max(0.001f, data.NudgeSeconds);
+            exportFileName = string.IsNullOrWhiteSpace(data.ExportFileName) ? exportFileName : data.ExportFileName;
+            exportFolder = string.IsNullOrWhiteSpace(data.ExportFolder) ? exportFolder : data.ExportFolder;
+            hasExportStartBookend = data.HasExportStartBookend;
+            exportStartBookend = Mathf.Max(0f, data.ExportStartBookend);
+            hasExportEndBookend = data.HasExportEndBookend;
+            exportEndBookend = Mathf.Max(0f, data.ExportEndBookend);
+
+            entries.Clear();
+            if (data.Clips != null)
+            {
+                for (int i = 0; i < data.Clips.Count; i++)
+                {
+                    FPAudioCombineClipData clipData = data.Clips[i];
+                    var entry = new CombineEntry
+                    {
+                        clip = clipData.Clip,
+                        inTime = Mathf.Max(0f, clipData.InTime),
+                        outTime = Mathf.Max(0f, clipData.OutTime),
+                        timelineStart = Mathf.Max(0f, clipData.TimelineStart),
+                        trackColor = clipData.TrackColor,
+                        gain = Mathf.Max(0f, clipData.Gain),
+                        gainInitialized = true,
+                        fadeInEnabled = clipData.FadeInEnabled,
+                        fadeInDuration = Mathf.Max(0f, clipData.FadeInDuration),
+                        fadeInPower = ClampFadePower(clipData.FadeInPower),
+                        fadeOutEnabled = clipData.FadeOutEnabled,
+                        fadeOutDuration = Mathf.Max(0f, clipData.FadeOutDuration),
+                        fadeOutPower = ClampFadePower(clipData.FadeOutPower),
+                        locked = clipData.Locked,
+                        muted = clipData.Muted,
+                        expanded = true
+                    };
+
+                    if (entry.trackColor.a <= 0f)
+                    {
+                        entry.trackColor = GenerateTrackColor(i);
+                    }
+
+                    ClampEntry(entry);
+                    entries.Add(entry);
+                }
+            }
+
+            selectedEntryIndex = entries.Count > 0 ? 0 : -1;
+            playhead = Mathf.Clamp(playhead, 0f, Mathf.Max(0.01f, CalculateTimelineLength()));
+            EnsureValidExportBookends();
+            Repaint();
+        }
+
+        private void SaveMixData()
+        {
+            FPAudioCombineData data = activeMixData;
+            if (data == null)
+            {
+                data = CreateOrLoadMixDataAsset();
+                if (data == null)
+                {
+                    return;
+                }
+            }
+
+            Undo.RecordObject(data, "Save Audio Combine Data");
+            WriteWindowStateToMixData(data);
+            EditorUtility.SetDirty(data);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            activeMixData = data;
+            CacheMixAssetPathFields(data);
+            Selection.activeObject = data;
+        }
+
+        private FPAudioCombineData CreateOrLoadMixDataAsset()
+        {
+            string safeName = MakeSafeFilename(string.IsNullOrWhiteSpace(mixDataFileName) ? "AudioCombineData" : mixDataFileName);
+            string folder = string.IsNullOrWhiteSpace(mixDataFolder) ? "Assets/_FPUtility/AudioCombineData" : mixDataFolder.Replace("\\", "/");
+            if (!folder.StartsWith("Assets", StringComparison.Ordinal))
+            {
+                Debug.LogWarning($"Audio combine data folder must be inside Assets. Using default folder instead of: {folder}");
+                folder = "Assets/_FPUtility/AudioCombineData";
+            }
+
+            EnsureAssetFolder(folder);
+            string path = $"{folder}/{safeName}.asset";
+            FPAudioCombineData existing = AssetDatabase.LoadAssetAtPath<FPAudioCombineData>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            FPAudioCombineData created = CreateInstance<FPAudioCombineData>();
+            if (string.IsNullOrEmpty(created.UniqueID))
+            {
+                created.UniqueID = Guid.NewGuid().ToString();
+            }
+
+            AssetDatabase.CreateAsset(created, path);
+            return created;
+        }
+
+        private void WriteWindowStateToMixData(FPAudioCombineData data)
+        {
+            if (data == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(data.UniqueID))
+            {
+                data.UniqueID = Guid.NewGuid().ToString();
+            }
+
+            data.OutputFrequency = Mathf.Max(8000, outputFrequency);
+            data.OutputChannels = Mathf.Clamp(outputChannels, 1, 2);
+            data.NormalizeIfClipping = normalizeIfClipping;
+            data.DefaultGapSeconds = Mathf.Max(0f, defaultGapSeconds);
+            data.NudgeSeconds = Mathf.Max(0.001f, nudgeSeconds);
+            data.ExportFileName = exportFileName;
+            data.ExportFolder = exportFolder;
+            data.HasExportStartBookend = hasExportStartBookend;
+            data.ExportStartBookend = Mathf.Max(0f, exportStartBookend);
+            data.HasExportEndBookend = hasExportEndBookend;
+            data.ExportEndBookend = Mathf.Max(0f, exportEndBookend);
+
+            if (data.Clips == null)
+            {
+                data.Clips = new List<FPAudioCombineClipData>();
+            }
+            else
+            {
+                data.Clips.Clear();
+            }
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                CombineEntry entry = entries[i];
+                ClampEntry(entry);
+                data.Clips.Add(new FPAudioCombineClipData
+                {
+                    Clip = entry.clip,
+                    InTime = entry.inTime,
+                    OutTime = entry.outTime,
+                    TimelineStart = entry.timelineStart,
+                    TrackColor = entry.trackColor,
+                    Gain = entry.gain,
+                    FadeInEnabled = entry.fadeInEnabled,
+                    FadeInDuration = entry.fadeInDuration,
+                    FadeInPower = ClampFadePower(entry.fadeInPower),
+                    FadeOutEnabled = entry.fadeOutEnabled,
+                    FadeOutDuration = entry.fadeOutDuration,
+                    FadeOutPower = ClampFadePower(entry.fadeOutPower),
+                    Locked = entry.locked,
+                    Muted = entry.muted
+                });
+            }
+        }
+
+        private void CacheMixAssetPathFields(FPAudioCombineData data)
+        {
+            if (data == null)
+            {
+                return;
+            }
+
+            string path = AssetDatabase.GetAssetPath(data);
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            mixDataFileName = Path.GetFileNameWithoutExtension(path);
+            string folder = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(folder))
+            {
+                mixDataFolder = folder.Replace("\\", "/");
+            }
+        }
+
+        private static void EnsureAssetFolder(string folder)
+        {
+            folder = folder.Replace("\\", "/");
+            if (AssetDatabase.IsValidFolder(folder))
+            {
+                return;
+            }
+
+            string parent = Path.GetDirectoryName(folder)?.Replace("\\", "/");
+            string leaf = Path.GetFileName(folder);
+            if (string.IsNullOrEmpty(parent) || string.IsNullOrEmpty(leaf))
+            {
+                return;
+            }
+
+            EnsureAssetFolder(parent);
+            if (!AssetDatabase.IsValidFolder(folder))
+            {
+                AssetDatabase.CreateFolder(parent, leaf);
+            }
+        }
+
         private float CalculateTimelineLength()
         {
             float length = 0f;
@@ -1111,7 +2211,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private float CalculateMixTimelineLength()
         {
-            return Mathf.Max(0f, CalculateMixTimelineEnd() - GetExportStartTime());
+            return Mathf.Max(0f, GetExportEndTime() - GetExportStartTime());
         }
 
         private float CalculateMixTimelineEnd()
@@ -1134,6 +2234,45 @@ namespace FuzzPhyte.Utility.Editor
         private float GetExportStartTime()
         {
             return hasExportStartBookend ? Mathf.Max(0f, exportStartBookend) : 0f;
+        }
+
+        private float GetExportEndTime()
+        {
+            return hasExportEndBookend ? Mathf.Max(GetExportStartTime(), exportEndBookend) : CalculateMixTimelineEnd();
+        }
+
+        private void SetExportStartBookend(float time, float timelineLength)
+        {
+            exportStartBookend = Mathf.Clamp(time, 0f, timelineLength);
+            hasExportStartBookend = true;
+            EnsureValidExportBookends();
+        }
+
+        private void SetExportEndBookend(float time, float timelineLength)
+        {
+            exportEndBookend = Mathf.Clamp(time, 0f, timelineLength);
+            hasExportEndBookend = true;
+            EnsureValidExportBookends();
+        }
+
+        private void EnsureValidExportBookends()
+        {
+            if (!hasExportStartBookend || !hasExportEndBookend)
+            {
+                return;
+            }
+
+            if (exportStartBookend > exportEndBookend)
+            {
+                if (Mathf.Abs(playhead - exportStartBookend) <= Mathf.Abs(playhead - exportEndBookend))
+                {
+                    exportEndBookend = exportStartBookend;
+                }
+                else
+                {
+                    exportStartBookend = exportEndBookend;
+                }
+            }
         }
 
         private void SetPlayheadFromRect(Rect r, float timelineLength)
@@ -1332,14 +2471,32 @@ namespace FuzzPhyte.Utility.Editor
                 float absoluteTime = exportStartTime + (frame / (float)hz);
                 float segmentTime = absoluteTime - absoluteStart;
                 float srcFrame = (srcStartSec + segmentTime) * clip.frequency;
+                float fadeGain = CalculateFadeGain(entry, segmentTime);
 
                 for (int outCh = 0; outCh < ch; outCh++)
                 {
-                    float sample = SampleSource(src, srcFrames, srcCh, srcFrame, outCh, ch) * entry.gain;
+                    float sample = SampleSource(src, srcFrames, srcCh, srcFrame, outCh, ch) * entry.gain * fadeGain;
                     int dstIndex = frame * ch + outCh;
                     dst[dstIndex] += sample;
                 }
             }
+        }
+
+        private static float CalculateFadeGain(CombineEntry entry, float segmentTime)
+        {
+            float fadeGain = 1f;
+            if (entry.fadeInEnabled && entry.fadeInDuration > 1e-5f)
+            {
+                fadeGain *= Mathf.Pow(Mathf.Clamp01(segmentTime / entry.fadeInDuration), ClampFadePower(entry.fadeInPower));
+            }
+
+            if (entry.fadeOutEnabled && entry.fadeOutDuration > 1e-5f)
+            {
+                float timeToEnd = entry.SegmentLength - segmentTime;
+                fadeGain *= Mathf.Pow(Mathf.Clamp01(timeToEnd / entry.fadeOutDuration), ClampFadePower(entry.fadeOutPower));
+            }
+
+            return fadeGain;
         }
 
         private static float SampleSource(float[] src, int srcFrames, int srcChannels, float frameFloat, int outChannel, int outChannels)
@@ -1394,7 +2551,7 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             float exportStart = GetExportStartTime();
-            float mixEnd = CalculateMixTimelineEnd();
+            float mixEnd = GetExportEndTime();
             float start = Mathf.Clamp(Mathf.Max(startSec, exportStart), exportStart, mixEnd);
             int startSample = Mathf.Clamp(Mathf.FloorToInt((start - exportStart) * combined.frequency), 0, combined.samples);
 
@@ -1404,12 +2561,75 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.update -= OnEditorUpdate;
 
             activeCombinedPreviewClip = combined;
+            AudioClip previewClip = BuildImportedPreviewClip(activeCombinedPreviewClip);
+            if (previewClip != null)
+            {
+                activeCombinedPreviewClip = previewClip;
+                startSample = Mathf.Clamp(Mathf.FloorToInt((start - exportStart) * activeCombinedPreviewClip.frequency), 0, activeCombinedPreviewClip.samples);
+            }
+
             EditorPreview(activeCombinedPreviewClip, startSample, false, 1f);
             combinedPlayStartTime = EditorApplication.timeSinceStartup;
             combinedPlayStartOffset = start;
             isPlayingCombined = true;
             playhead = start;
             EditorApplication.update += OnEditorUpdate;
+        }
+
+        private AudioClip BuildImportedPreviewClip(AudioClip combined)
+        {
+            if (combined == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(PreviewAssetFolder);
+                byte[] wavBytes = FuzzPhyte.Utility.Audio.FP_AudioUtils.ConvertAudioClipToWAV(combined);
+                File.WriteAllBytes(PreviewAssetPath, wavBytes);
+                AssetDatabase.ImportAsset(PreviewAssetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+                ConfigurePreviewImporter(PreviewAssetPath);
+                return AssetDatabase.LoadAssetAtPath<AudioClip>(PreviewAssetPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"FP Audio Combine Tool could not create an imported preview clip, falling back to in-memory preview. {ex.Message}");
+                return null;
+            }
+        }
+
+        private static void ConfigurePreviewImporter(string assetPath)
+        {
+            var importer = AssetImporter.GetAtPath(assetPath) as AudioImporter;
+            if (importer == null)
+            {
+                return;
+            }
+
+            bool changed = false;
+            if (importer.loadInBackground)
+            {
+                importer.loadInBackground = false;
+                changed = true;
+            }
+
+            AudioImporterSampleSettings settings = importer.defaultSampleSettings;
+            AudioClipLoadType desiredLoadType = AudioClipLoadType.DecompressOnLoad;
+            AudioCompressionFormat desiredFormat = AudioCompressionFormat.PCM;
+            if (settings.loadType != desiredLoadType || settings.compressionFormat != desiredFormat || !settings.preloadAudioData)
+            {
+                settings.loadType = desiredLoadType;
+                settings.compressionFormat = desiredFormat;
+                settings.preloadAudioData = true;
+                importer.defaultSampleSettings = settings;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                importer.SaveAndReimport();
+            }
         }
 
         private void SaveCombinedToAssets()
@@ -1525,6 +2745,11 @@ namespace FuzzPhyte.Utility.Editor
                 // Ignore Unity-version preview volume differences.
             }
 
+            if (TryPlayPreviewClip(clip, startSample, loop, volume))
+            {
+                return;
+            }
+
             if (miPlayClip4 != null)
             {
                 miPlayClip4.Invoke(null, new object[] { clip, startSample, loop, Mathf.Clamp01(volume) });
@@ -1537,23 +2762,53 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            if (miPlayPreviewClip != null)
+            Debug.LogWarning("Audio preview not supported on this Unity version (AudioUtil methods not found).");
+        }
+
+        private static bool TryPlayPreviewClip(AudioClip clip, int startSample, bool loop, float volume)
+        {
+            if (miPlayPreviewClip == null)
+            {
+                return false;
+            }
+
+            try
             {
                 var prms = miPlayPreviewClip.GetParameters();
                 var args = new object[prms.Length];
                 for (int i = 0; i < prms.Length; i++)
                 {
-                    if (prms[i].ParameterType == typeof(AudioClip)) args[i] = clip;
-                    else if (prms[i].ParameterType == typeof(int)) args[i] = startSample;
-                    else if (prms[i].ParameterType == typeof(bool)) args[i] = loop;
-                    else if (prms[i].ParameterType == typeof(float)) args[i] = Mathf.Clamp01(volume);
-                    else args[i] = prms[i].IsOptional ? Type.Missing : null;
+                    Type parameterType = prms[i].ParameterType;
+                    if (parameterType == typeof(AudioClip))
+                    {
+                        args[i] = clip;
+                    }
+                    else if (parameterType == typeof(int))
+                    {
+                        args[i] = startSample;
+                    }
+                    else if (parameterType == typeof(bool))
+                    {
+                        args[i] = loop;
+                    }
+                    else if (parameterType == typeof(float))
+                    {
+                        args[i] = Mathf.Clamp01(volume);
+                    }
+                    else
+                    {
+                        args[i] = prms[i].IsOptional ? Type.Missing : null;
+                    }
                 }
-                miPlayPreviewClip.Invoke(null, args);
-                return;
-            }
 
-            Debug.LogWarning("Audio preview not supported on this Unity version (AudioUtil methods not found).");
+                miPlayPreviewClip.Invoke(null, args);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"AudioUtil.PlayPreviewClip failed; trying alternate preview path. {ex.Message}");
+                return false;
+            }
         }
 
         private static void EditorStopAll()
@@ -1562,7 +2817,6 @@ namespace FuzzPhyte.Utility.Editor
             if (miStopAllClips != null)
             {
                 miStopAllClips.Invoke(null, null);
-                return;
             }
 
             if (miStopAllPreview != null)
