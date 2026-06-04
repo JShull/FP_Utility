@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility
 {
     using UnityEngine;
@@ -165,7 +173,7 @@ namespace FuzzPhyte.Utility
             // FixedUpdate driven groups should use fixed delta time
             if (callbackMode == FPTickMode.PhysicsUpdate)
             {
-                // Unity doesn’t always expose fixedUnscaledDeltaTime across versions; keep it simple.
+                // Unity doesnï¿½t always expose fixedUnscaledDeltaTime across versions; keep it simple.
                 // If you want, we can conditional-compile an unscaled fixed dt variant.
                 return Time.fixedDeltaTime;
             }

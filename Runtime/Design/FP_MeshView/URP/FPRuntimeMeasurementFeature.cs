@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility
 {
     using UnityEngine;
@@ -10,7 +18,7 @@ namespace FuzzPhyte.Utility
         [System.Serializable]
         public sealed class Settings
         {
-            // For “always on top of everything”, prefer AfterRenderingTransparents.
+            // For ï¿½always on top of everythingï¿½, prefer AfterRenderingTransparents.
             // If you still see transparents over it, try AfterRendering (or AfterRenderingPostProcessing depending on your URP version).
             public RenderPassEvent passEvent = RenderPassEvent.AfterRenderingTransparents;
             public bool drawInSceneView = false;
@@ -62,7 +70,7 @@ namespace FuzzPhyte.Utility
                 var overlay = FPRuntimeMeasurementOverlay.Active;
                 if (overlay == null) return;
 
-                // Don’t spend a pass if there’s nothing to draw.
+                // Donï¿½t spend a pass if thereï¿½s nothing to draw.
                 if (!overlay.HasMeasurement) return; // your overlay already tracks this :contentReference[oaicite:4]{index=4}
 
                 var resources = frameData.Get<UniversalResourceData>();

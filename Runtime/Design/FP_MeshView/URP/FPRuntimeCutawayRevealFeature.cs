@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility
 {
     using UnityEngine;
@@ -83,7 +91,7 @@ namespace FuzzPhyte.Utility
                     passData.volume = volume;
                     passData.material = _settings.revealMaterial;
 
-                    // Register that this pass “uses” that renderer list
+                    // Register that this pass ï¿½usesï¿½ that renderer list
                     builder.UseRendererList(passData.rendererList);
 
                     // Set target textures

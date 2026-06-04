@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility
 {
     using UnityEngine;
@@ -24,7 +32,7 @@ namespace FuzzPhyte.Utility
             tracker?.StartMotion();
         }
 
-        // Hook to: your “while held” event (drag, value changed, joint moved, etc.)
+        // Hook to: your ï¿½while heldï¿½ event (drag, value changed, joint moved, etc.)
         public void OnInteractionTick()
         {
             if (tracker == null || _provider == null) return;

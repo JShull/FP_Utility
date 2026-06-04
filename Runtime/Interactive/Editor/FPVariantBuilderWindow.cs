@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility.Interactive.Editor
 {
     using System;
@@ -245,7 +253,7 @@ namespace FuzzPhyte.Utility.Interactive.Editor
                         for (int i = 0; i < inlineMeshSets.Count; i++)
                         {
                             var set = inlineMeshSets[i];
-                            EditorGUILayout.LabelField($"[{i}] {set.NameHint}  •  {(set.UseSkinned ? "Skinned" : "Static")}  •  Mesh: {(set.Mesh ? set.Mesh.name : "None")}  •  Mats: {set.Materials?.Count ?? 0}");
+                            EditorGUILayout.LabelField($"[{i}] {set.NameHint}  ï¿½  {(set.UseSkinned ? "Skinned" : "Static")}  ï¿½  Mesh: {(set.Mesh ? set.Mesh.name : "None")}  ï¿½  Mats: {set.Materials?.Count ?? 0}");
                         }
                     }
                 }
@@ -282,16 +290,16 @@ namespace FuzzPhyte.Utility.Interactive.Editor
                     
                     for (int i = 0; i < inlineCols.Count; i++)
                     {
-                        // ——— your existing per-collider UI goes here ———
+                        // ï¿½ï¿½ï¿½ your existing per-collider UI goes here ï¿½ï¿½ï¿½
                         // e.g., type, fitToVisual, localPosition/Rotation/Scale or radius/height,
-                        //       “Edit This (Handles)” button, remove button, etc.
+                        //       ï¿½Edit This (Handles)ï¿½ button, remove button, etc.
                        
                         var c = inlineCols[i];
 
                         EditorGUILayout.Space(4);
                         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                         {
-                            EditorGUILayout.LabelField($"[{i}] {c.name}  •  {c.type}", EditorStyles.boldLabel);
+                            EditorGUILayout.LabelField($"[{i}] {c.name}  ï¿½  {c.type}", EditorStyles.boldLabel);
 
                             // Example (keep whatever you had here):
                             c.type = (FPColliderType)EditorGUILayout.EnumPopup("Type", c.type);
@@ -346,7 +354,7 @@ namespace FuzzPhyte.Utility.Interactive.Editor
 
                 EditorGUILayout.EndScrollView();
 
-                // Add button (kept outside scroll so it’s always visible)
+                // Add button (kept outside scroll so itï¿½s always visible)
                 if (GUILayout.Button("+ Add Collider"))
                 {
                     inlineCols.Add(new FPVariantColliderSpec
@@ -530,7 +538,7 @@ namespace FuzzPhyte.Utility.Interactive.Editor
 
                     case FPColliderType.Mesh:
                         {
-                            // If user didn’t pick a mesh, default to the first visual mesh
+                            // If user didnï¿½t pick a mesh, default to the first visual mesh
                             if (spec.meshForMeshCollider == null)
                                 spec.meshForMeshCollider = FindFirstMeshInVisuals(p.visualsRoot);
                             // spec.convex stays whatever the user chose in UI

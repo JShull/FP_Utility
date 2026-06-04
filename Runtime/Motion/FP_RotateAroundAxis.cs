@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility
 {
     using System.Collections;
@@ -17,7 +25,7 @@ namespace FuzzPhyte.Utility
         [SerializeField] protected bool spinSelf = true;
         [SerializeField] protected bool orbitAroundPivot = false;
 
-        [Tooltip("Optional explicit pivot. If null, we’ll use the object's position.")]
+        [Tooltip("Optional explicit pivot. If null, weï¿½ll use the object's position.")]
         [SerializeField] protected Transform pivot;
 
         [SerializeField] protected Vector3 pivotOffset = Vector3.zero;

@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility
 {
     using UnityEngine;
@@ -88,7 +96,7 @@ namespace FuzzPhyte.Utility
         {
             Vector3 r = referencePerp;
 
-            // If no ref given or it’s parallel, auto-pick something perpendicular.
+            // If no ref given or itï¿½s parallel, auto-pick something perpendicular.
             if (r.sqrMagnitude < 0.000001f || Mathf.Abs(Vector3.Dot(r.normalized, axisN)) > 0.98f)
             {
                 // pick any vector not parallel to axis

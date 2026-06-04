@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility.Audio
 {
     using UnityEngine;
@@ -35,7 +43,7 @@ namespace FuzzPhyte.Utility.Audio
         [Header("Volume / Pitch by Speed")]
         [Tooltip("Map normalized speed to volume (0-1).")]
         public AnimationCurve RotationSpeedToVolume = AnimationCurve.Linear(0, 0.15f, 1, 1f);
-        [Tooltip("Map normalized speed to pitch (e.g., 0.8–1.3).")]
+        [Tooltip("Map normalized speed to pitch (e.g., 0.8ï¿½1.3).")]
         public AnimationCurve RotationSpeedToPitch = AnimationCurve.Linear(0, 0.9f, 1, 1.2f);
 
         [Header("Smoothing")]
@@ -142,8 +150,8 @@ namespace FuzzPhyte.Utility.Audio
         /// </summary>
         private float GetSignedDoorAngle()
         {
-            // Determine a “reference direction” vector in hinge-local space.
-            // e.g., pick a direction at closed position (e.g., door’s forward in closed-locally).
+            // Determine a ï¿½reference directionï¿½ vector in hinge-local space.
+            // e.g., pick a direction at closed position (e.g., doorï¿½s forward in closed-locally).
             Vector3 refDir = closedLocalRotation * Vector3.forward;
             // Current door direction vector in local space (projected into world or local consistently)
             Vector3 currentDir = RootRotation.localRotation * Vector3.forward;

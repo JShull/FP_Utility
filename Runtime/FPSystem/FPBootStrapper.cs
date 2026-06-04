@@ -1,3 +1,11 @@
+// Copyright (c) 2026 John B. Shull.
+// FuzzPhyte LLC is a company associated with John B. Shull
+//
+// Public license: GNU GPLv3-or-later.
+// Commercial/proprietary use requires a separate license from John B. Shull.
+//
+// See LICENSE.md.
+
 namespace FuzzPhyte.Utility.FPSystem
 {
     using System.Collections;
@@ -43,7 +51,7 @@ namespace FuzzPhyte.Utility.FPSystem
         {
             Debug.LogWarning($"Running FPBootStrapper<{typeof(TData).Name}>! {Time.time} and {Time.frameCount}");
             // you should consider adding the attribute above this function -->  [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-            // If you care about WEBGL, keep the old #if – purely optional here.
+            // If you care about WEBGL, keep the old #if ï¿½ purely optional here.
 #if !UNITY_WEBGL
             var majorFPSystems =
                 Object.FindObjectsByType<FPSystemBase<TData>>().ToList();
