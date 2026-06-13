@@ -73,7 +73,7 @@ namespace FuzzPhyte.Utility.Editor
         private const float ParameterPanelWidth = 352f;
         private const float WorkspacePadding = 4f;
         private const float PanelGap = 6f;
-        private const float ActionPanelHeight = 104f;
+        private const float ActionPanelHeight = 142f;
 
         [MenuItem("FuzzPhyte/Utility/Mesh/Combine Meshes", priority = FP_UtilityData.MENU_UTILITY_MESH + 1)]
         public static void ShowWindow()
@@ -302,6 +302,11 @@ namespace FuzzPhyte.Utility.Editor
                 if (GUILayout.Button("Combine Meshes and Save Asset", GUILayout.Height(32)))
                 {
                     CombineAndSave();
+                }
+
+                if (GUILayout.Button("Export Combined OBJ", GUILayout.Height(32)))
+                {
+                    ExportCombinedObj();
                 }
 
                 GUI.color = defaultColor;
@@ -996,6 +1001,31 @@ namespace FuzzPhyte.Utility.Editor
                 $"Combined mesh created with {combinedMesh.subMeshCount} submeshes.\nSaved to:\n{path}",
                 "OK"
             );
+        }
+
+        private void ExportCombinedObj()
+        {
+            if (rootObject == null)
+            {
+                Debug.LogError("[Combine Meshes] Root object is null.");
+                return;
+            }
+
+            var options = new FPMeshObjExportOptions
+            {
+                IncludeChildren = includeChildren,
+                IncludeInactive = includeInactive,
+                IncludeMeshFilters = includeMeshFilters,
+                IncludeSkinnedMeshRenderers = includeSkinnedMeshRenderers,
+                IncludeMeshColliders = includeMeshColliders,
+                RootLocalSpace = true,
+                ExportMaterials = true,
+                CopyTextures = true
+            };
+
+            List<FPMeshObjExportSource> sources = FPMeshObjExportUtility.CollectGameObjectSources(rootObject, options, IsValidSourceObject);
+            string defaultName = string.IsNullOrEmpty(combinedMeshName) ? rootObject.name + "_Combined" : combinedMeshName;
+            FPMeshObjExportUtility.ExportSourcesWithDialog(sources, defaultName, options);
         }
     }
 }

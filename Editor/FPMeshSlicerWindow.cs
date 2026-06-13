@@ -96,7 +96,7 @@ namespace FuzzPhyte.Utility.Editor
         private const float BottomDebugHeight = 112f;
         private const float WorkspacePadding = 4f;
         private const float PanelGap = 6f;
-        private const float ActionPanelHeight = 92f;
+        private const float ActionPanelHeight = 130f;
         private const int PlaneHandleMove = 0;
         private const int PlaneHandleRotateX = 1;
         private const int PlaneHandleRotateY = 2;
@@ -577,6 +577,11 @@ namespace FuzzPhyte.Utility.Editor
                     if (GUILayout.Button("Generate and Save Slice Meshes", GUILayout.Height(32f)))
                     {
                         GenerateAndSave();
+                    }
+
+                    if (GUILayout.Button("Export Slice OBJ", GUILayout.Height(32f)))
+                    {
+                        ExportSliceObj();
                     }
                 }
 
@@ -1793,6 +1798,48 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             Repaint();
+        }
+
+        private void ExportSliceObj()
+        {
+            if (!IsPreviewReady())
+            {
+                RebuildPreview();
+            }
+
+            if (!IsPreviewReady())
+            {
+                return;
+            }
+
+            string baseName = string.IsNullOrWhiteSpace(outputMeshName) ? "FP_SlicedMesh" : outputMeshName.Trim();
+            Material[] exportMaterials = sceneMaterial == null ? null : new[] { sceneMaterial };
+            var sources = new List<FPMeshObjExportSource>();
+
+            if (positivePreviewMesh != null && IsSideKept(true))
+            {
+                sources.Add(new FPMeshObjExportSource(baseName + "_Positive", positivePreviewMesh, Matrix4x4.identity, exportMaterials));
+            }
+
+            if (negativePreviewMesh != null && IsSideKept(false))
+            {
+                sources.Add(new FPMeshObjExportSource(baseName + "_Negative", negativePreviewMesh, Matrix4x4.identity, exportMaterials));
+            }
+
+            if (sources.Count == 0)
+            {
+                EditorUtility.DisplayDialog("Export Slice OBJ", "No slice mesh is available for the current keep mode.", "OK");
+                return;
+            }
+
+            FPMeshObjExportUtility.ExportSourcesWithDialog(
+                sources,
+                baseName,
+                new FPMeshObjExportOptions
+                {
+                    ExportMaterials = true,
+                    CopyTextures = true
+                });
         }
 
         private void HandleSaveMessage(Mesh unsavedMesh, Mesh savedMesh, string message)
