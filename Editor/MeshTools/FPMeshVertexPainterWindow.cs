@@ -45,6 +45,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private readonly List<MeshFilter> sourceMeshes = new();
         private readonly Dictionary<int, HashSet<int>> selectedByMesh = new();
+        private readonly Dictionary<FPMeshSurfaceEdgeEndpoint, int> surfaceIndexByEndpoint = new();
+        private readonly Dictionary<FPMeshSurfaceEdgeEndpoint, FPMeshNavigationTags> tagsByEndpoint = new();
         private readonly List<Vector3> planePicks = new();
         private readonly List<Vector2> previewLassoPoints = new();
 
@@ -66,6 +68,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         private SurfaceBuildMode surfaceBuildMode;
         private int quadSurfaceColumns = 4;
         private int quadSurfaceRows = 4;
+        private FPMeshNavigationTags generatedPointTags = FPMeshNavigationTags.Ground;
         private string generatedSurfaceOutputFolder = "Assets/_FPUtility/Meshes";
         private string generatedSurfaceMeshName = "FP_GeneratedVertexSurface";
         private bool createGeneratedSurfaceSceneObject = true;
@@ -194,6 +197,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 DrawSelectionTools();
 
                 DrawPlaneTools();
+                DrawPointTools();
                 DrawEdgeTools();
                 DrawTriangleTools();
 
@@ -209,6 +213,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                         Undo.RecordObject(authoring, "Clear Generated Points");
                         authoring.ClearTransientGeneratedPoints();
                         ClearPendingGeneratedEdgeStart();
+                        RefreshSurfaceIndexMapFromAuthoring();
                         EditorUtility.SetDirty(authoring);
                         Repaint();
                         SceneView.RepaintAll();
@@ -219,6 +224,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                         Undo.RecordObject(authoring, "Clear Painted Mesh Data");
                         authoring.ClearPaintedData();
                         selectedByMesh.Clear();
+                        surfaceIndexByEndpoint.Clear();
+                        tagsByEndpoint.Clear();
                         generatedPlane = default;
                         planePicks.Clear();
                         ClearPendingGeneratedEdgeStart();
@@ -233,6 +240,13 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         {
             EditorGUILayout.Space(4);
             EditorGUILayout.LabelField("Preview Tools", EditorStyles.boldLabel);
+            EditorGUI.BeginChangeCheck();
+            FPMeshNavigationTags nextTags = (FPMeshNavigationTags)EditorGUILayout.EnumFlagsField("Default Tags", generatedPointTags);
+            if (EditorGUI.EndChangeCheck())
+            {
+                SetWorkingDefaultTags(nextTags);
+            }
+
             if (mode != ToolMode.Select)
             {
                 return;
@@ -242,6 +256,17 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             if (nextSelectionShape != previewSelectionShape)
             {
                 SetPreviewSelectionShape(nextSelectionShape);
+            }
+        }
+
+        private void SetWorkingDefaultTags(FPMeshNavigationTags tags)
+        {
+            generatedPointTags = tags;
+            if (authoring != null)
+            {
+                Undo.RecordObject(authoring, "Set Mesh Vertex Painter Default Tags");
+                authoring.SetDefaultTags(tags);
+                EditorUtility.SetDirty(authoring);
             }
         }
 
@@ -274,6 +299,117 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             hasPendingGeneratedEdgeStart = false;
         }
 
+        private void SelectSurfaceEndpoint(FPMeshSurfaceEdgeEndpoint endpoint, string undoLabel)
+        {
+            if (authoring == null)
+            {
+                return;
+            }
+
+            Undo.RecordObject(authoring, undoLabel);
+            GetOrAssignSurfaceIndex(endpoint);
+            AssignWorkingTagsIfMissing(endpoint);
+            authoring.SetSourceMeshes(sourceMeshes, activeMeshIndex);
+            authoring.SetSelectedSurfacePoint(endpoint);
+            EditorUtility.SetDirty(authoring);
+        }
+
+        private int GetOrAssignSurfaceIndex(FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            if (surfaceIndexByEndpoint.TryGetValue(endpoint, out int surfaceIndex))
+            {
+                return surfaceIndex;
+            }
+
+            if (authoring != null && authoring.TryGetSurfaceIndex(endpoint, out surfaceIndex))
+            {
+                surfaceIndexByEndpoint[endpoint] = surfaceIndex;
+                authoring.EnsureNextSurfaceIndexPast(surfaceIndex);
+                return surfaceIndex;
+            }
+
+            surfaceIndex = authoring == null ? NextLocalSurfaceIndex() : authoring.ReserveSurfaceIndex();
+            surfaceIndexByEndpoint[endpoint] = surfaceIndex;
+            return surfaceIndex;
+        }
+
+        private int NextLocalSurfaceIndex()
+        {
+            int next = 0;
+            foreach (int surfaceIndex in surfaceIndexByEndpoint.Values)
+            {
+                next = Mathf.Max(next, surfaceIndex + 1);
+            }
+
+            return next;
+        }
+
+        private string FormatSurfaceEndpointLabel(FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            int surfaceIndex = GetOrAssignSurfaceIndex(endpoint);
+            return endpoint.Kind == FPMeshSurfacePointKind.GeneratedPoint
+                ? $"S{surfaceIndex} (G{endpoint.GeneratedPointIndex})"
+                : $"S{surfaceIndex} (M{endpoint.SourceMeshIndex}:V{endpoint.VertexIndex})";
+        }
+
+        private void RefreshSurfaceIndexMapFromAuthoring()
+        {
+            surfaceIndexByEndpoint.Clear();
+            tagsByEndpoint.Clear();
+            if (authoring == null)
+            {
+                return;
+            }
+
+            if (authoring.PaintedVertices != null)
+            {
+                for (int i = 0; i < authoring.PaintedVertices.Count; i++)
+                {
+                    FPMeshPaintedVertexRecord record = authoring.PaintedVertices[i];
+                    FPMeshSurfaceEdgeEndpoint endpoint = FPMeshSurfaceEdgeEndpoint.Source(record.SourceMeshIndex, record.VertexIndex);
+                    surfaceIndexByEndpoint[endpoint] = record.SurfaceIndex;
+                    tagsByEndpoint[endpoint] = record.Tags;
+                }
+            }
+
+            if (authoring.GeneratedPoints != null)
+            {
+                for (int i = 0; i < authoring.GeneratedPoints.Count; i++)
+                {
+                    FPMeshSurfaceEdgeEndpoint endpoint = FPMeshSurfaceEdgeEndpoint.Generated(i);
+                    surfaceIndexByEndpoint[endpoint] = authoring.GeneratedPoints[i].SurfaceIndex;
+                    tagsByEndpoint[endpoint] = authoring.GeneratedPoints[i].Tags;
+                }
+            }
+        }
+
+        private void AssignWorkingTagsIfMissing(FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            if (!tagsByEndpoint.ContainsKey(endpoint))
+            {
+                tagsByEndpoint[endpoint] = generatedPointTags;
+            }
+        }
+
+        private FPMeshNavigationTags ResolveEndpointTags(FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            return tagsByEndpoint.TryGetValue(endpoint, out FPMeshNavigationTags tags)
+                ? tags
+                : generatedPointTags;
+        }
+
+        private void SyncSourceMeshesToAuthoring(string undoLabel)
+        {
+            if (authoring == null)
+            {
+                return;
+            }
+
+            Undo.RecordObject(authoring, undoLabel);
+            authoring.SetSourceMeshes(sourceMeshes, activeMeshIndex);
+            EditorUtility.SetDirty(authoring);
+        }
+
         private void DrawPlaneTools()
         {
             if (mode != ToolMode.Plane)
@@ -303,6 +439,26 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             if (GetCurrentGeneratedPlane(out _) && GUILayout.Button("Clear Generated Plane"))
             {
                 ClearGeneratedPlane();
+            }
+        }
+
+        private void DrawPointTools()
+        {
+            if (mode != ToolMode.Point)
+            {
+                return;
+            }
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Generated Point", EditorStyles.boldLabel);
+            if (authoring != null)
+            {
+                EditorGUILayout.LabelField("Next Surface Index", authoring.NextSurfaceIndex.ToString());
+            }
+
+            if (authoring != null && authoring.HasSelectedSurfacePoint)
+            {
+                EditorGUILayout.LabelField($"Selected: {FormatSurfaceEndpointLabel(authoring.SelectedSurfacePoint)}", EditorStyles.miniLabel);
             }
         }
 
@@ -691,6 +847,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             DrawGeneratedTrianglesPreview(rect);
             DrawGeneratedEdgesPreview(rect);
             DrawGeneratedPointsPreview(rect);
+            DrawSelectedSurfaceEndpointPreview(rect);
 
             for (int i = 0; i < sourceMeshes.Count; i++)
             {
@@ -924,6 +1081,32 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Handles.EndGUI();
         }
 
+        private void DrawSelectedSurfaceEndpointPreview(Rect rect)
+        {
+            if (authoring == null || !authoring.HasSelectedSurfacePoint || Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            if (!TryProjectEdgeEndpoint(authoring.SelectedSurfacePoint, rect, out Vector2 point))
+            {
+                return;
+            }
+
+            Handles.BeginGUI();
+            GUI.BeginClip(rect);
+            Color previous = Handles.color;
+            Handles.color = Color.white;
+            Handles.DrawWireDisc(point, Vector3.forward, 8f);
+            Handles.color = new Color(1f, 0.86f, 0.18f, 1f);
+            Handles.DrawWireDisc(point, Vector3.forward, 10f);
+            string label = FormatSurfaceEndpointLabel(authoring.SelectedSurfacePoint);
+            Handles.Label(point + new Vector2(9f, -18f), label, EditorStyles.whiteMiniLabel);
+            Handles.color = previous;
+            GUI.EndClip();
+            Handles.EndGUI();
+        }
+
         private void DrawPreviewInfo(Rect rect, MeshFilter activeMesh)
         {
             Rect overlay = new Rect(rect.x + 8f, rect.y + 8f, 238f, 74f);
@@ -1039,6 +1222,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 Repaint();
                 if (changed)
                 {
+                    WriteToAuthoring();
                     SceneView.RepaintAll();
                 }
 
@@ -1132,6 +1316,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             {
                 if (TryPaintPreviewVertices(rect, current.mousePosition, previewSelectionRadius, previewSelectionRemoves))
                 {
+                    WriteToAuthoring();
                     Repaint();
                     SceneView.RepaintAll();
                 }
@@ -1312,6 +1497,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 hoverViewportOrbitAxis = -1;
                 if (TrySelectNearestPreviewVertex(rect, current.mousePosition, removeSelection))
                 {
+                    WriteToAuthoring();
                     Repaint();
                     SceneView.RepaintAll();
                 }
@@ -1342,7 +1528,18 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 selectedByMesh[activeMeshIndex] = selected;
             }
 
-            return removeSelection ? selected.Remove(nearest) : selected.Add(nearest);
+            FPMeshSurfaceEdgeEndpoint endpoint = FPMeshSurfaceEdgeEndpoint.Source(activeMeshIndex, nearest);
+            bool changed = removeSelection ? selected.Remove(nearest) : selected.Add(nearest);
+            if (changed && !removeSelection)
+            {
+                SelectSurfaceEndpoint(endpoint, "Select Source Mesh Vertex");
+            }
+            else if (changed)
+            {
+                tagsByEndpoint.Remove(endpoint);
+            }
+
+            return changed;
         }
 
         private bool TryPaintPreviewVertices(Rect previewRect, Vector2 mousePosition, float radius, bool removeSelection)
@@ -1360,7 +1557,27 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             Vector2 localMousePosition = mousePosition - previewRect.position;
-            return AddPreviewVerticesInRadius(meshFilter, previewUtility.camera, previewRect, localMousePosition, radius, selected, removeSelection);
+            List<int> changedVertices = new();
+            bool changed = AddPreviewVerticesInRadius(meshFilter, previewUtility.camera, previewRect, localMousePosition, radius, selected, removeSelection, changedVertices, out int lastChangedVertex);
+            for (int i = 0; i < changedVertices.Count; i++)
+            {
+                FPMeshSurfaceEdgeEndpoint endpoint = FPMeshSurfaceEdgeEndpoint.Source(activeMeshIndex, changedVertices[i]);
+                if (removeSelection)
+                {
+                    tagsByEndpoint.Remove(endpoint);
+                }
+                else
+                {
+                    AssignWorkingTagsIfMissing(endpoint);
+                }
+            }
+
+            if (changed && !removeSelection && lastChangedVertex >= 0)
+            {
+                SelectSurfaceEndpoint(FPMeshSurfaceEdgeEndpoint.Source(activeMeshIndex, lastChangedVertex), "Select Source Mesh Vertex");
+            }
+
+            return changed;
         }
 
         private void BeginPreviewLasso(Rect previewRect, Vector2 mousePosition, bool removeSelection)
@@ -1412,7 +1629,22 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                     selectedByMesh[i] = selected;
                 }
 
-                changed |= AddPreviewVerticesInLasso(meshFilter, previewUtility.camera, previewRect, previewLassoPoints, selected, previewLassoRemoves);
+                List<int> changedVertices = new();
+                bool meshChanged = AddPreviewVerticesInLasso(meshFilter, previewUtility.camera, previewRect, previewLassoPoints, selected, previewLassoRemoves, changedVertices);
+                for (int vertex = 0; vertex < changedVertices.Count; vertex++)
+                {
+                    FPMeshSurfaceEdgeEndpoint endpoint = FPMeshSurfaceEdgeEndpoint.Source(i, changedVertices[vertex]);
+                    if (previewLassoRemoves)
+                    {
+                        tagsByEndpoint.Remove(endpoint);
+                    }
+                    else
+                    {
+                        AssignWorkingTagsIfMissing(endpoint);
+                    }
+                }
+
+                changed |= meshChanged;
             }
 
             return changed;
@@ -1443,8 +1675,18 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             return nearest;
         }
 
-        private static bool AddPreviewVerticesInRadius(MeshFilter meshFilter, Camera camera, Rect previewRect, Vector2 mousePosition, float radius, ISet<int> selected, bool removeSelection)
+        private static bool AddPreviewVerticesInRadius(
+            MeshFilter meshFilter,
+            Camera camera,
+            Rect previewRect,
+            Vector2 mousePosition,
+            float radius,
+            ISet<int> selected,
+            bool removeSelection,
+            ICollection<int> changedVertices,
+            out int lastChangedVertex)
         {
+            lastChangedVertex = -1;
             Vector3[] vertices = meshFilter.sharedMesh.vertices;
             Matrix4x4 matrix = meshFilter.transform.localToWorldMatrix;
             bool changed = false;
@@ -1459,14 +1701,27 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
                 if ((mousePosition - point).sqrMagnitude <= radiusSqr)
                 {
-                    changed |= removeSelection ? selected.Remove(i) : selected.Add(i);
+                    bool vertexChanged = removeSelection ? selected.Remove(i) : selected.Add(i);
+                    if (vertexChanged)
+                    {
+                        lastChangedVertex = i;
+                        changedVertices?.Add(i);
+                        changed = true;
+                    }
                 }
             }
 
             return changed;
         }
 
-        private static bool AddPreviewVerticesInLasso(MeshFilter meshFilter, Camera camera, Rect previewRect, IReadOnlyList<Vector2> lassoPoints, ISet<int> selected, bool removeSelection)
+        private static bool AddPreviewVerticesInLasso(
+            MeshFilter meshFilter,
+            Camera camera,
+            Rect previewRect,
+            IReadOnlyList<Vector2> lassoPoints,
+            ISet<int> selected,
+            bool removeSelection,
+            ICollection<int> changedVertices)
         {
             if (lassoPoints == null || lassoPoints.Count < 3)
             {
@@ -1486,7 +1741,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
                 if (IsPointInPolygon(point, lassoPoints))
                 {
-                    changed |= removeSelection ? selected.Remove(i) : selected.Add(i);
+                    bool vertexChanged = removeSelection ? selected.Remove(i) : selected.Add(i);
+                    if (vertexChanged)
+                    {
+                        changedVertices?.Add(i);
+                        changed = true;
+                    }
                 }
             }
 
@@ -1970,6 +2230,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         {
             EditorGUILayout.LabelField("Source Meshes", EditorStyles.boldLabel);
 
+            bool sourceListChanged = false;
             for (int i = 0; i < sourceMeshes.Count; i++)
             {
                 using (new EditorGUILayout.HorizontalScope())
@@ -1978,16 +2239,24 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                     if (GUILayout.Toggle(active, "A", "Button", GUILayout.Width(28)) && !active)
                     {
                         activeMeshIndex = i;
+                        sourceListChanged = true;
                         SceneView.RepaintAll();
                     }
 
-                    sourceMeshes[i] = (MeshFilter)EditorGUILayout.ObjectField(sourceMeshes[i], typeof(MeshFilter), true);
+                    EditorGUI.BeginChangeCheck();
+                    MeshFilter nextMesh = (MeshFilter)EditorGUILayout.ObjectField(sourceMeshes[i], typeof(MeshFilter), true);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        sourceMeshes[i] = nextMesh;
+                        sourceListChanged = true;
+                    }
 
                     if (GUILayout.Button("X", GUILayout.Width(24)))
                     {
                         sourceMeshes.RemoveAt(i);
                         selectedByMesh.Remove(i);
                         activeMeshIndex = Mathf.Clamp(activeMeshIndex, 0, Mathf.Max(0, sourceMeshes.Count - 1));
+                        sourceListChanged = true;
                         i--;
                     }
                 }
@@ -1996,6 +2265,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             if (GUILayout.Button("Add Mesh Slot"))
             {
                 sourceMeshes.Add(null);
+                sourceListChanged = true;
+            }
+
+            if (sourceListChanged)
+            {
+                SyncSourceMeshesToAuthoring("Update Mesh Vertex Painter Sources");
             }
         }
 
@@ -2233,6 +2508,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 return false;
             }
 
+            if (TryFindNearestGeneratedPointIndex(previewRect, mousePosition, Mathf.Max(12f, previewSelectionRadius), out int existingPointIndex))
+            {
+                SelectSurfaceEndpoint(FPMeshSurfaceEdgeEndpoint.Generated(existingPointIndex), "Select Generated Mesh Point");
+                return true;
+            }
+
             Vector2 localMousePosition = mousePosition - previewRect.position;
             Vector3 viewport = new Vector3(
                 Mathf.Clamp01(localMousePosition.x / Mathf.Max(1f, previewRect.width)),
@@ -2289,6 +2570,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             if (removed)
             {
                 ClearPendingGeneratedEdgeStart();
+                RefreshSurfaceIndexMapFromAuthoring();
                 EditorUtility.SetDirty(authoring);
             }
 
@@ -2306,6 +2588,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             {
                 return false;
             }
+            SelectSurfaceEndpoint(endpoint, "Select Mesh Graph Endpoint");
 
             if (!hasPendingGeneratedEdgeStart || !TryGetEdgeEndpointWorldPosition(pendingGeneratedEdgeStart, out _))
             {
@@ -2343,6 +2626,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             {
                 return false;
             }
+            SelectSurfaceEndpoint(endpoint, "Select Mesh Graph Endpoint");
 
             if (!hasPendingGeneratedEdgeStart || !TryGetEdgeEndpointWorldPosition(pendingGeneratedEdgeStart, out _))
             {
@@ -2769,12 +3053,21 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             Undo.RecordObject(authoring, "Add Generated Mesh Point");
+            int generatedPointIndex = authoring.GeneratedPoints == null ? 0 : authoring.GeneratedPoints.Count;
             authoring.AddGeneratedPoint(new FPMeshGeneratedPointRecord
             {
+                SurfaceIndex = -1,
                 WorldPosition = point,
                 Normal = normal.sqrMagnitude > 0.0001f ? normal.normalized : Vector3.up,
-                Tags = FPMeshNavigationTags.Ground
+                Tags = generatedPointTags
             });
+
+            if (generatedPointIndex < authoring.GeneratedPoints.Count)
+            {
+                FPMeshSurfaceEdgeEndpoint endpoint = FPMeshSurfaceEdgeEndpoint.Generated(generatedPointIndex);
+                surfaceIndexByEndpoint[endpoint] = authoring.GeneratedPoints[generatedPointIndex].SurfaceIndex;
+                tagsByEndpoint[endpoint] = authoring.GeneratedPoints[generatedPointIndex].Tags;
+            }
 
             EditorUtility.SetDirty(authoring);
             SceneView.RepaintAll();
@@ -2802,7 +3095,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private void CreateSurfaceMeshFromPoints()
         {
-            if (!TryCreateGeneratedSurfaceMesh(out Mesh mesh, out Vector3 meshOrigin))
+            if (!TryCreateGeneratedSurfaceMesh(out Mesh mesh, out Vector3 meshOrigin, out List<FPMeshGeneratedSurfaceVertexLookupRecord> lookupRecords))
             {
                 return;
             }
@@ -2817,12 +3110,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 return;
             }
 
-            CreateGeneratedSurfaceSceneObject(mesh, meshOrigin);
+            CreateGeneratedSurfaceSceneObject(mesh, meshOrigin, lookupRecords);
         }
 
         private void SaveSurfaceMeshAsset()
         {
-            if (!TryCreateGeneratedSurfaceMesh(out Mesh mesh, out _))
+            if (!TryCreateGeneratedSurfaceMesh(out Mesh mesh, out _, out _))
             {
                 return;
             }
@@ -2846,7 +3139,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private void ExportSurfaceMeshObj()
         {
-            if (!TryCreateGeneratedSurfaceMesh(out Mesh mesh, out _))
+            if (!TryCreateGeneratedSurfaceMesh(out Mesh mesh, out _, out _))
             {
                 return;
             }
@@ -2854,10 +3147,14 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             FPMeshObjExport.ExportMeshWithDialog(mesh, ResolveGeneratedSurfaceMeshName(), null, true);
         }
 
-        private bool TryCreateGeneratedSurfaceMesh(out Mesh mesh, out Vector3 meshOrigin)
+        private bool TryCreateGeneratedSurfaceMesh(
+            out Mesh mesh,
+            out Vector3 meshOrigin,
+            out List<FPMeshGeneratedSurfaceVertexLookupRecord> lookupRecords)
         {
             mesh = null;
             meshOrigin = Vector3.zero;
+            lookupRecords = null;
             if (!GetCurrentGeneratedPlane(out FPMeshGeneratedPlane plane))
             {
                 Debug.LogWarning("Create a generated plane before creating a surface mesh.");
@@ -2881,7 +3178,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 planeNormal = plane.Normal.sqrMagnitude > 0.0001f ? plane.Normal.normalized : Vector3.up;
             Vector3 normal = flipGeneratedSurfaceNormals ? -planeNormal : planeNormal;
             List<Vector2> projectedPoints = BuildProjectedPlanePoints(worldPoints, plane.Origin, right, forward);
-            if (!TryBuildSurfaceMesh(projectedPoints, plane.Origin, right, forward, normal, flipGeneratedSurfaceNormals, out mesh, out meshOrigin))
+            if (!TryBuildSurfaceMesh(projectedPoints, plane.Origin, right, forward, normal, flipGeneratedSurfaceNormals, out mesh, out meshOrigin, out lookupRecords))
             {
                 return false;
             }
@@ -2890,7 +3187,10 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             return true;
         }
 
-        private void CreateGeneratedSurfaceSceneObject(Mesh mesh, Vector3 meshOrigin)
+        private void CreateGeneratedSurfaceSceneObject(
+            Mesh mesh,
+            Vector3 meshOrigin,
+            IReadOnlyList<FPMeshGeneratedSurfaceVertexLookupRecord> lookupRecords)
         {
             if (mesh == null)
             {
@@ -2908,6 +3208,9 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             {
                 renderer.sharedMaterial = material;
             }
+
+            FPMeshGeneratedSurfaceLookup lookup = surface.AddComponent<FPMeshGeneratedSurfaceLookup>();
+            lookup.SetLookup(authoring, mesh, lookupRecords);
 
             Undo.RegisterCreatedObjectUndo(surface, "Create Scene Surface Mesh");
             Selection.activeGameObject = surface;
@@ -2948,13 +3251,15 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 normal,
             bool flipWinding,
             out Mesh mesh,
-            out Vector3 meshOrigin)
+            out Vector3 meshOrigin,
+            out List<FPMeshGeneratedSurfaceVertexLookupRecord> lookupRecords)
         {
             mesh = null;
             meshOrigin = Vector3.zero;
+            lookupRecords = null;
             if (surfaceBuildMode == SurfaceBuildMode.EdgeTriangles)
             {
-                return TryBuildEdgeGraphSurfaceMesh(planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin);
+                return TryBuildEdgeGraphSurfaceMesh(planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin, out lookupRecords);
             }
 
             if (projectedPoints == null || projectedPoints.Count < 3)
@@ -2965,10 +3270,10 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
             if (surfaceBuildMode == SurfaceBuildMode.QuadPatch)
             {
-                return TryBuildQuadPatchSurfaceMesh(projectedPoints, planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin);
+                return TryBuildQuadPatchSurfaceMesh(projectedPoints, planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin, out lookupRecords);
             }
 
-            return TryBuildBoundarySurfaceMesh(projectedPoints, planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin);
+            return TryBuildBoundarySurfaceMesh(projectedPoints, planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin, out lookupRecords);
         }
 
         private bool TryBuildBoundarySurfaceMesh(
@@ -2979,10 +3284,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 normal,
             bool flipWinding,
             out Mesh mesh,
-            out Vector3 meshOrigin)
+            out Vector3 meshOrigin,
+            out List<FPMeshGeneratedSurfaceVertexLookupRecord> lookupRecords)
         {
             mesh = null;
             meshOrigin = Vector3.zero;
+            lookupRecords = null;
             List<Vector2> boundary = TryBuildGeneratedEdgeLoop(planeOrigin, right, forward, out List<Vector2> edgeLoop)
                 ? edgeLoop
                 : BuildConvexHull(projectedPoints);
@@ -3001,6 +3308,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             mesh = BuildPlaneSurfaceMesh(triangulation.Vertices, triangulation.Triangles, planeOrigin, right, forward, normal, flipWinding, out meshOrigin);
+            lookupRecords = BuildUnmappedLookupRecords(mesh, meshOrigin);
             return mesh != null;
         }
 
@@ -3011,10 +3319,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 normal,
             bool flipWinding,
             out Mesh mesh,
-            out Vector3 meshOrigin)
+            out Vector3 meshOrigin,
+            out List<FPMeshGeneratedSurfaceVertexLookupRecord> lookupRecords)
         {
             mesh = null;
             meshOrigin = Vector3.zero;
+            lookupRecords = null;
             if (authoring == null || authoring.GeneratedEdges == null || authoring.GeneratedEdges.Count < 3)
             {
                 Debug.LogWarning("Paint at least 3 guide edges before creating an edge triangle surface.");
@@ -3023,6 +3333,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
             Dictionary<FPMeshSurfaceEdgeEndpoint, int> indexByEndpoint = new();
             List<Vector2> vertices2D = new();
+            List<FPMeshSurfaceEdgeEndpoint> endpointsByVertex = new();
             List<HashSet<int>> adjacency = new();
             IReadOnlyList<FPMeshGeneratedEdgeRecord> edges = authoring.GeneratedEdges;
             for (int i = 0; i < edges.Count; i++)
@@ -3030,8 +3341,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 FPMeshSurfaceEdgeEndpoint start = authoring.ResolveStartEndpoint(edges[i]);
                 FPMeshSurfaceEdgeEndpoint end = authoring.ResolveEndEndpoint(edges[i]);
                 if (start == end ||
-                    !TryGetOrAddGraphEndpoint(start, planeOrigin, right, forward, indexByEndpoint, vertices2D, adjacency, out int startIndex) ||
-                    !TryGetOrAddGraphEndpoint(end, planeOrigin, right, forward, indexByEndpoint, vertices2D, adjacency, out int endIndex) ||
+                    !TryGetOrAddGraphEndpoint(start, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int startIndex) ||
+                    !TryGetOrAddGraphEndpoint(end, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int endIndex) ||
                     startIndex == endIndex)
                 {
                     continue;
@@ -3042,7 +3353,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             List<int> explicitTriangles = authoring.GeneratedTriangles != null && authoring.GeneratedTriangles.Count > 0
-                ? BuildExplicitGeneratedTriangles(planeOrigin, right, forward, indexByEndpoint, vertices2D, adjacency)
+                ? BuildExplicitGeneratedTriangles(planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency)
                 : new List<int>();
             List<int> triangles = useSelectedTrianglesOnly
                 ? explicitTriangles
@@ -3056,6 +3367,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             mesh = BuildPlaneSurfaceMesh(vertices2D, triangles, planeOrigin, right, forward, normal, flipWinding, out meshOrigin);
+            lookupRecords = BuildEndpointLookupRecords(mesh, meshOrigin, endpointsByVertex);
             return mesh != null;
         }
 
@@ -3065,6 +3377,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 forward,
             Dictionary<FPMeshSurfaceEdgeEndpoint, int> indexByEndpoint,
             List<Vector2> vertices2D,
+            List<FPMeshSurfaceEdgeEndpoint> endpointsByVertex,
             List<HashSet<int>> adjacency)
         {
             List<int> triangles = new();
@@ -3076,9 +3389,9 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             for (int i = 0; i < authoring.GeneratedTriangles.Count; i++)
             {
                 FPMeshGeneratedTriangleRecord triangle = authoring.GeneratedTriangles[i];
-                if (!TryGetOrAddGraphEndpoint(triangle.A, planeOrigin, right, forward, indexByEndpoint, vertices2D, adjacency, out int a) ||
-                    !TryGetOrAddGraphEndpoint(triangle.B, planeOrigin, right, forward, indexByEndpoint, vertices2D, adjacency, out int b) ||
-                    !TryGetOrAddGraphEndpoint(triangle.C, planeOrigin, right, forward, indexByEndpoint, vertices2D, adjacency, out int c) ||
+                if (!TryGetOrAddGraphEndpoint(triangle.A, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int a) ||
+                    !TryGetOrAddGraphEndpoint(triangle.B, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int b) ||
+                    !TryGetOrAddGraphEndpoint(triangle.C, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int c) ||
                     a == b || b == c || c == a)
                 {
                     continue;
@@ -3115,10 +3428,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 normal,
             bool flipWinding,
             out Mesh mesh,
-            out Vector3 meshOrigin)
+            out Vector3 meshOrigin,
+            out List<FPMeshGeneratedSurfaceVertexLookupRecord> lookupRecords)
         {
             mesh = null;
             meshOrigin = Vector3.zero;
+            lookupRecords = null;
             if (!TryGetProjectedBounds(projectedPoints, out Vector2 min, out Vector2 max))
             {
                 Debug.LogWarning("The current points do not produce a valid quad patch.");
@@ -3170,6 +3485,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             mesh = BuildPlaneSurfaceMesh(vertices2D, triangles, planeOrigin, right, forward, normal, flipWinding, out meshOrigin);
+            lookupRecords = BuildUnmappedLookupRecords(mesh, meshOrigin);
             return mesh != null;
         }
 
@@ -3234,6 +3550,62 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             return flipped;
         }
 
+        private static List<FPMeshGeneratedSurfaceVertexLookupRecord> BuildUnmappedLookupRecords(Mesh mesh, Vector3 meshOrigin)
+        {
+            List<FPMeshGeneratedSurfaceVertexLookupRecord> records = new();
+            if (mesh == null)
+            {
+                return records;
+            }
+
+            Vector3[] vertices = mesh.vertices;
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                records.Add(new FPMeshGeneratedSurfaceVertexLookupRecord
+                {
+                    MeshVertexIndex = i,
+                    SurfaceIndex = -1,
+                    HasEndpoint = false,
+                    Endpoint = default,
+                    LocalPosition = vertices[i],
+                    WorldPosition = meshOrigin + vertices[i]
+                });
+            }
+
+            return records;
+        }
+
+        private List<FPMeshGeneratedSurfaceVertexLookupRecord> BuildEndpointLookupRecords(
+            Mesh mesh,
+            Vector3 meshOrigin,
+            IReadOnlyList<FPMeshSurfaceEdgeEndpoint> endpointsByVertex)
+        {
+            List<FPMeshGeneratedSurfaceVertexLookupRecord> records = new();
+            if (mesh == null)
+            {
+                return records;
+            }
+
+            Vector3[] vertices = mesh.vertices;
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                bool hasEndpoint = endpointsByVertex != null && i < endpointsByVertex.Count;
+                FPMeshSurfaceEdgeEndpoint endpoint = hasEndpoint ? endpointsByVertex[i] : default;
+                int surfaceIndex = hasEndpoint ? GetOrAssignSurfaceIndex(endpoint) : -1;
+                records.Add(new FPMeshGeneratedSurfaceVertexLookupRecord
+                {
+                    MeshVertexIndex = i,
+                    SurfaceIndex = surfaceIndex,
+                    HasEndpoint = hasEndpoint,
+                    Endpoint = endpoint,
+                    LocalPosition = vertices[i],
+                    WorldPosition = meshOrigin + vertices[i]
+                });
+            }
+
+            return records;
+        }
+
         private bool TryGetOrAddGraphEndpoint(
             FPMeshSurfaceEdgeEndpoint endpoint,
             Vector3 origin,
@@ -3241,6 +3613,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 forward,
             Dictionary<FPMeshSurfaceEdgeEndpoint, int> indexByEndpoint,
             List<Vector2> vertices2D,
+            List<FPMeshSurfaceEdgeEndpoint> endpointsByVertex,
             List<HashSet<int>> adjacency,
             out int index)
         {
@@ -3259,6 +3632,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             index = vertices2D.Count;
             indexByEndpoint[endpoint] = index;
             vertices2D.Add(new Vector2(Vector3.Dot(relative, right), Vector3.Dot(relative, forward)));
+            endpointsByVertex.Add(endpoint);
             adjacency.Add(new HashSet<int>());
             return true;
         }
@@ -3809,12 +4183,22 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             activeMeshIndex = Mathf.Clamp(activeMeshIndex, 0, Mathf.Max(0, sourceMeshes.Count - 1));
+            if (authoring != null)
+            {
+                generatedPointTags = authoring.DefaultTags;
+            }
+
+            SyncSourceMeshesToAuthoring("Use Mesh Vertex Painter Selection");
             Repaint();
             SceneView.RepaintAll();
         }
 
         private void ReadFromAuthoring()
         {
+            Undo.RecordObject(authoring, "Read Mesh Vertex Painter Authoring");
+            authoring.NormalizeSurfaceIndices();
+            EditorUtility.SetDirty(authoring);
+            RefreshSurfaceIndexMapFromAuthoring();
             sourceMeshes.Clear();
             IReadOnlyList<MeshFilter> meshes = authoring.SourceMeshes;
             for (int i = 0; i < meshes.Count; i++)
@@ -3824,6 +4208,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
             activeMeshIndex = authoring.ActiveMeshIndex;
             generatedPlane = authoring.GeneratedPlane;
+            generatedPointTags = authoring.DefaultTags;
             planePicks.Clear();
             selectedByMesh.Clear();
 
@@ -3851,6 +4236,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 return;
             }
 
+            Undo.RecordObject(authoring, "Write Painted Mesh Vertices");
             List<FPMeshPaintedVertexRecord> records = new();
             for (int meshIndex = 0; meshIndex < sourceMeshes.Count; meshIndex++)
             {
@@ -3870,22 +4256,25 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                         continue;
                     }
 
+                    FPMeshSurfaceEdgeEndpoint endpoint = FPMeshSurfaceEdgeEndpoint.Source(meshIndex, vertexIndex);
                     Vector3 normal = normals != null && vertexIndex < normals.Length ? normals[vertexIndex] : Vector3.up;
                     records.Add(new FPMeshPaintedVertexRecord
                     {
+                        SurfaceIndex = GetOrAssignSurfaceIndex(endpoint),
                         SourceMeshIndex = meshIndex,
                         VertexIndex = vertexIndex,
                         LocalPosition = vertices[vertexIndex],
                         WorldPosition = meshFilter.transform.TransformPoint(vertices[vertexIndex]),
                         Normal = meshFilter.transform.TransformDirection(normal).normalized,
-                        Tags = FPMeshNavigationTags.Ground
+                        Tags = ResolveEndpointTags(endpoint)
                     });
                 }
             }
 
-            Undo.RecordObject(authoring, "Write Painted Mesh Vertices");
+            records.Sort((a, b) => a.SurfaceIndex.CompareTo(b.SurfaceIndex));
             authoring.SetSourceMeshes(sourceMeshes, activeMeshIndex);
             authoring.SetPaintedVertices(records);
+            RefreshSurfaceIndexMapFromAuthoring();
             EditorUtility.SetDirty(authoring);
             SceneView.RepaintAll();
         }

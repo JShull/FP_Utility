@@ -7,6 +7,7 @@ namespace FuzzPhyte.Utility.MeshTools
     [Serializable]
     public struct FPMeshPaintedVertexRecord
     {
+        public int SurfaceIndex;
         public int SourceMeshIndex;
         public int VertexIndex;
         public Vector3 LocalPosition;
@@ -37,6 +38,7 @@ namespace FuzzPhyte.Utility.MeshTools
     [Serializable]
     public struct FPMeshGeneratedPointRecord
     {
+        public int SurfaceIndex;
         public Vector3 WorldPosition;
         public Vector3 Normal;
         public FPMeshNavigationTags Tags;
@@ -120,8 +122,8 @@ namespace FuzzPhyte.Utility.MeshTools
     {
         public FPMeshSurfaceEdgeEndpoint Start;
         public FPMeshSurfaceEdgeEndpoint End;
-        public int StartPointIndex;
-        public int EndPointIndex;
+        [HideInInspector] public int StartPointIndex;
+        [HideInInspector] public int EndPointIndex;
 
         public static FPMeshGeneratedEdgeRecord Create(FPMeshSurfaceEdgeEndpoint start, FPMeshSurfaceEdgeEndpoint end)
         {
@@ -159,6 +161,7 @@ namespace FuzzPhyte.Utility.MeshTools
     public class FPMeshVertexPaintAuthoring : MonoBehaviour
     {
         [SerializeField] protected int graphId;
+        [SerializeField] protected int nextSurfaceIndex;
         [SerializeField] protected FPMeshNavigationTags defaultTags = FPMeshNavigationTags.Ground;
         [SerializeField] protected MeshFilter[] sourceMeshes = Array.Empty<MeshFilter>();
         [SerializeField] protected int activeMeshIndex;
@@ -168,8 +171,11 @@ namespace FuzzPhyte.Utility.MeshTools
         [SerializeField] protected List<FPMeshGeneratedPointRecord> generatedPoints = new();
         [SerializeField] protected List<FPMeshGeneratedEdgeRecord> generatedEdges = new();
         [SerializeField] protected List<FPMeshGeneratedTriangleRecord> generatedTriangles = new();
+        [SerializeField] protected bool hasSelectedSurfacePoint;
+        [SerializeField] protected FPMeshSurfaceEdgeEndpoint selectedSurfacePoint;
 
         public int GraphId => graphId;
+        public int NextSurfaceIndex => nextSurfaceIndex;
         public FPMeshNavigationTags DefaultTags => defaultTags;
         public IReadOnlyList<MeshFilter> SourceMeshes => sourceMeshes;
         public int ActiveMeshIndex => activeMeshIndex;
@@ -179,6 +185,8 @@ namespace FuzzPhyte.Utility.MeshTools
         public IReadOnlyList<FPMeshGeneratedPointRecord> GeneratedPoints => generatedPoints;
         public IReadOnlyList<FPMeshGeneratedEdgeRecord> GeneratedEdges => generatedEdges;
         public IReadOnlyList<FPMeshGeneratedTriangleRecord> GeneratedTriangles => generatedTriangles;
+        public bool HasSelectedSurfacePoint => hasSelectedSurfacePoint;
+        public FPMeshSurfaceEdgeEndpoint SelectedSurfacePoint => selectedSurfacePoint;
 
         public void SetSourceMeshes(IReadOnlyList<MeshFilter> meshes, int activeIndex)
         {
@@ -198,6 +206,11 @@ namespace FuzzPhyte.Utility.MeshTools
             activeMeshIndex = Mathf.Clamp(activeIndex, 0, Mathf.Max(0, sourceMeshes.Length - 1));
         }
 
+        public void SetDefaultTags(FPMeshNavigationTags tags)
+        {
+            defaultTags = tags;
+        }
+
         public void SetPaintedVertices(IEnumerable<FPMeshPaintedVertexRecord> records)
         {
             paintedVertices.Clear();
@@ -207,6 +220,7 @@ namespace FuzzPhyte.Utility.MeshTools
             }
 
             paintedVertices.AddRange(records);
+            NormalizeSurfaceIndices();
         }
 
         public void SetPaintedLinks(IEnumerable<FPMeshPaintedLinkRecord> records)
@@ -227,7 +241,17 @@ namespace FuzzPhyte.Utility.MeshTools
 
         public void AddGeneratedPoint(FPMeshGeneratedPointRecord point)
         {
+            if (point.SurfaceIndex < 0 || SurfaceIndexInUse(point.SurfaceIndex))
+            {
+                point.SurfaceIndex = ReserveSurfaceIndex();
+            }
+            else
+            {
+                EnsureNextSurfaceIndexPast(point.SurfaceIndex);
+            }
+
             generatedPoints.Add(point);
+            SetSelectedSurfacePoint(FPMeshSurfaceEdgeEndpoint.Generated(generatedPoints.Count - 1));
         }
 
         public bool RemoveGeneratedPointAt(int index)
@@ -238,6 +262,15 @@ namespace FuzzPhyte.Utility.MeshTools
             }
 
             generatedPoints.RemoveAt(index);
+            if (hasSelectedSurfacePoint && ReferencesGeneratedPoint(selectedSurfacePoint, index))
+            {
+                ClearSelectedSurfacePoint();
+            }
+            else if (hasSelectedSurfacePoint)
+            {
+                selectedSurfacePoint = DecrementGeneratedEndpointAfterRemove(selectedSurfacePoint, index);
+            }
+
             for (int i = generatedEdges.Count - 1; i >= 0; i--)
             {
                 FPMeshGeneratedEdgeRecord edge = generatedEdges[i];
@@ -371,6 +404,7 @@ namespace FuzzPhyte.Utility.MeshTools
             generatedPoints.Clear();
             generatedEdges.Clear();
             generatedTriangles.Clear();
+            ClearSelectedSurfacePoint();
         }
 
         public void ClearPaintedData()
@@ -381,6 +415,95 @@ namespace FuzzPhyte.Utility.MeshTools
             generatedEdges.Clear();
             generatedTriangles.Clear();
             generatedPlane = default;
+            nextSurfaceIndex = 0;
+            ClearSelectedSurfacePoint();
+        }
+
+        public int ReserveSurfaceIndex()
+        {
+            return nextSurfaceIndex++;
+        }
+
+        public void EnsureNextSurfaceIndexPast(int surfaceIndex)
+        {
+            if (surfaceIndex >= nextSurfaceIndex)
+            {
+                nextSurfaceIndex = surfaceIndex + 1;
+            }
+        }
+
+        public bool TryGetSurfaceIndex(FPMeshSurfaceEdgeEndpoint endpoint, out int surfaceIndex)
+        {
+            if (endpoint.Kind == FPMeshSurfacePointKind.GeneratedPoint)
+            {
+                if (endpoint.GeneratedPointIndex >= 0 && endpoint.GeneratedPointIndex < generatedPoints.Count)
+                {
+                    surfaceIndex = generatedPoints[endpoint.GeneratedPointIndex].SurfaceIndex;
+                    return surfaceIndex >= 0;
+                }
+
+                surfaceIndex = -1;
+                return false;
+            }
+
+            for (int i = 0; i < paintedVertices.Count; i++)
+            {
+                FPMeshPaintedVertexRecord record = paintedVertices[i];
+                if (record.SourceMeshIndex == endpoint.SourceMeshIndex && record.VertexIndex == endpoint.VertexIndex)
+                {
+                    surfaceIndex = record.SurfaceIndex;
+                    return surfaceIndex >= 0;
+                }
+            }
+
+            surfaceIndex = -1;
+            return false;
+        }
+
+        public void NormalizeSurfaceIndices()
+        {
+            HashSet<int> used = new();
+            for (int i = 0; i < paintedVertices.Count; i++)
+            {
+                FPMeshPaintedVertexRecord record = paintedVertices[i];
+                if (record.SurfaceIndex < 0 || used.Contains(record.SurfaceIndex))
+                {
+                    record.SurfaceIndex = ReserveUnusedSurfaceIndex(used);
+                    paintedVertices[i] = record;
+                }
+                else
+                {
+                    used.Add(record.SurfaceIndex);
+                    EnsureNextSurfaceIndexPast(record.SurfaceIndex);
+                }
+            }
+
+            for (int i = 0; i < generatedPoints.Count; i++)
+            {
+                FPMeshGeneratedPointRecord point = generatedPoints[i];
+                if (point.SurfaceIndex < 0 || used.Contains(point.SurfaceIndex))
+                {
+                    point.SurfaceIndex = ReserveUnusedSurfaceIndex(used);
+                    generatedPoints[i] = point;
+                }
+                else
+                {
+                    used.Add(point.SurfaceIndex);
+                    EnsureNextSurfaceIndexPast(point.SurfaceIndex);
+                }
+            }
+        }
+
+        public void SetSelectedSurfacePoint(FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            selectedSurfacePoint = endpoint;
+            hasSelectedSurfacePoint = true;
+        }
+
+        public void ClearSelectedSurfacePoint()
+        {
+            selectedSurfacePoint = default;
+            hasSelectedSurfacePoint = false;
         }
 
         public FPMeshSurfaceEdgeEndpoint ResolveStartEndpoint(FPMeshGeneratedEdgeRecord edge)
@@ -430,6 +553,39 @@ namespace FuzzPhyte.Utility.MeshTools
             }
 
             return endpoint;
+        }
+
+        private int ReserveUnusedSurfaceIndex(HashSet<int> used)
+        {
+            while (used.Contains(nextSurfaceIndex))
+            {
+                nextSurfaceIndex++;
+            }
+
+            int surfaceIndex = nextSurfaceIndex++;
+            used.Add(surfaceIndex);
+            return surfaceIndex;
+        }
+
+        private bool SurfaceIndexInUse(int surfaceIndex)
+        {
+            for (int i = 0; i < paintedVertices.Count; i++)
+            {
+                if (paintedVertices[i].SurfaceIndex == surfaceIndex)
+                {
+                    return true;
+                }
+            }
+
+            for (int i = 0; i < generatedPoints.Count; i++)
+            {
+                if (generatedPoints[i].SurfaceIndex == surfaceIndex)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool IsValidTriangle(FPMeshGeneratedTriangleRecord triangle)
