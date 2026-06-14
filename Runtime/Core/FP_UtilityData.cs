@@ -45,7 +45,7 @@ namespace FuzzPhyte.Utility
         public const string AZURE_MANIFEST_FILE_NAME_KEY = "FP_AzureManifestFileName";
         public const string AZURE_BLOB_OVERRIDE_URL_KEY = "FP_AzureBlobOverrideURL";
         // Menu order for FuzzPhyte editor menu items. Lower priorities appear higher in Unity menus.
-        public const int MENU_FUZZPHYTE_UTILITY = 0;
+        public const int MENU_FUZZPHYTE_UTILITY = -10000;
         public const int MENU_FUZZPHYTE_HEADER = 1000;
         public const int MENU_FUZZPHYTE_VARIANTS = 1100;
 

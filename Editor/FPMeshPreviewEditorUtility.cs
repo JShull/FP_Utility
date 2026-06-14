@@ -8,10 +8,11 @@
 
 namespace FuzzPhyte.Utility.Editor
 {
+    using System;
     using UnityEditor;
     using UnityEngine;
 
-    internal enum FPMeshPreviewProjection
+    public enum FPMeshPreviewProjection
     {
         Perspective = 0,
         Orthographic = 1
@@ -20,7 +21,7 @@ namespace FuzzPhyte.Utility.Editor
     /// <summary>
     /// Shared editor preview helpers for mesh tools that render and orbit meshes in an EditorWindow.
     /// </summary>
-    internal static class FPMeshPreviewEditorUtility
+    public static class FPMeshPreviewEditorUtility
     {
         public const float DefaultFieldOfView = 30f;
         public const float DefaultOrbitSensitivity = 0.4f;
@@ -128,6 +129,57 @@ namespace FuzzPhyte.Utility.Editor
             return EditorGUI.Toggle(toggleRect, value);
         }
 
+        public static void DrawOrbitGizmo(Rect previewRect, Action<Vector3, Vector3> setPreviewView)
+        {
+            Rect gizmoRect = GetOrbitGizmoRect(previewRect);
+            DrawOpaquePreviewPanel(gizmoRect);
+
+            GUI.Label(new Rect(gizmoRect.x + 6f, gizmoRect.y + 4f, gizmoRect.width - 12f, 16f), "Orbit", EditorStyles.centeredGreyMiniLabel);
+
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 0), "X", new Color(0.9f, 0.22f, 0.18f, 1f));
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 1), "Y", new Color(0.3f, 0.78f, 0.28f, 1f));
+            DrawAxisHandle(GetOrbitAxisRect(gizmoRect, 2), "Z", new Color(0.22f, 0.48f, 0.95f, 1f));
+
+            Rect buttonsRect = new Rect(gizmoRect.x + 6f, gizmoRect.y + 88f, gizmoRect.width - 12f, 52f);
+            DrawSnapButtons(buttonsRect, setPreviewView);
+        }
+
+        public static Quaternion ApplyOrbitAxisDrag(Quaternion currentRotation, int activeOrbitAxis, Vector2 delta)
+        {
+            float degrees = (delta.x + delta.y) * 0.5f;
+            Vector3 axis = activeOrbitAxis == 0
+                ? Vector3.right
+                : activeOrbitAxis == 1
+                    ? Vector3.up
+                    : Vector3.forward;
+
+            return Quaternion.AngleAxis(degrees, axis) * currentRotation;
+        }
+
+        public static bool IsOrbitGizmoPosition(Rect previewRect, Vector2 mousePosition)
+        {
+            return GetOrbitGizmoRect(previewRect).Contains(mousePosition);
+        }
+
+        public static int GetOrbitAxisAtPosition(Rect previewRect, Vector2 mousePosition)
+        {
+            Rect gizmoRect = GetOrbitGizmoRect(previewRect);
+            for (int i = 0; i < 3; i++)
+            {
+                if (GetOrbitAxisRect(gizmoRect, i).Contains(mousePosition))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        public static Rect GetOrbitGizmoRect(Rect previewRect)
+        {
+            return new Rect(previewRect.xMax - 128f, previewRect.y + 104f, 120f, 148f);
+        }
+
         public static void DrawMeshVertexOverlay(Camera camera, Rect previewRect, Mesh mesh, Matrix4x4 matrix, Color color, float pointRadius = 2.5f, int maxDrawnVertices = 12000)
         {
             if (camera == null || mesh == null || !mesh.isReadable || Event.current.type != EventType.Repaint)
@@ -232,7 +284,7 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            GUI.Box(gizmoRect, GUIContent.none, EditorStyles.helpBox);
+            DrawOpaquePreviewPanel(gizmoRect);
 
             Vector2 center = new Vector2(gizmoRect.x + (gizmoRect.width * 0.5f), gizmoRect.y + 38f);
             AxisGizmoDirection[] axes =
@@ -296,6 +348,15 @@ namespace FuzzPhyte.Utility.Editor
 
             string projectionLabel = projection == FPMeshPreviewProjection.Orthographic ? "<Ortho" : "<Persp";
             GUI.Label(new Rect(gizmoRect.x + 4f, gizmoRect.yMax - 18f, gizmoRect.width - 8f, 16f), projectionLabel, EditorStyles.centeredGreyMiniLabel);
+        }
+
+        private static void DrawOpaquePreviewPanel(Rect rect)
+        {
+            EditorGUI.DrawRect(rect, new Color(0.07f, 0.08f, 0.09f, 0.96f));
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, rect.width, 1f), new Color(0.48f, 0.55f, 0.62f, 1f));
+            EditorGUI.DrawRect(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f), new Color(0.03f, 0.035f, 0.04f, 1f));
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, 1f, rect.height), new Color(0.48f, 0.55f, 0.62f, 1f));
+            EditorGUI.DrawRect(new Rect(rect.xMax - 1f, rect.y, 1f, rect.height), new Color(0.03f, 0.035f, 0.04f, 1f));
         }
 
         public static void DrawUpIndicator(Rect previewRect, Camera camera, Vector3 upDirection, string label)
@@ -396,6 +457,55 @@ namespace FuzzPhyte.Utility.Editor
             rect.width = Mathf.Max(1f, rect.width - 4f);
             rect.height = 2f;
             EditorGUI.DrawRect(rect, FP_Utility_Editor.WarningColor);
+        }
+
+        private static void DrawAxisHandle(Rect rect, string label, Color color)
+        {
+            EditorGUI.DrawRect(rect, color * new Color(1f, 1f, 1f, 0.78f));
+            GUI.Label(rect, label, EditorStyles.centeredGreyMiniLabel);
+        }
+
+        private static void DrawSnapButtons(Rect rect, Action<Vector3, Vector3> setPreviewView)
+        {
+            const float gap = 3f;
+            float width = (rect.width - (gap * 2f)) / 3f;
+            float height = 22f;
+
+            if (GUI.Button(new Rect(rect.x, rect.y, width, height), "+X", EditorStyles.miniButtonLeft))
+            {
+                setPreviewView?.Invoke(Vector3.right, Vector3.up);
+            }
+
+            if (GUI.Button(new Rect(rect.x + width + gap, rect.y, width, height), "+Y", EditorStyles.miniButtonMid))
+            {
+                setPreviewView?.Invoke(Vector3.up, Vector3.back);
+            }
+
+            if (GUI.Button(new Rect(rect.x + ((width + gap) * 2f), rect.y, width, height), "+Z", EditorStyles.miniButtonRight))
+            {
+                setPreviewView?.Invoke(Vector3.forward, Vector3.up);
+            }
+
+            float y = rect.y + height + 4f;
+            if (GUI.Button(new Rect(rect.x, y, width, height), "-X", EditorStyles.miniButtonLeft))
+            {
+                setPreviewView?.Invoke(Vector3.left, Vector3.up);
+            }
+
+            if (GUI.Button(new Rect(rect.x + width + gap, y, width, height), "-Y", EditorStyles.miniButtonMid))
+            {
+                setPreviewView?.Invoke(Vector3.down, Vector3.forward);
+            }
+
+            if (GUI.Button(new Rect(rect.x + ((width + gap) * 2f), y, width, height), "-Z", EditorStyles.miniButtonRight))
+            {
+                setPreviewView?.Invoke(Vector3.back, Vector3.up);
+            }
+        }
+
+        private static Rect GetOrbitAxisRect(Rect gizmoRect, int axis)
+        {
+            return new Rect(gizmoRect.x + 8f, gizmoRect.y + 24f + (axis * 20f), gizmoRect.width - 16f, 16f);
         }
 
         private struct AxisGizmoDirection

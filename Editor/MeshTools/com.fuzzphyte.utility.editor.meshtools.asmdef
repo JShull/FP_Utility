@@ -1,0 +1,23 @@
+{
+    "name": "com.fuzzphyte.utility.editor.meshtools",
+    "rootNamespace": "FuzzPhyte.Utility.Editor.MeshTools",
+    "references": [
+        "GUID:4ffb4f1d3d8c4a97a921fdb089e1ed32",
+        "GUID:b2274f1409ce26f40919f89f9d4f667c",
+        "GUID:8729f3cadef284ac4bc6fd994d431e7a",
+        "GUID:734d92eba21c94caba915361bd5ac177",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:d8b63aba1907145bea998dd612889d6b"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

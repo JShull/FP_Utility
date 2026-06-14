@@ -7,7 +7,9 @@
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary",
         "Unity.RenderPipelines.Core.Runtime",
-        "Unity.RenderPipelines.Core.ShaderLibrary"
+        "Unity.RenderPipelines.Core.ShaderLibrary",
+        "Unity.Entities",
+        "Unity.Collections"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

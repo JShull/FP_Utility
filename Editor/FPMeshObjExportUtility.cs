@@ -636,4 +636,31 @@ namespace FuzzPhyte.Utility.Editor
             return safe;
         }
     }
+
+    public static class FPMeshObjExport
+    {
+        public static bool ExportMeshWithDialog(Mesh mesh, string defaultName, Material material = null, bool destroyMeshAfterExport = false)
+        {
+            if (mesh == null)
+            {
+                EditorUtility.DisplayDialog("Export OBJ", "No mesh was available to export.", "OK");
+                return false;
+            }
+
+            Material[] materials = material == null ? null : new[] { material };
+            var sources = new List<FPMeshObjExportSource>
+            {
+                new FPMeshObjExportSource(mesh.name, mesh, Matrix4x4.identity, materials, destroyMeshAfterExport)
+            };
+
+            return FPMeshObjExportUtility.ExportSourcesWithDialog(
+                sources,
+                string.IsNullOrWhiteSpace(defaultName) ? mesh.name : defaultName,
+                new FPMeshObjExportOptions
+                {
+                    ExportMaterials = true,
+                    CopyTextures = true
+                });
+        }
+    }
 }

@@ -5,7 +5,10 @@
         "com.fuzzphyte.utility",
         "Unity.Mathematics",
         "Unity.TextMeshPro",
-        "Unity.Timeline"
+        "Unity.Timeline",
+        "Unity.Entities",
+        "Unity.Collections",
+        "Unity.Entities.Editor"
     ],
     "includePlatforms": [
         "Editor"
