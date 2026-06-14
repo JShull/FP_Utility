@@ -29,10 +29,15 @@ namespace FuzzPhyte.Utility.MeshTools
     public struct FPMeshGeneratedPlane
     {
         public bool IsValid;
+        public bool HasAnchorPoints;
         public Vector3 Origin;
         public Vector3 Right;
         public Vector3 Forward;
         public Vector3 Normal;
+        public Color DisplayColor;
+        public FPMeshSurfaceEdgeEndpoint AnchorA;
+        public FPMeshSurfaceEdgeEndpoint AnchorB;
+        public FPMeshSurfaceEdgeEndpoint AnchorC;
     }
 
     [Serializable]
@@ -166,6 +171,8 @@ namespace FuzzPhyte.Utility.MeshTools
         [SerializeField] protected MeshFilter[] sourceMeshes = Array.Empty<MeshFilter>();
         [SerializeField] protected int activeMeshIndex;
         [SerializeField] protected FPMeshGeneratedPlane generatedPlane;
+        [SerializeField] protected List<FPMeshGeneratedPlane> generatedPlanes = new();
+        [SerializeField] protected int selectedGeneratedPlaneIndex = -1;
         [SerializeField] protected List<FPMeshPaintedVertexRecord> paintedVertices = new();
         [SerializeField] protected List<FPMeshPaintedLinkRecord> paintedLinks = new();
         [SerializeField] protected List<FPMeshGeneratedPointRecord> generatedPoints = new();
@@ -179,7 +186,12 @@ namespace FuzzPhyte.Utility.MeshTools
         public FPMeshNavigationTags DefaultTags => defaultTags;
         public IReadOnlyList<MeshFilter> SourceMeshes => sourceMeshes;
         public int ActiveMeshIndex => activeMeshIndex;
-        public FPMeshGeneratedPlane GeneratedPlane => generatedPlane;
+        public FPMeshGeneratedPlane GeneratedPlane => HasSelectedGeneratedPlane ? generatedPlanes[selectedGeneratedPlaneIndex] : generatedPlane;
+        public IReadOnlyList<FPMeshGeneratedPlane> GeneratedPlanes => generatedPlanes;
+        public int SelectedGeneratedPlaneIndex => selectedGeneratedPlaneIndex;
+        public bool HasSelectedGeneratedPlane => selectedGeneratedPlaneIndex >= 0 &&
+            selectedGeneratedPlaneIndex < generatedPlanes.Count &&
+            generatedPlanes[selectedGeneratedPlaneIndex].IsValid;
         public IReadOnlyList<FPMeshPaintedVertexRecord> PaintedVertices => paintedVertices;
         public IReadOnlyList<FPMeshPaintedLinkRecord> PaintedLinks => paintedLinks;
         public IReadOnlyList<FPMeshGeneratedPointRecord> GeneratedPoints => generatedPoints;
@@ -237,6 +249,52 @@ namespace FuzzPhyte.Utility.MeshTools
         public void SetGeneratedPlane(FPMeshGeneratedPlane plane)
         {
             generatedPlane = plane;
+            if (selectedGeneratedPlaneIndex >= 0 && selectedGeneratedPlaneIndex < generatedPlanes.Count)
+            {
+                generatedPlanes[selectedGeneratedPlaneIndex] = plane;
+            }
+        }
+
+        public int AddGeneratedPlane(FPMeshGeneratedPlane plane)
+        {
+            generatedPlanes.Add(plane);
+            selectedGeneratedPlaneIndex = generatedPlanes.Count - 1;
+            generatedPlane = plane;
+            return selectedGeneratedPlaneIndex;
+        }
+
+        public bool SetSelectedGeneratedPlaneIndex(int index)
+        {
+            if (index < 0 || index >= generatedPlanes.Count || !generatedPlanes[index].IsValid)
+            {
+                selectedGeneratedPlaneIndex = -1;
+                generatedPlane = default;
+                return false;
+            }
+
+            selectedGeneratedPlaneIndex = index;
+            generatedPlane = generatedPlanes[index];
+            return true;
+        }
+
+        public bool RemoveGeneratedPlaneAt(int index)
+        {
+            if (index < 0 || index >= generatedPlanes.Count)
+            {
+                return false;
+            }
+
+            generatedPlanes.RemoveAt(index);
+            if (generatedPlanes.Count == 0)
+            {
+                selectedGeneratedPlaneIndex = -1;
+                generatedPlane = default;
+                return true;
+            }
+
+            selectedGeneratedPlaneIndex = Mathf.Clamp(index, 0, generatedPlanes.Count - 1);
+            generatedPlane = generatedPlanes[selectedGeneratedPlaneIndex];
+            return true;
         }
 
         public void AddGeneratedPoint(FPMeshGeneratedPointRecord point)
@@ -415,6 +473,8 @@ namespace FuzzPhyte.Utility.MeshTools
             generatedEdges.Clear();
             generatedTriangles.Clear();
             generatedPlane = default;
+            generatedPlanes.Clear();
+            selectedGeneratedPlaneIndex = -1;
             nextSurfaceIndex = 0;
             ClearSelectedSurfacePoint();
         }

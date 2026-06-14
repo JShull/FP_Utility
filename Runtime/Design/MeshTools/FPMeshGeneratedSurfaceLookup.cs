@@ -15,6 +15,12 @@ namespace FuzzPhyte.Utility.MeshTools
         public Vector3 WorldPosition;
     }
 
+    public enum FPMeshGeneratedSurfaceDebugColorMode
+    {
+        Alignment = 0,
+        PrimaryTag = 1
+    }
+
     public class FPMeshGeneratedSurfaceLookup : MonoBehaviour
     {
         [SerializeField] protected FPMeshVertexPaintAuthoring sourceAuthoring;
@@ -22,6 +28,8 @@ namespace FuzzPhyte.Utility.MeshTools
         [SerializeField] protected List<FPMeshGeneratedSurfaceVertexLookupRecord> vertexLookup = new();
         [SerializeField] protected bool drawDebugGizmos = true;
         [SerializeField] protected bool drawDebugLabels = true;
+        [SerializeField] protected FPMeshGeneratedSurfaceDebugColorMode debugColorMode = FPMeshGeneratedSurfaceDebugColorMode.PrimaryTag;
+        [SerializeField] protected int selectedDebugMeshVertexIndex = -1;
         [SerializeField] protected float alignmentTolerance = 0.0025f;
         [SerializeField] protected float debugPointSize = 0.035f;
 
@@ -30,6 +38,8 @@ namespace FuzzPhyte.Utility.MeshTools
         public IReadOnlyList<FPMeshGeneratedSurfaceVertexLookupRecord> VertexLookup => vertexLookup;
         public bool DrawDebugGizmos => drawDebugGizmos;
         public bool DrawDebugLabels => drawDebugLabels;
+        public FPMeshGeneratedSurfaceDebugColorMode DebugColorMode => debugColorMode;
+        public int SelectedDebugMeshVertexIndex => selectedDebugMeshVertexIndex;
         public float AlignmentTolerance => alignmentTolerance;
         public float DebugPointSize => debugPointSize;
 
@@ -184,6 +194,128 @@ namespace FuzzPhyte.Utility.MeshTools
             return transform.TransformPoint(record.LocalPosition);
         }
 
+        public void SetSelectedDebugMeshVertexIndex(int meshVertexIndex)
+        {
+            selectedDebugMeshVertexIndex = meshVertexIndex;
+        }
+
+        public bool TryResolveRecordTags(FPMeshGeneratedSurfaceVertexLookupRecord record, out FPMeshNavigationTags tags)
+        {
+            tags = FPMeshNavigationTags.None;
+            if (!record.HasEndpoint || sourceAuthoring == null)
+            {
+                return false;
+            }
+
+            if (record.Endpoint.Kind == FPMeshSurfacePointKind.GeneratedPoint)
+            {
+                IReadOnlyList<FPMeshGeneratedPointRecord> points = sourceAuthoring.GeneratedPoints;
+                if (points != null &&
+                    record.Endpoint.GeneratedPointIndex >= 0 &&
+                    record.Endpoint.GeneratedPointIndex < points.Count)
+                {
+                    tags = points[record.Endpoint.GeneratedPointIndex].Tags;
+                    return tags != FPMeshNavigationTags.None;
+                }
+
+                return false;
+            }
+
+            IReadOnlyList<FPMeshPaintedVertexRecord> paintedVertices = sourceAuthoring.PaintedVertices;
+            if (paintedVertices == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < paintedVertices.Count; i++)
+            {
+                FPMeshPaintedVertexRecord painted = paintedVertices[i];
+                if (painted.SourceMeshIndex == record.Endpoint.SourceMeshIndex &&
+                    painted.VertexIndex == record.Endpoint.VertexIndex)
+                {
+                    tags = painted.Tags;
+                    return tags != FPMeshNavigationTags.None;
+                }
+            }
+
+            return false;
+        }
+
+        public static FPMeshNavigationTags GetPrimaryTag(FPMeshNavigationTags tags)
+        {
+            if (tags == FPMeshNavigationTags.None)
+            {
+                return FPMeshNavigationTags.None;
+            }
+
+            int value = (int)tags;
+            int firstBit = value & -value;
+            return (FPMeshNavigationTags)firstBit;
+        }
+
+        public bool TryResolvePrimaryTag(FPMeshGeneratedSurfaceVertexLookupRecord record, out FPMeshNavigationTags tag)
+        {
+            tag = FPMeshNavigationTags.None;
+            if (!TryResolveRecordTags(record, out FPMeshNavigationTags tags))
+            {
+                return false;
+            }
+
+            tag = GetPrimaryTag(tags);
+            return tag != FPMeshNavigationTags.None;
+        }
+
+        public Color GetDebugColor(FPMeshGeneratedSurfaceVertexLookupRecord record)
+        {
+            if (!record.HasEndpoint)
+            {
+                return new Color(0.25f, 0.8f, 1f, 0.55f);
+            }
+
+            if (debugColorMode == FPMeshGeneratedSurfaceDebugColorMode.PrimaryTag &&
+                TryResolvePrimaryTag(record, out FPMeshNavigationTags tag))
+            {
+                return GetTagDebugColor(tag);
+            }
+
+            bool resolved = TryResolveEndpointWorldPosition(record, out Vector3 dataWorld);
+            Vector3 meshWorld = GetCurrentMeshVertexWorldPosition(record);
+            float distance = Vector3.Distance(meshWorld, dataWorld);
+            bool aligned = resolved && distance <= alignmentTolerance;
+            return aligned ? new Color(0.25f, 1f, 0.45f, 0.95f) : new Color(1f, 0.18f, 0.1f, 0.95f);
+        }
+
+        public static Color GetTagDebugColor(FPMeshNavigationTags tag)
+        {
+            switch (GetPrimaryTag(tag))
+            {
+                case FPMeshNavigationTags.Ground:
+                    return new Color(0.25f, 1f, 0.45f, 0.95f);
+                case FPMeshNavigationTags.Wall:
+                    return new Color(0.35f, 0.62f, 1f, 0.95f);
+                case FPMeshNavigationTags.Tree:
+                    return new Color(0.1f, 0.7f, 0.22f, 0.95f);
+                case FPMeshNavigationTags.Water:
+                    return new Color(0.1f, 0.85f, 1f, 0.95f);
+                case FPMeshNavigationTags.Air:
+                    return new Color(0.86f, 0.92f, 1f, 0.95f);
+                case FPMeshNavigationTags.Underground:
+                    return new Color(0.48f, 0.28f, 0.14f, 0.95f);
+                case FPMeshNavigationTags.Home:
+                    return new Color(1f, 0.24f, 0.78f, 0.95f);
+                case FPMeshNavigationTags.Food:
+                    return new Color(1f, 0.86f, 0.18f, 0.95f);
+                case FPMeshNavigationTags.Hazard:
+                    return new Color(1f, 0.18f, 0.1f, 0.95f);
+                case FPMeshNavigationTags.CustomA:
+                    return new Color(0.75f, 0.35f, 1f, 0.95f);
+                case FPMeshNavigationTags.CustomB:
+                    return new Color(1f, 0.52f, 0.18f, 0.95f);
+                default:
+                    return new Color(0.75f, 0.75f, 0.75f, 0.75f);
+            }
+        }
+
         private void OnDrawGizmosSelected()
         {
             if (!drawDebugGizmos || vertexLookup == null)
@@ -200,10 +332,16 @@ namespace FuzzPhyte.Utility.MeshTools
                 float distance = Vector3.Distance(meshWorld, dataWorld);
                 bool aligned = resolved && distance <= alignmentTolerance;
 
-                Gizmos.color = record.HasEndpoint
-                    ? aligned ? new Color(0.25f, 1f, 0.45f, 0.95f) : new Color(1f, 0.18f, 0.1f, 0.95f)
-                    : new Color(0.25f, 0.8f, 1f, 0.55f);
+                Gizmos.color = GetDebugColor(record);
                 Gizmos.DrawSphere(meshWorld, pointSize);
+
+                if (record.MeshVertexIndex == selectedDebugMeshVertexIndex)
+                {
+                    Gizmos.color = Color.white;
+                    Gizmos.DrawWireSphere(meshWorld, pointSize * 2.6f);
+                    Gizmos.color = Color.yellow;
+                    Gizmos.DrawWireSphere(meshWorld, pointSize * 3.25f);
+                }
 
                 if (!record.HasEndpoint)
                 {

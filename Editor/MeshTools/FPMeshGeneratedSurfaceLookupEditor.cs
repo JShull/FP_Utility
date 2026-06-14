@@ -15,6 +15,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             FPMeshGeneratedSurfaceLookup lookup = (FPMeshGeneratedSurfaceLookup)target;
             IReadOnlyList<FPMeshGeneratedSurfaceVertexLookupRecord> records = lookup.VertexLookup;
             int mapped = 0;
+            Dictionary<FPMeshNavigationTags, int> tagCounts = new();
             if (records != null)
             {
                 for (int i = 0; i < records.Count; i++)
@@ -22,6 +23,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                     if (records[i].HasEndpoint)
                     {
                         mapped++;
+                    }
+
+                    if (lookup.TryResolvePrimaryTag(records[i], out FPMeshNavigationTags tag))
+                    {
+                        tagCounts.TryGetValue(tag, out int count);
+                        tagCounts[tag] = count + 1;
                     }
                 }
             }
@@ -32,6 +39,40 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             EditorGUILayout.LabelField("Mapped Data Vertices", mapped.ToString());
             bool hasGeneratedMesh = lookup.TryResolveGeneratedMesh(out Mesh generatedMesh);
             EditorGUILayout.LabelField("Generated Mesh", generatedMesh == null ? "None" : generatedMesh.name);
+            DrawTagCounts(tagCounts);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Point Selection", EditorStyles.boldLabel);
+            int maxVertex = records == null || records.Count == 0 ? -1 : records.Count - 1;
+            int selectedIndex = Mathf.Clamp(lookup.SelectedDebugMeshVertexIndex, -1, maxVertex);
+            EditorGUI.BeginChangeCheck();
+            selectedIndex = EditorGUILayout.IntSlider("Mesh Vertex Index", selectedIndex, -1, Mathf.Max(0, maxVertex));
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(lookup, "Select Surface Lookup Vertex");
+                lookup.SetSelectedDebugMeshVertexIndex(selectedIndex);
+                EditorUtility.SetDirty(lookup);
+                SceneView.RepaintAll();
+            }
+
+            using (new EditorGUI.DisabledScope(records == null || selectedIndex < 0 || selectedIndex >= records.Count))
+            {
+                if (GUILayout.Button("Frame Selected Vertex"))
+                {
+                    FrameRecord(lookup, records[selectedIndex]);
+                }
+            }
+
+            using (new EditorGUI.DisabledScope(selectedIndex < 0))
+            {
+                if (GUILayout.Button("Clear Selected Vertex"))
+                {
+                    Undo.RecordObject(lookup, "Clear Surface Lookup Vertex Selection");
+                    lookup.SetSelectedDebugMeshVertexIndex(-1);
+                    EditorUtility.SetDirty(lookup);
+                    SceneView.RepaintAll();
+                }
+            }
 
             using (new EditorGUI.DisabledScope(!hasGeneratedMesh))
             {
@@ -58,6 +99,59 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
         }
 
+        private static void DrawTagCounts(Dictionary<FPMeshNavigationTags, int> tagCounts)
+        {
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Primary Tag Counts", EditorStyles.boldLabel);
+            if (tagCounts == null || tagCounts.Count == 0)
+            {
+                EditorGUILayout.LabelField("No mapped tag data");
+                return;
+            }
+
+            FPMeshNavigationTags[] tags =
+            {
+                FPMeshNavigationTags.Ground,
+                FPMeshNavigationTags.Wall,
+                FPMeshNavigationTags.Tree,
+                FPMeshNavigationTags.Water,
+                FPMeshNavigationTags.Air,
+                FPMeshNavigationTags.Underground,
+                FPMeshNavigationTags.Home,
+                FPMeshNavigationTags.Food,
+                FPMeshNavigationTags.Hazard,
+                FPMeshNavigationTags.CustomA,
+                FPMeshNavigationTags.CustomB
+            };
+
+            for (int i = 0; i < tags.Length; i++)
+            {
+                if (!tagCounts.TryGetValue(tags[i], out int count))
+                {
+                    continue;
+                }
+
+                Rect rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
+                Rect swatch = new Rect(rect.x, rect.y + 2f, 12f, rect.height - 4f);
+                EditorGUI.DrawRect(swatch, FPMeshGeneratedSurfaceLookup.GetTagDebugColor(tags[i]));
+                EditorGUI.LabelField(new Rect(rect.x + 18f, rect.y, rect.width - 18f, rect.height), tags[i].ToString(), count.ToString());
+            }
+        }
+
+        private static void FrameRecord(FPMeshGeneratedSurfaceLookup lookup, FPMeshGeneratedSurfaceVertexLookupRecord record)
+        {
+            SceneView sceneView = SceneView.lastActiveSceneView;
+            if (sceneView == null)
+            {
+                return;
+            }
+
+            Vector3 world = lookup.GetCurrentMeshVertexWorldPosition(record);
+            float size = Mathf.Max(0.2f, lookup.DebugPointSize * 12f);
+            sceneView.Frame(new Bounds(world, Vector3.one * size), false);
+            SceneView.RepaintAll();
+        }
+
         private void OnSceneGUI()
         {
             FPMeshGeneratedSurfaceLookup lookup = (FPMeshGeneratedSurfaceLookup)target;
@@ -78,13 +172,28 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 float distance = Vector3.Distance(meshWorld, dataWorld);
                 bool aligned = record.HasEndpoint && resolved && distance <= tolerance;
 
-                Handles.color = !record.HasEndpoint
-                    ? new Color(0.25f, 0.8f, 1f, 0.55f)
-                    : aligned ? new Color(0.25f, 1f, 0.45f, 0.95f) : new Color(1f, 0.18f, 0.1f, 0.95f);
+                Color recordColor = lookup.GetDebugColor(record);
+                Handles.color = recordColor;
+                if (Handles.Button(meshWorld, Quaternion.identity, lookup.DebugPointSize, lookup.DebugPointSize * 1.8f, Handles.SphereHandleCap))
+                {
+                    Undo.RecordObject(lookup, "Select Surface Lookup Vertex");
+                    lookup.SetSelectedDebugMeshVertexIndex(record.MeshVertexIndex);
+                    EditorUtility.SetDirty(lookup);
+                    SceneView.RepaintAll();
+                }
 
-                Handles.SphereHandleCap(0, meshWorld, Quaternion.identity, lookup.DebugPointSize, EventType.Repaint);
+                if (record.MeshVertexIndex == lookup.SelectedDebugMeshVertexIndex)
+                {
+                    Vector3 forward = GetSceneViewForward();
+                    Handles.color = Color.white;
+                    Handles.DrawWireDisc(meshWorld, forward, lookup.DebugPointSize * 2.8f);
+                    Handles.color = Color.yellow;
+                    Handles.DrawWireDisc(meshWorld, forward, lookup.DebugPointSize * 3.5f);
+                }
+
                 if (record.HasEndpoint)
                 {
+                    Handles.color = recordColor;
                     Handles.DrawAAPolyLine(2f, meshWorld, dataWorld);
                 }
 
@@ -96,6 +205,11 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 string label = record.HasEndpoint
                     ? $"MV{record.MeshVertexIndex} -> S{record.SurfaceIndex}"
                     : $"MV{record.MeshVertexIndex}";
+                if (lookup.TryResolvePrimaryTag(record, out FPMeshNavigationTags tag))
+                {
+                    label += $" {tag}";
+                }
+
                 if (record.HasEndpoint && !aligned)
                 {
                     label += $" ({distance:0.###})";
@@ -109,6 +223,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             Handles.color = previous;
+        }
+
+        private static Vector3 GetSceneViewForward()
+        {
+            SceneView sceneView = SceneView.currentDrawingSceneView;
+            return sceneView != null && sceneView.camera != null ? sceneView.camera.transform.forward : Vector3.forward;
         }
     }
 }

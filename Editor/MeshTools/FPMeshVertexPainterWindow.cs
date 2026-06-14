@@ -48,6 +48,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         private readonly Dictionary<FPMeshSurfaceEdgeEndpoint, int> surfaceIndexByEndpoint = new();
         private readonly Dictionary<FPMeshSurfaceEdgeEndpoint, FPMeshNavigationTags> tagsByEndpoint = new();
         private readonly List<Vector3> planePicks = new();
+        private readonly List<FPMeshSurfaceEdgeEndpoint> planePickEndpoints = new();
         private readonly List<Vector2> previewLassoPoints = new();
 
         private FPMeshVertexPaintAuthoring authoring;
@@ -93,6 +94,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         private bool edgePaintRemoves;
         private bool trianglePaintRemoves;
         private bool previewLassoRemoves;
+        private bool isPickingNewPlane;
+        private Color pendingPlaneColor;
         private Vector3 previewPanOffset;
 
         private const float PreviewZoomMin = 0.08f;
@@ -182,6 +185,11 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 if (nextMode != mode)
                 {
                     mode = nextMode;
+                    if (mode == ToolMode.Plane)
+                    {
+                        BeginPlaneMode();
+                    }
+
                     ClearPendingGeneratedEdgeStart();
                     isPaintingPreviewEdges = false;
                     edgePaintRemoves = false;
@@ -228,6 +236,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                         tagsByEndpoint.Clear();
                         generatedPlane = default;
                         planePicks.Clear();
+                        planePickEndpoints.Clear();
+                        isPickingNewPlane = false;
                         ClearPendingGeneratedEdgeStart();
                         EditorUtility.SetDirty(authoring);
                         SceneView.RepaintAll();
@@ -418,27 +428,43 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             EditorGUILayout.Space(4);
-            int selectedCount = CountSelectedVertices();
-            EditorGUILayout.LabelField("Plane", GetCurrentGeneratedPlane(out _) ? "Ready" : $"Pick {planePicks.Count}/3");
+            int planeCount = GetGeneratedPlaneCount();
+            string planeStatus = isPickingNewPlane
+                ? $"Pick {planePickEndpoints.Count}/3"
+                : GetSelectedGeneratedPlaneIndex() >= 0 ? $"Selected {GetSelectedGeneratedPlaneIndex() + 1}/{planeCount}" : $"{planeCount} saved";
+            EditorGUILayout.LabelField("Plane", planeStatus);
 
-            using (new EditorGUI.DisabledScope(selectedCount < 3))
+            if (GUILayout.Button("Add New Plane"))
             {
-                if (GUILayout.Button("Build Plane From Selection"))
-                {
-                    BuildPlaneFromSelection();
-                }
+                BeginNewPlanePick();
             }
 
-            if (planePicks.Count > 0 && GUILayout.Button("Clear Plane Picks"))
+            if (planePickEndpoints.Count > 0 && GUILayout.Button("Clear Plane Picks"))
             {
                 planePicks.Clear();
+                planePickEndpoints.Clear();
                 SceneView.RepaintAll();
                 Repaint();
             }
 
-            if (GetCurrentGeneratedPlane(out _) && GUILayout.Button("Clear Generated Plane"))
+            using (new EditorGUI.DisabledScope(GetSelectedGeneratedPlaneIndex() < 0))
             {
-                ClearGeneratedPlane();
+                if (GUILayout.Button("Clear Selected Plane"))
+                {
+                    ClearSelectedGeneratedPlane();
+                }
+            }
+        }
+
+        private readonly struct PlaneAnchorVisual
+        {
+            public readonly FPMeshSurfaceEdgeEndpoint Endpoint;
+            public readonly Color Color;
+
+            public PlaneAnchorVisual(FPMeshSurfaceEdgeEndpoint endpoint, Color color)
+            {
+                Endpoint = endpoint;
+                Color = color;
             }
         }
 
@@ -884,16 +910,38 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             DrawSelectedPreviewVertices(previewUtility.camera, rect);
+            DrawPlaneAnchorPreview(previewUtility.camera, rect);
         }
 
         private void DrawGeneratedPlanePreview(Rect rect)
         {
-            if (!GetCurrentGeneratedPlane(out FPMeshGeneratedPlane plane) || Event.current.type != EventType.Repaint)
+            if (Event.current.type != EventType.Repaint)
             {
                 return;
             }
 
-            float size = GetPlaneDisplaySize();
+            int planeCount = GetGeneratedPlaneCount();
+            int selectedIndex = GetSelectedGeneratedPlaneIndex();
+            if (planeCount == 0 && GetCurrentGeneratedPlane(out FPMeshGeneratedPlane fallbackPlane))
+            {
+                DrawGeneratedPlanePreview(rect, fallbackPlane, GetPlaneDisplaySize(fallbackPlane), ResolvePlaneColor(fallbackPlane), true);
+                return;
+            }
+
+            for (int i = 0; i < planeCount; i++)
+            {
+                if (!TryGetGeneratedPlaneAt(i, out FPMeshGeneratedPlane plane))
+                {
+                    continue;
+                }
+
+                bool selected = i == selectedIndex;
+                DrawGeneratedPlanePreview(rect, plane, GetPlaneDisplaySize(plane), ResolvePlaneColor(plane), selected);
+            }
+        }
+
+        private void DrawGeneratedPlanePreview(Rect rect, FPMeshGeneratedPlane plane, float size, Color planeColor, bool selected)
+        {
             Vector3 right = plane.Right.sqrMagnitude > 0.0001f ? plane.Right.normalized : Vector3.right;
             Vector3 forward = plane.Forward.sqrMagnitude > 0.0001f ? plane.Forward.normalized : Vector3.forward;
             Vector3[] worldCorners =
@@ -918,12 +966,16 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Handles.BeginGUI();
             GUI.BeginClip(rect);
             Color previous = Handles.color;
-            Handles.color = FPMeshGraphPreview.PlaneFillColor;
+            Color fillColor = planeColor;
+            fillColor.a = selected ? 0.18f : 0.08f;
+            Color outlineColor = planeColor;
+            outlineColor.a = selected ? 0.95f : 0.5f;
+            Handles.color = fillColor;
             Handles.DrawAAConvexPolygon(guiCorners);
-            Handles.color = FPMeshGraphPreview.PlaneEdgeColor;
+            Handles.color = outlineColor;
             for (int i = 0; i < guiCorners.Length; i++)
             {
-                Handles.DrawAAPolyLine(2f, guiCorners[i], guiCorners[(i + 1) % guiCorners.Length]);
+                Handles.DrawAAPolyLine(selected ? 2.6f : 1.6f, guiCorners[i], guiCorners[(i + 1) % guiCorners.Length]);
             }
 
             Handles.color = previous;
@@ -941,7 +993,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Handles.BeginGUI();
             GUI.BeginClip(rect);
             Color previous = Handles.color;
-            Handles.color = FPMeshGraphPreview.PlaneEdgeColor;
+            Handles.color = ResolvePendingPlaneColor();
 
             Vector2 previousPoint = Vector2.zero;
             bool hasPreviousPoint = false;
@@ -952,7 +1004,6 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                     continue;
                 }
 
-                Handles.DrawSolidDisc(point, Vector3.forward, 4.8f);
                 if (hasPreviousPoint)
                 {
                     Handles.DrawAAPolyLine(2f, previousPoint, point);
@@ -1366,7 +1417,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             bool leftMouseToolStart = current.type == EventType.MouseDown &&
                 current.button == 0 &&
                 previewInteractionMode == PreviewInteractionMode.SelectVertices &&
-                (mode == ToolMode.Select || mode == ToolMode.Point || mode == ToolMode.Edge || mode == ToolMode.Triangle);
+                (mode == ToolMode.Select || mode == ToolMode.Plane || mode == ToolMode.Point || mode == ToolMode.Edge || mode == ToolMode.Triangle);
 
             if (current.type == EventType.MouseDown && current.button == 0 && !leftMouseToolStart)
             {
@@ -1404,7 +1455,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             bool rightMouseSelectionStart = current.type == EventType.MouseDown &&
                 current.button == 1 &&
                 previewInteractionMode == PreviewInteractionMode.SelectVertices &&
-                (mode == ToolMode.Select || mode == ToolMode.Point || mode == ToolMode.Edge || mode == ToolMode.Triangle);
+                (mode == ToolMode.Select || mode == ToolMode.Plane || mode == ToolMode.Point || mode == ToolMode.Edge || mode == ToolMode.Triangle);
             if ((mouseOverPanelOrbit || currentViewportOrbitHover >= 0) && !rightMouseSelectionStart)
             {
                 return;
@@ -1427,6 +1478,23 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 if (changed)
                 {
                     Repaint();
+                }
+
+                current.Use();
+                return;
+            }
+
+            if (current.type == EventType.MouseDown && IsSelectionMouseButton(current.button) && previewInteractionMode == PreviewInteractionMode.SelectVertices && mode == ToolMode.Plane)
+            {
+                bool changed = isPickingNewPlane
+                    ? current.button == 1
+                        ? TryRemoveNearestPlanePreviewPick(rect, current.mousePosition)
+                        : TryAddPlanePreviewPick(rect, current.mousePosition)
+                    : current.button == 0 && TrySelectGeneratedPlanePreview(rect, current.mousePosition);
+                if (changed)
+                {
+                    Repaint();
+                    SceneView.RepaintAll();
                 }
 
                 current.Use();
@@ -1863,8 +1931,25 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private float GetPlaneDisplaySize()
         {
+            return GetCurrentGeneratedPlane(out FPMeshGeneratedPlane plane)
+                ? GetPlaneDisplaySize(plane)
+                : GetPlaneFallbackDisplaySize();
+        }
+
+        private float GetPlaneDisplaySize(FPMeshGeneratedPlane plane)
+        {
+            if (TryGetPlaneAnchorDisplaySize(plane, out float anchorSize))
+            {
+                return anchorSize;
+            }
+
+            return GetPlaneFallbackDisplaySize();
+        }
+
+        private float GetPlaneFallbackDisplaySize()
+        {
             Bounds bounds = CalculatePreviewBounds();
-            float size = Mathf.Max(0.25f, bounds.extents.magnitude * 0.55f);
+            float size = Mathf.Max(0.25f, bounds.extents.magnitude * 0.35f);
             if (authoring != null && authoring.GeneratedPoints != null)
             {
                 for (int i = 0; i < authoring.GeneratedPoints.Count; i++)
@@ -1874,6 +1959,57 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             return size;
+        }
+
+        private bool TryGetPlaneAnchorDisplaySize(out float size)
+        {
+            size = 0f;
+            return GetCurrentGeneratedPlane(out FPMeshGeneratedPlane plane) && TryGetPlaneAnchorDisplaySize(plane, out size);
+        }
+
+        private bool TryGetPlaneAnchorDisplaySize(FPMeshGeneratedPlane plane, out float size)
+        {
+            size = 0f;
+            if (!plane.IsValid || !plane.HasAnchorPoints)
+            {
+                return false;
+            }
+
+            Vector3 right = plane.Right.sqrMagnitude > 0.0001f ? plane.Right.normalized : Vector3.right;
+            Vector3 forward = plane.Forward.sqrMagnitude > 0.0001f ? plane.Forward.normalized : Vector3.forward;
+            float maxExtent = 0f;
+
+            if (!TryExpandPlaneAnchorDisplayExtent(plane.AnchorA, plane.Origin, right, forward, ref maxExtent) ||
+                !TryExpandPlaneAnchorDisplayExtent(plane.AnchorB, plane.Origin, right, forward, ref maxExtent) ||
+                !TryExpandPlaneAnchorDisplayExtent(plane.AnchorC, plane.Origin, right, forward, ref maxExtent))
+            {
+                return false;
+            }
+
+            float minimumSize = Mathf.Max(0.05f, vertexSize * 8f);
+            float padding = Mathf.Max(vertexSize * 4f, maxExtent * 0.18f);
+            size = Mathf.Max(minimumSize, maxExtent + padding);
+            return true;
+        }
+
+        private bool TryExpandPlaneAnchorDisplayExtent(
+            FPMeshSurfaceEdgeEndpoint endpoint,
+            Vector3 origin,
+            Vector3 right,
+            Vector3 forward,
+            ref float maxExtent)
+        {
+            if (!TryGetEdgeEndpointWorldPosition(endpoint, out Vector3 world))
+            {
+                return false;
+            }
+
+            Vector3 relative = world - origin;
+            maxExtent = Mathf.Max(
+                maxExtent,
+                Mathf.Abs(Vector3.Dot(relative, right)),
+                Mathf.Abs(Vector3.Dot(relative, forward)));
+            return true;
         }
 
         private static Bounds TransformBounds(Bounds bounds, Matrix4x4 matrix)
@@ -1951,6 +2087,74 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 Handles.DrawSolidDisc(point.Point, Vector3.forward, 4.6f);
                 Handles.color = Color.black;
                 Handles.DrawWireDisc(point.Point, Vector3.forward, 5.2f);
+            }
+
+            Handles.color = previous;
+            GUI.EndClip();
+            Handles.EndGUI();
+        }
+
+        private void DrawPlaneAnchorPreview(Camera camera, Rect previewRect)
+        {
+            if (camera == null || Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            List<PreviewOverlayPoint> points = new();
+            List<PlaneAnchorVisual> anchors = BuildPlaneAnchorVisuals();
+            for (int i = 0; i < anchors.Count; i++)
+            {
+                FPMeshSurfaceEdgeEndpoint endpoint = anchors[i].Endpoint;
+                if (!TryGetEdgeEndpointWorldPosition(endpoint, out Vector3 world))
+                {
+                    continue;
+                }
+
+                Vector3 viewport = camera.WorldToViewportPoint(world);
+                if (viewport.z <= 0.001f || viewport.x < 0f || viewport.x > 1f || viewport.y < 0f || viewport.y > 1f)
+                {
+                    continue;
+                }
+
+                Vector2 point = new Vector2(viewport.x * previewRect.width, (1f - viewport.y) * previewRect.height);
+                Color anchorColor = anchors[i].Color;
+                if (IsEndpointSelected(endpoint))
+                {
+                    anchorColor.a = -1f;
+                }
+
+                points.Add(new PreviewOverlayPoint(point, viewport.z, anchorColor));
+            }
+
+            if (points.Count == 0)
+            {
+                return;
+            }
+
+            points.Sort((a, b) => b.Depth.CompareTo(a.Depth));
+
+            Handles.BeginGUI();
+            GUI.BeginClip(previewRect);
+            Color previous = Handles.color;
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                PreviewOverlayPoint point = points[i];
+                if (point.Color.a < 0f)
+                {
+                    Color selectedColor = point.Color;
+                    selectedColor.a = 1f;
+                    Handles.color = FPMeshGraphPreview.PlaneAnchorOuterColor;
+                    Handles.DrawWireDisc(point.Point, Vector3.forward, 9.4f);
+                    Handles.color = selectedColor;
+                    Handles.DrawWireDisc(point.Point, Vector3.forward, 7.2f);
+                }
+                else
+                {
+                    Handles.color = point.Color;
+                    Handles.DrawWireDisc(point.Point, Vector3.forward, 6.8f);
+                }
             }
 
             Handles.color = previous;
@@ -2294,12 +2498,119 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 FPMeshGraphPreview.DrawGeneratedPoints(authoring.GeneratedPoints, vertexSize * 1.4f);
             }
 
-            if (GetCurrentGeneratedPlane(out FPMeshGeneratedPlane plane))
+            int selectedPlaneIndex = GetSelectedGeneratedPlaneIndex();
+            int planeCount = GetGeneratedPlaneCount();
+            for (int i = 0; i < planeCount; i++)
             {
-                FPMeshGraphPreview.DrawGeneratedPlane(plane, GetPlaneDisplaySize());
+                if (!TryGetGeneratedPlaneAt(i, out FPMeshGeneratedPlane plane))
+                {
+                    continue;
+                }
+
+                FPMeshGraphPreview.DrawGeneratedPlane(plane, GetPlaneDisplaySize(plane), ResolvePlaneColor(plane), i == selectedPlaneIndex);
+            }
+
+            if (planeCount == 0 && GetCurrentGeneratedPlane(out FPMeshGeneratedPlane fallbackPlane))
+            {
+                FPMeshGraphPreview.DrawGeneratedPlane(fallbackPlane, GetPlaneDisplaySize(fallbackPlane));
             }
 
             FPMeshGraphPreview.DrawPlanePicks(planePicks, vertexSize * 1.4f);
+            DrawScenePlaneAnchors(vertexSize * 1.75f);
+        }
+
+        private void DrawScenePlaneAnchors(float size)
+        {
+            List<PlaneAnchorVisual> anchors = BuildPlaneAnchorVisuals();
+            if (anchors.Count == 0)
+            {
+                return;
+            }
+
+            Vector3 discNormal = Camera.current == null ? Vector3.up : Camera.current.transform.forward;
+            Color previous = Handles.color;
+            for (int i = 0; i < anchors.Count; i++)
+            {
+                FPMeshSurfaceEdgeEndpoint endpoint = anchors[i].Endpoint;
+                if (!TryGetEdgeEndpointWorldPosition(endpoint, out Vector3 world))
+                {
+                    continue;
+                }
+
+                if (IsEndpointSelected(endpoint))
+                {
+                    Handles.color = FPMeshGraphPreview.PlaneAnchorOuterColor;
+                    Handles.DrawWireDisc(world, discNormal, size * 1.35f);
+                    Handles.color = anchors[i].Color;
+                    Handles.DrawWireDisc(world, discNormal, size * 1.08f);
+                }
+                else
+                {
+                    Handles.color = anchors[i].Color;
+                    Handles.DrawWireDisc(world, discNormal, size);
+                }
+            }
+
+            Handles.color = previous;
+        }
+
+        private List<PlaneAnchorVisual> BuildPlaneAnchorVisuals()
+        {
+            List<PlaneAnchorVisual> anchors = new();
+            Color pendingColor = ResolvePendingPlaneColor();
+            for (int i = 0; i < planePickEndpoints.Count; i++)
+            {
+                anchors.Add(new PlaneAnchorVisual(planePickEndpoints[i], pendingColor));
+            }
+
+            int planeCount = GetGeneratedPlaneCount();
+            for (int i = 0; i < planeCount; i++)
+            {
+                if (!TryGetGeneratedPlaneAt(i, out FPMeshGeneratedPlane plane) || !plane.HasAnchorPoints)
+                {
+                    continue;
+                }
+
+                Color color = ResolvePlaneColor(plane);
+                anchors.Add(new PlaneAnchorVisual(plane.AnchorA, color));
+                anchors.Add(new PlaneAnchorVisual(plane.AnchorB, color));
+                anchors.Add(new PlaneAnchorVisual(plane.AnchorC, color));
+            }
+
+            if (planeCount == 0 && GetCurrentGeneratedPlane(out FPMeshGeneratedPlane fallbackPlane) && fallbackPlane.HasAnchorPoints)
+            {
+                Color color = ResolvePlaneColor(fallbackPlane);
+                anchors.Add(new PlaneAnchorVisual(fallbackPlane.AnchorA, color));
+                anchors.Add(new PlaneAnchorVisual(fallbackPlane.AnchorB, color));
+                anchors.Add(new PlaneAnchorVisual(fallbackPlane.AnchorC, color));
+            }
+
+            return anchors;
+        }
+
+        private bool IsEndpointSelected(FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            return endpoint.Kind == FPMeshSurfacePointKind.SourceVertex &&
+                selectedByMesh.TryGetValue(endpoint.SourceMeshIndex, out HashSet<int> selected) &&
+                selected != null &&
+                selected.Contains(endpoint.VertexIndex);
+        }
+
+        private static Color ResolvePlaneColor(FPMeshGeneratedPlane plane)
+        {
+            return plane.DisplayColor.a > 0.001f ? plane.DisplayColor : FPMeshGraphPreview.PlaneEdgeColor;
+        }
+
+        private Color ResolvePendingPlaneColor()
+        {
+            return pendingPlaneColor.a > 0.001f ? pendingPlaneColor : FPMeshGraphPreview.PlaneAnchorColor;
+        }
+
+        private static Color CreateRandomPlaneColor()
+        {
+            Color color = UnityEngine.Random.ColorHSV(0f, 1f, 0.55f, 1f, 0.82f, 1f);
+            color.a = 1f;
+            return color;
         }
 
         private void HandleSceneClick(Vector2 mousePosition)
@@ -2312,7 +2623,11 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
             if (mode == ToolMode.Plane)
             {
-                TryAddPlanePick(mousePosition);
+                if (isPickingNewPlane)
+                {
+                    TryAddPlanePick(mousePosition);
+                }
+
                 return;
             }
 
@@ -2351,41 +2666,152 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             SceneView.RepaintAll();
         }
 
-        private void BuildPlaneFromSelection()
+        private void BeginPlaneMode()
         {
-            List<Vector3> selectedPoints = new();
-            CollectSelectedWorldPoints(selectedPoints);
-            if (!TryBuildPlaneFromPoints(selectedPoints, out FPMeshGeneratedPlane plane))
+            planePicks.Clear();
+            planePickEndpoints.Clear();
+            isPickingNewPlane = false;
+            if (!GetCurrentGeneratedPlane(out FPMeshGeneratedPlane plane) || plane.HasAnchorPoints)
+            {
+                return;
+            }
+
+            ClearGeneratedPlane("Clear Mesh Plane Without Anchors");
+        }
+
+        private void BeginNewPlanePick()
+        {
+            planePicks.Clear();
+            planePickEndpoints.Clear();
+            pendingPlaneColor = CreateRandomPlaneColor();
+            isPickingNewPlane = true;
+            Repaint();
+            SceneView.RepaintAll();
+        }
+
+        private int GetGeneratedPlaneCount()
+        {
+            return authoring != null && authoring.GeneratedPlanes != null ? authoring.GeneratedPlanes.Count : generatedPlane.IsValid ? 1 : 0;
+        }
+
+        private int GetSelectedGeneratedPlaneIndex()
+        {
+            return authoring != null ? authoring.SelectedGeneratedPlaneIndex : generatedPlane.IsValid ? 0 : -1;
+        }
+
+        private bool TryGetGeneratedPlaneAt(int index, out FPMeshGeneratedPlane plane)
+        {
+            plane = default;
+            if (authoring != null && authoring.GeneratedPlanes != null)
+            {
+                if (index < 0 || index >= authoring.GeneratedPlanes.Count)
+                {
+                    return false;
+                }
+
+                plane = authoring.GeneratedPlanes[index];
+                return plane.IsValid;
+            }
+
+            if (index == 0 && generatedPlane.IsValid)
+            {
+                plane = generatedPlane;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void SelectGeneratedPlane(int index, string undoLabel)
+        {
+            planePicks.Clear();
+            planePickEndpoints.Clear();
+            isPickingNewPlane = false;
+            if (authoring != null)
+            {
+                Undo.RecordObject(authoring, undoLabel);
+                authoring.SetSelectedGeneratedPlaneIndex(index);
+                generatedPlane = authoring.GeneratedPlane;
+                EditorUtility.SetDirty(authoring);
+            }
+            else if (index == 0 && generatedPlane.IsValid)
+            {
+                // Local single-plane fallback.
+            }
+
+            Repaint();
+            SceneView.RepaintAll();
+        }
+
+        private void ClearSelectedGeneratedPlane()
+        {
+            int selectedIndex = GetSelectedGeneratedPlaneIndex();
+            if (selectedIndex < 0)
             {
                 return;
             }
 
             planePicks.Clear();
-            SetGeneratedPlane(plane, "Build Mesh Plane From Selection");
+            planePickEndpoints.Clear();
+            isPickingNewPlane = false;
+            if (authoring != null)
+            {
+                Undo.RecordObject(authoring, "Clear Selected Mesh Plane");
+                authoring.RemoveGeneratedPlaneAt(selectedIndex);
+                generatedPlane = authoring.GeneratedPlane;
+                EditorUtility.SetDirty(authoring);
+            }
+            else
+            {
+                generatedPlane = default;
+            }
+
             Repaint();
             SceneView.RepaintAll();
         }
 
         private void SetGeneratedPlane(FPMeshGeneratedPlane plane, string undoLabel)
         {
+            if (plane.DisplayColor.a <= 0.001f)
+            {
+                plane.DisplayColor = pendingPlaneColor.a > 0.001f ? pendingPlaneColor : CreateRandomPlaneColor();
+            }
+
             generatedPlane = plane;
             if (authoring == null)
             {
+                isPickingNewPlane = false;
                 return;
             }
 
             Undo.RecordObject(authoring, undoLabel);
-            authoring.SetGeneratedPlane(plane);
+            if (isPickingNewPlane || GetSelectedGeneratedPlaneIndex() < 0)
+            {
+                authoring.AddGeneratedPlane(plane);
+            }
+            else
+            {
+                authoring.SetGeneratedPlane(plane);
+            }
+
+            generatedPlane = authoring.GeneratedPlane;
+            isPickingNewPlane = false;
             EditorUtility.SetDirty(authoring);
         }
 
         private void ClearGeneratedPlane()
         {
+            ClearGeneratedPlane("Clear Generated Mesh Plane");
+        }
+
+        private void ClearGeneratedPlane(string undoLabel)
+        {
             generatedPlane = default;
             planePicks.Clear();
+            planePickEndpoints.Clear();
             if (authoring != null)
             {
-                Undo.RecordObject(authoring, "Clear Generated Mesh Plane");
+                Undo.RecordObject(authoring, undoLabel);
                 authoring.SetGeneratedPlane(default);
                 EditorUtility.SetDirty(authoring);
             }
@@ -2406,29 +2832,23 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             return plane.IsValid;
         }
 
-        private bool TryBuildPlaneFromPoints(IReadOnlyList<Vector3> points, out FPMeshGeneratedPlane plane)
+        private bool TryBuildPlaneFromEndpoints(IReadOnlyList<FPMeshSurfaceEdgeEndpoint> endpoints, out FPMeshGeneratedPlane plane)
         {
             plane = default;
-            if (points == null || points.Count < 3)
+            if (endpoints == null || endpoints.Count < 3 ||
+                !TryGetEdgeEndpointWorldPosition(endpoints[0], out Vector3 a) ||
+                !TryGetEdgeEndpointWorldPosition(endpoints[1], out Vector3 b) ||
+                !TryGetEdgeEndpointWorldPosition(endpoints[2], out Vector3 c) ||
+                !TryBuildPlane(a, b, c, out plane))
             {
                 return false;
             }
 
-            for (int a = 0; a < points.Count - 2; a++)
-            {
-                for (int b = a + 1; b < points.Count - 1; b++)
-                {
-                    for (int c = b + 1; c < points.Count; c++)
-                    {
-                        if (TryBuildPlane(points[a], points[b], points[c], out plane))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            return false;
+            plane.HasAnchorPoints = true;
+            plane.AnchorA = endpoints[0];
+            plane.AnchorB = endpoints[1];
+            plane.AnchorC = endpoints[2];
+            return true;
         }
 
         private static bool TryBuildPlane(Vector3 a, Vector3 b, Vector3 c, out FPMeshGeneratedPlane plane)
@@ -2447,7 +2867,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             plane = new FPMeshGeneratedPlane
             {
                 IsValid = true,
-                Origin = a,
+                Origin = (a + b + c) / 3f,
                 Right = right,
                 Forward = forward,
                 Normal = normal
@@ -2458,27 +2878,163 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private void TryAddPlanePick(Vector2 mousePosition)
         {
-            if (!TryHitActiveMesh(mousePosition, out RaycastHit hit))
+            if (!TryFindNearestSceneSourceVertex(mousePosition, 18f, out FPMeshSurfaceEdgeEndpoint endpoint))
             {
                 return;
             }
 
-            planePicks.Add(hit.point);
-            if (planePicks.Count < 3)
+            AddPlanePickEndpoint(endpoint);
+        }
+
+        private bool TryAddPlanePreviewPick(Rect previewRect, Vector2 mousePosition)
+        {
+            return TryFindNearestPreviewSourceVertex(previewRect, mousePosition, Mathf.Max(12f, previewSelectionRadius), out FPMeshSurfaceEdgeEndpoint endpoint) &&
+                AddPlanePickEndpoint(endpoint);
+        }
+
+        private bool TryRemoveNearestPlanePreviewPick(Rect previewRect, Vector2 mousePosition)
+        {
+            if (planePickEndpoints.Count == 0 || previewUtility == null || previewUtility.camera == null)
+            {
+                return false;
+            }
+
+            Vector2 localMousePosition = mousePosition - previewRect.position;
+            int nearest = -1;
+            float nearestDistance = Mathf.Max(12f, previewSelectionRadius);
+            for (int i = 0; i < planePickEndpoints.Count; i++)
+            {
+                if (!TryGetEdgeEndpointWorldPosition(planePickEndpoints[i], out Vector3 world) ||
+                    !TryProjectPreviewPoint(previewUtility.camera, previewRect, world, out Vector2 point))
+                {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(localMousePosition, point);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearest = i;
+                }
+            }
+
+            if (nearest < 0)
+            {
+                return false;
+            }
+
+            planePickEndpoints.RemoveAt(nearest);
+            planePicks.RemoveAt(nearest);
+            return true;
+        }
+
+        private bool TrySelectGeneratedPlanePreview(Rect previewRect, Vector2 mousePosition)
+        {
+            if (previewUtility == null || previewUtility.camera == null)
+            {
+                return false;
+            }
+
+            Vector2 localMousePosition = mousePosition - previewRect.position;
+            int selectedPlane = -1;
+            float selectedDepth = float.PositiveInfinity;
+            int planeCount = GetGeneratedPlaneCount();
+            for (int i = 0; i < planeCount; i++)
+            {
+                if (!TryGetGeneratedPlaneAt(i, out FPMeshGeneratedPlane plane) ||
+                    !TryBuildProjectedPlaneQuad(previewRect, plane, out List<Vector2> quad, out float depth))
+                {
+                    continue;
+                }
+
+                if (IsPointInPolygon(localMousePosition, quad) && depth < selectedDepth)
+                {
+                    selectedDepth = depth;
+                    selectedPlane = i;
+                }
+            }
+
+            if (selectedPlane < 0)
+            {
+                return false;
+            }
+
+            SelectGeneratedPlane(selectedPlane, "Select Mesh Plane");
+            return true;
+        }
+
+        private bool TryBuildProjectedPlaneQuad(Rect previewRect, FPMeshGeneratedPlane plane, out List<Vector2> quad, out float depth)
+        {
+            quad = null;
+            depth = 0f;
+            if (!plane.IsValid)
+            {
+                return false;
+            }
+
+            float size = GetPlaneDisplaySize(plane);
+            Vector3 right = plane.Right.sqrMagnitude > 0.0001f ? plane.Right.normalized : Vector3.right;
+            Vector3 forward = plane.Forward.sqrMagnitude > 0.0001f ? plane.Forward.normalized : Vector3.forward;
+            Vector3[] worldCorners =
+            {
+                plane.Origin - (right * size) - (forward * size),
+                plane.Origin - (right * size) + (forward * size),
+                plane.Origin + (right * size) + (forward * size),
+                plane.Origin + (right * size) - (forward * size)
+            };
+
+            quad = new List<Vector2>(worldCorners.Length);
+            for (int i = 0; i < worldCorners.Length; i++)
+            {
+                Vector3 viewport = previewUtility.camera.WorldToViewportPoint(worldCorners[i]);
+                if (viewport.z <= 0.001f)
+                {
+                    return false;
+                }
+
+                quad.Add(new Vector2(viewport.x * previewRect.width, (1f - viewport.y) * previewRect.height));
+                depth += viewport.z;
+            }
+
+            depth /= worldCorners.Length;
+            return true;
+        }
+
+        private bool AddPlanePickEndpoint(FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            if (!isPickingNewPlane)
+            {
+                return false;
+            }
+
+            if (planePickEndpoints.Contains(endpoint) || !TryGetEdgeEndpointWorldPosition(endpoint, out Vector3 world))
+            {
+                return false;
+            }
+
+            planePickEndpoints.Add(endpoint);
+            planePicks.Add(world);
+            if (planePickEndpoints.Count < 3)
             {
                 Repaint();
                 SceneView.RepaintAll();
-                return;
+                return true;
             }
 
-            if (TryBuildPlaneFromPoints(planePicks, out FPMeshGeneratedPlane plane))
+            if (TryBuildPlaneFromEndpoints(planePickEndpoints, out FPMeshGeneratedPlane plane))
             {
                 SetGeneratedPlane(plane, "Set Mesh Generated Plane");
+                planePicks.Clear();
+                planePickEndpoints.Clear();
+            }
+            else
+            {
+                Debug.LogWarning("The selected plane vertices are collinear. Remove one plane pick and choose a different vertex.");
             }
 
-            planePicks.Clear();
             Repaint();
             SceneView.RepaintAll();
+            return true;
         }
 
         private void TryAddGeneratedPoint(Vector2 mousePosition)
@@ -4126,6 +4682,86 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             return nearest;
         }
 
+        private bool TryFindNearestPreviewSourceVertex(Rect previewRect, Vector2 mousePosition, float maxDistance, out FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            endpoint = default;
+            if (previewUtility == null || previewUtility.camera == null)
+            {
+                return false;
+            }
+
+            Vector2 localMousePosition = mousePosition - previewRect.position;
+            float nearestDistance = maxDistance;
+            bool found = false;
+
+            for (int meshIndex = 0; meshIndex < sourceMeshes.Count; meshIndex++)
+            {
+                MeshFilter meshFilter = sourceMeshes[meshIndex];
+                if (meshFilter == null || meshFilter.sharedMesh == null)
+                {
+                    continue;
+                }
+
+                bool active = meshIndex == activeMeshIndex;
+                if (!active && !drawPreviewAllMeshes)
+                {
+                    continue;
+                }
+
+                Vector3[] vertices = meshFilter.sharedMesh.vertices;
+                Matrix4x4 matrix = meshFilter.transform.localToWorldMatrix;
+                for (int vertexIndex = 0; vertexIndex < vertices.Length; vertexIndex++)
+                {
+                    Vector3 world = matrix.MultiplyPoint3x4(vertices[vertexIndex]);
+                    if (!TryProjectPreviewPoint(previewUtility.camera, previewRect, world, out Vector2 point))
+                    {
+                        continue;
+                    }
+
+                    float distance = Vector2.Distance(localMousePosition, point);
+                    if (distance < nearestDistance)
+                    {
+                        nearestDistance = distance;
+                        endpoint = FPMeshSurfaceEdgeEndpoint.Source(meshIndex, vertexIndex);
+                        found = true;
+                    }
+                }
+            }
+
+            return found;
+        }
+
+        private bool TryFindNearestSceneSourceVertex(Vector2 mousePosition, float maxDistance, out FPMeshSurfaceEdgeEndpoint endpoint)
+        {
+            endpoint = default;
+            float nearestDistance = maxDistance;
+            bool found = false;
+
+            for (int meshIndex = 0; meshIndex < sourceMeshes.Count; meshIndex++)
+            {
+                MeshFilter meshFilter = sourceMeshes[meshIndex];
+                if (meshFilter == null || meshFilter.sharedMesh == null)
+                {
+                    continue;
+                }
+
+                Vector3[] vertices = meshFilter.sharedMesh.vertices;
+                for (int vertexIndex = 0; vertexIndex < vertices.Length; vertexIndex++)
+                {
+                    Vector2 guiPoint = HandleUtility.WorldToGUIPoint(meshFilter.transform.TransformPoint(vertices[vertexIndex]));
+                    float distance = Vector2.Distance(mousePosition, guiPoint);
+                    if (distance < nearestDistance)
+                    {
+                        nearestDistance = distance;
+                        endpoint = FPMeshSurfaceEdgeEndpoint.Source(meshIndex, vertexIndex);
+                        found = true;
+                    }
+                }
+            }
+
+            return found;
+        }
+
         private bool TryHitActiveMesh(Vector2 mousePosition, out RaycastHit hit)
         {
             hit = default;
@@ -4210,6 +4846,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             generatedPlane = authoring.GeneratedPlane;
             generatedPointTags = authoring.DefaultTags;
             planePicks.Clear();
+            planePickEndpoints.Clear();
+            isPickingNewPlane = false;
             selectedByMesh.Clear();
 
             IReadOnlyList<FPMeshPaintedVertexRecord> records = authoring.PaintedVertices;

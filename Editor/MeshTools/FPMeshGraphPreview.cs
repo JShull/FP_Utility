@@ -13,6 +13,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         public static readonly Color EdgeColor = new Color(0.1f, 0.55f, 0.9f, 0.35f);
         public static readonly Color PlaneFillColor = new Color(0.2f, 0.75f, 1f, 0.16f);
         public static readonly Color PlaneEdgeColor = new Color(0.2f, 0.85f, 1f, 0.85f);
+        public static readonly Color PlaneAnchorColor = new Color(1f, 0.18f, 0.92f, 1f);
+        public static readonly Color PlaneAnchorOuterColor = new Color(1f, 1f, 1f, 0.95f);
 
         public static void DrawMeshPreview(
             MeshFilter meshFilter,
@@ -74,15 +76,24 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         public static void DrawGeneratedPlane(FPMeshGeneratedPlane plane, float size)
         {
+            DrawGeneratedPlane(plane, size, ResolvePlaneEdgeColor(plane), true);
+        }
+
+        public static void DrawGeneratedPlane(FPMeshGeneratedPlane plane, float size, Color edgeColor, bool selected)
+        {
             if (!plane.IsValid)
             {
                 return;
             }
 
             Vector3[] corners = GetPlaneCorners(plane, size);
-            Handles.DrawSolidRectangleWithOutline(corners, PlaneFillColor, PlaneEdgeColor);
+            Color fillColor = edgeColor;
+            fillColor.a = selected ? 0.18f : 0.08f;
+            Color outlineColor = edgeColor;
+            outlineColor.a = selected ? 0.95f : 0.48f;
+            Handles.DrawSolidRectangleWithOutline(corners, fillColor, outlineColor);
 
-            Handles.color = PlaneEdgeColor;
+            Handles.color = outlineColor;
             Handles.DrawLine(plane.Origin, plane.Origin + (plane.Normal.normalized * Mathf.Max(0.1f, size * 0.25f)));
         }
 
@@ -131,6 +142,11 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 plane.Origin + (right * size) + (forward * size),
                 plane.Origin + (right * size) - (forward * size)
             };
+        }
+
+        private static Color ResolvePlaneEdgeColor(FPMeshGeneratedPlane plane)
+        {
+            return plane.DisplayColor.a > 0.001f ? plane.DisplayColor : PlaneEdgeColor;
         }
     }
 
