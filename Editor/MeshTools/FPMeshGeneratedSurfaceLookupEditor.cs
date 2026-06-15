@@ -147,7 +147,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             Vector3 world = lookup.GetCurrentMeshVertexWorldPosition(record);
-            float size = Mathf.Max(0.2f, lookup.DebugPointSize * 12f);
+            Camera camera = sceneView.camera;
+            float size = Mathf.Max(0.2f, lookup.ResolveDebugPointSize(world, camera) * 12f);
             sceneView.Frame(new Bounds(world, Vector3.one * size), false);
             SceneView.RepaintAll();
         }
@@ -163,18 +164,21 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Color previous = Handles.color;
             GUIStyle labelStyle = EditorStyles.whiteMiniLabel;
             float tolerance = lookup.AlignmentTolerance;
+            SceneView sceneView = SceneView.currentDrawingSceneView;
+            Camera sceneCamera = sceneView == null ? null : sceneView.camera;
 
             for (int i = 0; i < lookup.VertexLookup.Count; i++)
             {
                 FPMeshGeneratedSurfaceVertexLookupRecord record = lookup.VertexLookup[i];
                 Vector3 meshWorld = lookup.GetCurrentMeshVertexWorldPosition(record);
+                float pointSize = lookup.ResolveDebugPointSize(meshWorld, sceneCamera);
                 bool resolved = lookup.TryResolveEndpointWorldPosition(record, out Vector3 dataWorld);
                 float distance = Vector3.Distance(meshWorld, dataWorld);
                 bool aligned = record.HasEndpoint && resolved && distance <= tolerance;
 
                 Color recordColor = lookup.GetDebugColor(record);
                 Handles.color = recordColor;
-                if (Handles.Button(meshWorld, Quaternion.identity, lookup.DebugPointSize, lookup.DebugPointSize * 1.8f, Handles.SphereHandleCap))
+                if (Handles.Button(meshWorld, Quaternion.identity, pointSize, pointSize * 1.8f, Handles.SphereHandleCap))
                 {
                     Undo.RecordObject(lookup, "Select Surface Lookup Vertex");
                     lookup.SetSelectedDebugMeshVertexIndex(record.MeshVertexIndex);
@@ -186,9 +190,9 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 {
                     Vector3 forward = GetSceneViewForward();
                     Handles.color = Color.white;
-                    Handles.DrawWireDisc(meshWorld, forward, lookup.DebugPointSize * 2.8f);
+                    Handles.DrawWireDisc(meshWorld, forward, pointSize * 2.8f);
                     Handles.color = Color.yellow;
-                    Handles.DrawWireDisc(meshWorld, forward, lookup.DebugPointSize * 3.5f);
+                    Handles.DrawWireDisc(meshWorld, forward, pointSize * 3.5f);
                 }
 
                 if (record.HasEndpoint)
@@ -215,10 +219,9 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                     label += $" ({distance:0.###})";
                 }
 
-                SceneView sceneView = SceneView.currentDrawingSceneView;
-                Vector3 labelOffset = sceneView != null && sceneView.camera != null
-                    ? sceneView.camera.transform.up * lookup.DebugPointSize * 1.5f
-                    : Vector3.up * lookup.DebugPointSize * 1.5f;
+                Vector3 labelOffset = sceneCamera != null
+                    ? sceneCamera.transform.up * pointSize * 1.5f
+                    : Vector3.up * pointSize * 1.5f;
                 Handles.Label(meshWorld + labelOffset, label, labelStyle);
             }
 

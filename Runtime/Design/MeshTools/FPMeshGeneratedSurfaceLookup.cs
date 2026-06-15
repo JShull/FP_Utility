@@ -32,6 +32,9 @@ namespace FuzzPhyte.Utility.MeshTools
         [SerializeField] protected int selectedDebugMeshVertexIndex = -1;
         [SerializeField] protected float alignmentTolerance = 0.0025f;
         [SerializeField] protected float debugPointSize = 0.035f;
+        [SerializeField] protected bool scaleDebugPointSizeWithCamera = true;
+        [SerializeField] protected float cameraRelativeDebugPointScale = 0.006f;
+        [SerializeField] protected Vector2 cameraRelativeDebugPointSizeRange = new Vector2(0.025f, 0.18f);
 
         public FPMeshVertexPaintAuthoring SourceAuthoring => sourceAuthoring;
         public Mesh GeneratedMesh => generatedMesh;
@@ -42,6 +45,9 @@ namespace FuzzPhyte.Utility.MeshTools
         public int SelectedDebugMeshVertexIndex => selectedDebugMeshVertexIndex;
         public float AlignmentTolerance => alignmentTolerance;
         public float DebugPointSize => debugPointSize;
+        public bool ScaleDebugPointSizeWithCamera => scaleDebugPointSizeWithCamera;
+        public float CameraRelativeDebugPointScale => cameraRelativeDebugPointScale;
+        public Vector2 CameraRelativeDebugPointSizeRange => cameraRelativeDebugPointSizeRange;
 
         public bool TryResolveGeneratedMesh(out Mesh mesh)
         {
@@ -285,6 +291,28 @@ namespace FuzzPhyte.Utility.MeshTools
             return aligned ? new Color(0.25f, 1f, 0.45f, 0.95f) : new Color(1f, 0.18f, 0.1f, 0.95f);
         }
 
+        public float ResolveDebugPointSize(Vector3 worldPosition, Camera camera = null)
+        {
+            float fixedSize = Mathf.Max(0.001f, debugPointSize);
+            if (!scaleDebugPointSizeWithCamera)
+            {
+                return fixedSize;
+            }
+
+            Camera activeCamera = camera != null ? camera : Camera.current;
+            if (activeCamera == null)
+            {
+                return fixedSize;
+            }
+
+            float distance = activeCamera.orthographic
+                ? activeCamera.orthographicSize * 2f
+                : Vector3.Distance(activeCamera.transform.position, worldPosition);
+            float min = Mathf.Max(0.001f, Mathf.Min(cameraRelativeDebugPointSizeRange.x, cameraRelativeDebugPointSizeRange.y));
+            float max = Mathf.Max(min, Mathf.Max(cameraRelativeDebugPointSizeRange.x, cameraRelativeDebugPointSizeRange.y));
+            return Mathf.Clamp(distance * Mathf.Max(0.0001f, cameraRelativeDebugPointScale), min, max);
+        }
+
         public static Color GetTagDebugColor(FPMeshNavigationTags tag)
         {
             switch (GetPrimaryTag(tag))
@@ -323,11 +351,11 @@ namespace FuzzPhyte.Utility.MeshTools
                 return;
             }
 
-            float pointSize = Mathf.Max(0.001f, debugPointSize);
             for (int i = 0; i < vertexLookup.Count; i++)
             {
                 FPMeshGeneratedSurfaceVertexLookupRecord record = vertexLookup[i];
                 Vector3 meshWorld = GetCurrentMeshVertexWorldPosition(record);
+                float pointSize = ResolveDebugPointSize(meshWorld);
                 bool resolved = TryResolveEndpointWorldPosition(record, out Vector3 dataWorld);
                 float distance = Vector3.Distance(meshWorld, dataWorld);
                 bool aligned = resolved && distance <= alignmentTolerance;

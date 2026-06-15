@@ -75,6 +75,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         private bool createGeneratedSurfaceSceneObject = true;
         private float vertexSize = 0.045f;
         private float previewSelectionRadius = 14f;
+        private float leftPaneWidth = 280f;
         private float previewZoom = 1.35f;
         private Quaternion previewRotation = Quaternion.Euler(24f, -36f, 0f);
         private FPMeshPreviewProjection previewProjection;
@@ -95,6 +96,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         private bool trianglePaintRemoves;
         private bool previewLassoRemoves;
         private bool isPickingNewPlane;
+        private bool isResizingLeftPane;
         private Color pendingPlaneColor;
         private Vector3 previewPanOffset;
 
@@ -103,6 +105,9 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         private const float ViewportOrbitScreenRadius = 124f;
         private const float ViewportOrbitPickRadius = 18f;
         private const float PreviewLassoMinPointDistance = 2.5f;
+        private const float LeftPaneMinWidth = 220f;
+        private const float LeftPaneMaxWidth = 720f;
+        private const float RightPaneMinWidth = 320f;
 
         private readonly struct PreviewOverlayPoint
         {
@@ -165,16 +170,18 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private void OnGUI()
         {
+            leftPaneWidth = Mathf.Clamp(leftPaneWidth, LeftPaneMinWidth, GetMaxLeftPaneWidth());
             using (new EditorGUILayout.HorizontalScope())
             {
                 DrawLeftPane();
+                DrawLeftPaneResizeHandle();
                 DrawRightPane();
             }
         }
 
         private void DrawLeftPane()
         {
-            using (new EditorGUILayout.VerticalScope(GUILayout.Width(280)))
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(leftPaneWidth), GUILayout.MinWidth(LeftPaneMinWidth), GUILayout.MaxWidth(LeftPaneMaxWidth)))
             {
                 EditorGUILayout.LabelField("Mesh Graph Tool", EditorStyles.boldLabel);
                 authoring = (FPMeshVertexPaintAuthoring)EditorGUILayout.ObjectField("Authoring", authoring, typeof(FPMeshVertexPaintAuthoring), true);
@@ -256,6 +263,41 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                     }
                 }
             }
+        }
+
+        private void DrawLeftPaneResizeHandle()
+        {
+            Rect rect = GUILayoutUtility.GetRect(5f, 5f, GUILayout.ExpandHeight(true));
+            EditorGUIUtility.AddCursorRect(rect, MouseCursor.ResizeHorizontal);
+            if (Event.current.type == EventType.Repaint)
+            {
+                EditorGUI.DrawRect(new Rect(rect.x + 2f, rect.y, 1f, rect.height), new Color(0.18f, 0.18f, 0.18f, 1f));
+            }
+
+            Event current = Event.current;
+            if (current.type == EventType.MouseDown && current.button == 0 && rect.Contains(current.mousePosition))
+            {
+                isResizingLeftPane = true;
+                current.Use();
+            }
+
+            if (isResizingLeftPane && current.type == EventType.MouseDrag)
+            {
+                leftPaneWidth = Mathf.Clamp(current.mousePosition.x, LeftPaneMinWidth, GetMaxLeftPaneWidth());
+                Repaint();
+                current.Use();
+            }
+
+            if (isResizingLeftPane && (current.type == EventType.MouseUp || current.rawType == EventType.MouseUp))
+            {
+                isResizingLeftPane = false;
+                current.Use();
+            }
+        }
+
+        private float GetMaxLeftPaneWidth()
+        {
+            return Mathf.Max(LeftPaneMinWidth, Mathf.Min(LeftPaneMaxWidth, position.width - RightPaneMinWidth));
         }
 
         private void DrawSelectionTools()
@@ -565,8 +607,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
             FPMeshPreviewEditorUtility.DrawSectionDivider();
             EditorGUILayout.LabelField("Output", EditorStyles.boldLabel);
-            generatedSurfaceMeshName = EditorGUILayout.TextField("Mesh Name", generatedSurfaceMeshName);
-            generatedSurfaceOutputFolder = EditorGUILayout.TextField("Output Folder", generatedSurfaceOutputFolder);
+            generatedSurfaceMeshName = DrawOutputTextArea("Mesh Name", generatedSurfaceMeshName, 34f);
+            generatedSurfaceOutputFolder = DrawOutputTextArea("Output Folder", generatedSurfaceOutputFolder, 44f);
             createGeneratedSurfaceSceneObject = EditorGUILayout.Toggle("Create Scene Object", createGeneratedSurfaceSceneObject);
 
             using (new EditorGUI.DisabledScope(!CanCreateSurfaceMesh()))
@@ -586,6 +628,17 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                     ExportSurfaceMeshObj();
                 }
             }
+        }
+
+        private static string DrawOutputTextArea(string label, string value, float minHeight)
+        {
+            EditorGUILayout.LabelField(label, EditorStyles.miniBoldLabel);
+            GUIStyle style = new GUIStyle(EditorStyles.textArea)
+            {
+                wordWrap = true
+            };
+            string nextValue = EditorGUILayout.TextArea(value ?? string.Empty, style, GUILayout.MinHeight(minHeight));
+            return nextValue.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
         private bool CanCreateSurfaceMesh()
