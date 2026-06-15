@@ -136,6 +136,18 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
         }
 
+        private readonly struct SurfaceProjectionPoint
+        {
+            public readonly Vector2 Projected;
+            public readonly Vector3 World;
+
+            public SurfaceProjectionPoint(Vector2 projected, Vector3 world)
+            {
+                Projected = projected;
+                World = world;
+            }
+        }
+
         [MenuItem("FuzzPhyte/Utility/Mesh/Mesh Vertex Painter", priority = FP_UtilityData.MENU_UTILITY_MESH + 5)]
         public static void Open()
         {
@@ -580,6 +592,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         {
             return GetCurrentGeneratedPlane(out _) &&
                 (CountSurfacePoints() >= 3 ||
+                (surfaceBuildMode == SurfaceBuildMode.QuadPatch && CountGeneratedAnchorPlanes() >= 2) ||
                 (surfaceBuildMode == SurfaceBuildMode.EdgeTriangles &&
                     authoring != null &&
                     authoring.GeneratedTriangles != null &&
@@ -3723,7 +3736,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 authoring != null &&
                 authoring.GeneratedTriangles != null &&
                 authoring.GeneratedTriangles.Count > 0;
-            if (worldPoints.Count < 3 && !canBuildFromExplicitTriangles)
+            bool canBuildFromPlaneQuadStrips = surfaceBuildMode == SurfaceBuildMode.QuadPatch && CountGeneratedAnchorPlanes() >= 2;
+            if (worldPoints.Count < 3 && !canBuildFromExplicitTriangles && !canBuildFromPlaneQuadStrips)
             {
                 Debug.LogWarning("Select or generate at least 3 points before creating a surface mesh.");
                 return false;
@@ -3733,7 +3747,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 forward = plane.Forward.sqrMagnitude > 0.0001f ? plane.Forward.normalized : Vector3.forward;
             Vector3 planeNormal = plane.Normal.sqrMagnitude > 0.0001f ? plane.Normal.normalized : Vector3.up;
             Vector3 normal = flipGeneratedSurfaceNormals ? -planeNormal : planeNormal;
-            List<Vector2> projectedPoints = BuildProjectedPlanePoints(worldPoints, plane.Origin, right, forward);
+            List<SurfaceProjectionPoint> projectedPoints = BuildProjectedSurfacePoints(worldPoints, plane.Origin, right, forward);
             if (!TryBuildSurfaceMesh(projectedPoints, plane.Origin, right, forward, normal, flipGeneratedSurfaceNormals, out mesh, out meshOrigin, out lookupRecords))
             {
                 return false;
@@ -3800,7 +3814,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         }
 
         private bool TryBuildSurfaceMesh(
-            IReadOnlyList<Vector2> projectedPoints,
+            IReadOnlyList<SurfaceProjectionPoint> projectedPoints,
             Vector3 planeOrigin,
             Vector3 right,
             Vector3 forward,
@@ -3818,22 +3832,23 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 return TryBuildEdgeGraphSurfaceMesh(planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin, out lookupRecords);
             }
 
+            List<Vector2> projectedCoordinates = ExtractProjectedCoordinates(projectedPoints);
+            if (surfaceBuildMode == SurfaceBuildMode.QuadPatch)
+            {
+                return TryBuildQuadPatchSurfaceMesh(projectedCoordinates, planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin, out lookupRecords);
+            }
+
             if (projectedPoints == null || projectedPoints.Count < 3)
             {
                 Debug.LogWarning("The current points do not form a valid surface.");
                 return false;
             }
 
-            if (surfaceBuildMode == SurfaceBuildMode.QuadPatch)
-            {
-                return TryBuildQuadPatchSurfaceMesh(projectedPoints, planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin, out lookupRecords);
-            }
-
             return TryBuildBoundarySurfaceMesh(projectedPoints, planeOrigin, right, forward, normal, flipWinding, out mesh, out meshOrigin, out lookupRecords);
         }
 
         private bool TryBuildBoundarySurfaceMesh(
-            IReadOnlyList<Vector2> projectedPoints,
+            IReadOnlyList<SurfaceProjectionPoint> projectedPoints,
             Vector3 planeOrigin,
             Vector3 right,
             Vector3 forward,
@@ -3846,9 +3861,19 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             mesh = null;
             meshOrigin = Vector3.zero;
             lookupRecords = null;
-            List<Vector2> boundary = TryBuildGeneratedEdgeLoop(planeOrigin, right, forward, out List<Vector2> edgeLoop)
-                ? edgeLoop
-                : BuildConvexHull(projectedPoints);
+            List<SurfaceProjectionPoint> anchorPoints;
+            List<Vector2> boundary;
+            if (TryBuildGeneratedEdgeLoop(planeOrigin, right, forward, out List<Vector2> edgeLoop, out List<Vector3> edgeLoopWorldPositions))
+            {
+                boundary = edgeLoop;
+                anchorPoints = BuildSurfaceProjectionPoints(edgeLoop, edgeLoopWorldPositions);
+            }
+            else
+            {
+                boundary = BuildConvexHull(ExtractProjectedCoordinates(projectedPoints));
+                anchorPoints = new List<SurfaceProjectionPoint>(projectedPoints);
+            }
+
             if (boundary.Count < 3)
             {
                 Debug.LogWarning("The current points do not produce a valid boundary surface.");
@@ -3863,7 +3888,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 return false;
             }
 
-            mesh = BuildPlaneSurfaceMesh(triangulation.Vertices, triangulation.Triangles, planeOrigin, right, forward, normal, flipWinding, out meshOrigin);
+            mesh = BuildAnchoredSurfaceMesh(triangulation.Vertices, triangulation.Triangles, anchorPoints, planeOrigin, right, forward, normal, flipWinding, out meshOrigin);
             lookupRecords = BuildUnmappedLookupRecords(mesh, meshOrigin);
             return mesh != null;
         }
@@ -3889,6 +3914,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
             Dictionary<FPMeshSurfaceEdgeEndpoint, int> indexByEndpoint = new();
             List<Vector2> vertices2D = new();
+            List<Vector3> vertexWorldPositions = new();
             List<FPMeshSurfaceEdgeEndpoint> endpointsByVertex = new();
             List<HashSet<int>> adjacency = new();
             IReadOnlyList<FPMeshGeneratedEdgeRecord> edges = authoring.GeneratedEdges;
@@ -3897,8 +3923,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 FPMeshSurfaceEdgeEndpoint start = authoring.ResolveStartEndpoint(edges[i]);
                 FPMeshSurfaceEdgeEndpoint end = authoring.ResolveEndEndpoint(edges[i]);
                 if (start == end ||
-                    !TryGetOrAddGraphEndpoint(start, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int startIndex) ||
-                    !TryGetOrAddGraphEndpoint(end, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int endIndex) ||
+                    !TryGetOrAddGraphEndpoint(start, planeOrigin, right, forward, indexByEndpoint, vertices2D, vertexWorldPositions, endpointsByVertex, adjacency, out int startIndex) ||
+                    !TryGetOrAddGraphEndpoint(end, planeOrigin, right, forward, indexByEndpoint, vertices2D, vertexWorldPositions, endpointsByVertex, adjacency, out int endIndex) ||
                     startIndex == endIndex)
                 {
                     continue;
@@ -3909,7 +3935,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             List<int> explicitTriangles = authoring.GeneratedTriangles != null && authoring.GeneratedTriangles.Count > 0
-                ? BuildExplicitGeneratedTriangles(planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency)
+                ? BuildExplicitGeneratedTriangles(planeOrigin, right, forward, indexByEndpoint, vertices2D, vertexWorldPositions, endpointsByVertex, adjacency)
                 : new List<int>();
             List<int> triangles = useSelectedTrianglesOnly
                 ? explicitTriangles
@@ -3922,7 +3948,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 return false;
             }
 
-            mesh = BuildPlaneSurfaceMesh(vertices2D, triangles, planeOrigin, right, forward, normal, flipWinding, out meshOrigin);
+            mesh = BuildWorldSurfaceMesh(vertexWorldPositions, vertices2D, triangles, normal, flipWinding, true, out meshOrigin);
             lookupRecords = BuildEndpointLookupRecords(mesh, meshOrigin, endpointsByVertex);
             return mesh != null;
         }
@@ -3933,6 +3959,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 forward,
             Dictionary<FPMeshSurfaceEdgeEndpoint, int> indexByEndpoint,
             List<Vector2> vertices2D,
+            List<Vector3> vertexWorldPositions,
             List<FPMeshSurfaceEdgeEndpoint> endpointsByVertex,
             List<HashSet<int>> adjacency)
         {
@@ -3945,9 +3972,9 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             for (int i = 0; i < authoring.GeneratedTriangles.Count; i++)
             {
                 FPMeshGeneratedTriangleRecord triangle = authoring.GeneratedTriangles[i];
-                if (!TryGetOrAddGraphEndpoint(triangle.A, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int a) ||
-                    !TryGetOrAddGraphEndpoint(triangle.B, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int b) ||
-                    !TryGetOrAddGraphEndpoint(triangle.C, planeOrigin, right, forward, indexByEndpoint, vertices2D, endpointsByVertex, adjacency, out int c) ||
+                if (!TryGetOrAddGraphEndpoint(triangle.A, planeOrigin, right, forward, indexByEndpoint, vertices2D, vertexWorldPositions, endpointsByVertex, adjacency, out int a) ||
+                    !TryGetOrAddGraphEndpoint(triangle.B, planeOrigin, right, forward, indexByEndpoint, vertices2D, vertexWorldPositions, endpointsByVertex, adjacency, out int b) ||
+                    !TryGetOrAddGraphEndpoint(triangle.C, planeOrigin, right, forward, indexByEndpoint, vertices2D, vertexWorldPositions, endpointsByVertex, adjacency, out int c) ||
                     a == b || b == c || c == a)
                 {
                     continue;
@@ -3990,6 +4017,12 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             mesh = null;
             meshOrigin = Vector3.zero;
             lookupRecords = null;
+            if (CountGeneratedAnchorPlanes() >= 2 &&
+                TryBuildPlaneQuadStripSurfaceMesh(normal, flipWinding, out mesh, out meshOrigin, out lookupRecords))
+            {
+                return true;
+            }
+
             if (!TryGetProjectedBounds(projectedPoints, out Vector2 min, out Vector2 max))
             {
                 Debug.LogWarning("The current points do not produce a valid quad patch.");
@@ -4045,6 +4078,194 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             return mesh != null;
         }
 
+        private bool TryBuildPlaneQuadStripSurfaceMesh(
+            Vector3 normal,
+            bool flipWinding,
+            out Mesh mesh,
+            out Vector3 meshOrigin,
+            out List<FPMeshGeneratedSurfaceVertexLookupRecord> lookupRecords)
+        {
+            mesh = null;
+            meshOrigin = Vector3.zero;
+            lookupRecords = null;
+
+            List<FPMeshGeneratedPlane> planes = CollectGeneratedAnchorPlanes();
+            if (planes.Count < 2)
+            {
+                return false;
+            }
+
+            int columns = Mathf.Max(1, quadSurfaceColumns);
+            int rows = Mathf.Max(1, quadSurfaceRows);
+            List<Vector3> worldVertices = new();
+            List<Vector2> uvs = new();
+            List<int> triangles = new(planes.Count * columns * rows * 6);
+            for (int planeIndex = 0; planeIndex < planes.Count; planeIndex++)
+            {
+                if (!TryGetPlaneAnchorWorldPositions(planes[planeIndex], out Vector3 a, out Vector3 b, out Vector3 c))
+                {
+                    continue;
+                }
+
+                Vector3 d = b + (c - a);
+                Vector3 unflippedReferenceNormal = flipWinding ? -normal : normal;
+                bool reversePatchWinding = planes[planeIndex].Normal.sqrMagnitude > 0.0001f &&
+                    Vector3.Dot(planes[planeIndex].Normal.normalized, unflippedReferenceNormal) < 0f;
+                int[,] grid = new int[rows + 1, columns + 1];
+                for (int y = 0; y <= rows; y++)
+                {
+                    float v = y / (float)rows;
+                    Vector3 left = Vector3.Lerp(a, c, v);
+                    Vector3 rightEdge = Vector3.Lerp(b, d, v);
+                    for (int x = 0; x <= columns; x++)
+                    {
+                        float u = x / (float)columns;
+                        Vector3 world = Vector3.Lerp(left, rightEdge, u);
+                        Vector2 uv = new Vector2(planeIndex + u, v);
+                        grid[y, x] = GetOrAddWeldedSurfaceVertex(worldVertices, uvs, world, uv);
+                    }
+                }
+
+                for (int y = 0; y < rows; y++)
+                {
+                    for (int x = 0; x < columns; x++)
+                    {
+                        int lowerLeft = grid[y, x];
+                        int lowerRight = grid[y, x + 1];
+                        int upperLeft = grid[y + 1, x];
+                        int upperRight = grid[y + 1, x + 1];
+                        if (reversePatchWinding)
+                        {
+                            AddSurfaceTriangle(triangles, lowerLeft, upperRight, lowerRight);
+                            AddSurfaceTriangle(triangles, lowerLeft, upperLeft, upperRight);
+                        }
+                        else
+                        {
+                            AddSurfaceTriangle(triangles, lowerLeft, lowerRight, upperRight);
+                            AddSurfaceTriangle(triangles, lowerLeft, upperRight, upperLeft);
+                        }
+                    }
+                }
+            }
+
+            if (worldVertices.Count < 3 || triangles.Count < 3)
+            {
+                return false;
+            }
+
+            mesh = BuildWorldSurfaceMesh(worldVertices, uvs, triangles, normal, flipWinding, true, out meshOrigin);
+            lookupRecords = BuildUnmappedLookupRecords(mesh, meshOrigin);
+            return mesh != null;
+        }
+
+        private List<FPMeshGeneratedPlane> CollectGeneratedAnchorPlanes()
+        {
+            List<FPMeshGeneratedPlane> planes = new();
+            int count = GetGeneratedPlaneCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (TryGetGeneratedPlaneAt(i, out FPMeshGeneratedPlane plane) &&
+                    plane.IsValid &&
+                    plane.HasAnchorPoints)
+                {
+                    planes.Add(plane);
+                }
+            }
+
+            if (planes.Count == 0 &&
+                GetCurrentGeneratedPlane(out FPMeshGeneratedPlane fallbackPlane) &&
+                fallbackPlane.IsValid &&
+                fallbackPlane.HasAnchorPoints)
+            {
+                planes.Add(fallbackPlane);
+            }
+
+            return planes;
+        }
+
+        private int CountGeneratedAnchorPlanes()
+        {
+            return CollectGeneratedAnchorPlanes().Count;
+        }
+
+        private bool TryGetPlaneAnchorWorldPositions(FPMeshGeneratedPlane plane, out Vector3 a, out Vector3 b, out Vector3 c)
+        {
+            a = default;
+            b = default;
+            c = default;
+            return plane.HasAnchorPoints &&
+                TryGetEdgeEndpointWorldPosition(plane.AnchorA, out a) &&
+                TryGetEdgeEndpointWorldPosition(plane.AnchorB, out b) &&
+                TryGetEdgeEndpointWorldPosition(plane.AnchorC, out c) &&
+                (b - a).sqrMagnitude > 0.000001f &&
+                (c - a).sqrMagnitude > 0.000001f;
+        }
+
+        private static int GetOrAddWeldedSurfaceVertex(
+            List<Vector3> worldVertices,
+            List<Vector2> uvs,
+            Vector3 world,
+            Vector2 uv)
+        {
+            const float weldDistanceSqr = 0.00000625f;
+            for (int i = 0; i < worldVertices.Count; i++)
+            {
+                if ((worldVertices[i] - world).sqrMagnitude <= weldDistanceSqr)
+                {
+                    return i;
+                }
+            }
+
+            int index = worldVertices.Count;
+            worldVertices.Add(world);
+            uvs.Add(uv);
+            return index;
+        }
+
+        private static void AddSurfaceTriangle(List<int> triangles, int a, int b, int c)
+        {
+            if (a == b || b == c || c == a)
+            {
+                return;
+            }
+
+            triangles.Add(a);
+            triangles.Add(b);
+            triangles.Add(c);
+        }
+
+        private static Mesh BuildAnchoredSurfaceMesh(
+            IReadOnlyList<Vector2> vertices2D,
+            IReadOnlyList<int> triangles,
+            IReadOnlyList<SurfaceProjectionPoint> anchorPoints,
+            Vector3 planeOrigin,
+            Vector3 right,
+            Vector3 forward,
+            Vector3 normal,
+            bool flipWinding,
+            out Vector3 meshOrigin)
+        {
+            meshOrigin = Vector3.zero;
+            if (vertices2D == null || vertices2D.Count < 3 || triangles == null || triangles.Count < 3)
+            {
+                return null;
+            }
+
+            List<Vector3> worldVertices = new(vertices2D.Count);
+            for (int i = 0; i < vertices2D.Count; i++)
+            {
+                Vector2 point = vertices2D[i];
+                if (!TryFindAnchorWorldPosition(anchorPoints, point, out Vector3 world))
+                {
+                    world = planeOrigin + (right * point.x) + (forward * point.y);
+                }
+
+                worldVertices.Add(world);
+            }
+
+            return BuildWorldSurfaceMesh(worldVertices, vertices2D, triangles, normal, flipWinding, true, out meshOrigin);
+        }
+
         private static Mesh BuildPlaneSurfaceMesh(
             IReadOnlyList<Vector2> vertices2D,
             IReadOnlyList<int> triangles,
@@ -4089,6 +4310,59 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             mesh.SetNormals(normals);
             mesh.SetUVs(0, uvs);
             mesh.SetTriangles(flipWinding ? BuildFlippedTriangles(triangles) : new List<int>(triangles), 0);
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private static Mesh BuildWorldSurfaceMesh(
+            IReadOnlyList<Vector3> worldVertices,
+            IReadOnlyList<Vector2> uvs2D,
+            IReadOnlyList<int> triangles,
+            Vector3 normal,
+            bool flipWinding,
+            bool recalculateNormals,
+            out Vector3 meshOrigin)
+        {
+            meshOrigin = Vector3.zero;
+            if (worldVertices == null || worldVertices.Count < 3 || triangles == null || triangles.Count < 3)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < worldVertices.Count; i++)
+            {
+                meshOrigin += worldVertices[i];
+            }
+
+            meshOrigin /= Mathf.Max(1, worldVertices.Count);
+
+            List<Vector3> vertices = new(worldVertices.Count);
+            List<Vector3> normals = new(worldVertices.Count);
+            List<Vector2> uvs = new(worldVertices.Count);
+            for (int i = 0; i < worldVertices.Count; i++)
+            {
+                vertices.Add(worldVertices[i] - meshOrigin);
+                normals.Add(normal);
+                uvs.Add(uvs2D != null && i < uvs2D.Count ? uvs2D[i] : Vector2.zero);
+            }
+
+            Mesh mesh = new Mesh
+            {
+                name = "FP_GeneratedSurfaceMesh"
+            };
+            mesh.SetVertices(vertices);
+            if (!recalculateNormals)
+            {
+                mesh.SetNormals(normals);
+            }
+
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(flipWinding ? BuildFlippedTriangles(triangles) : new List<int>(triangles), 0);
+            if (recalculateNormals)
+            {
+                mesh.RecalculateNormals();
+            }
+
             mesh.RecalculateBounds();
             return mesh;
         }
@@ -4169,6 +4443,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             Vector3 forward,
             Dictionary<FPMeshSurfaceEdgeEndpoint, int> indexByEndpoint,
             List<Vector2> vertices2D,
+            List<Vector3> vertexWorldPositions,
             List<FPMeshSurfaceEdgeEndpoint> endpointsByVertex,
             List<HashSet<int>> adjacency,
             out int index)
@@ -4188,6 +4463,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             index = vertices2D.Count;
             indexByEndpoint[endpoint] = index;
             vertices2D.Add(new Vector2(Vector3.Dot(relative, right), Vector3.Dot(relative, forward)));
+            vertexWorldPositions.Add(world);
             endpointsByVertex.Add(endpoint);
             adjacency.Add(new HashSet<int>());
             return true;
@@ -4373,9 +4649,50 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             return projected;
         }
 
-        private bool TryBuildGeneratedEdgeLoop(Vector3 origin, Vector3 right, Vector3 forward, out List<Vector2> loop)
+        private static List<SurfaceProjectionPoint> BuildProjectedSurfacePoints(IReadOnlyList<Vector3> worldPoints, Vector3 origin, Vector3 right, Vector3 forward)
+        {
+            List<SurfaceProjectionPoint> projected = new(worldPoints.Count);
+            for (int i = 0; i < worldPoints.Count; i++)
+            {
+                Vector3 relative = worldPoints[i] - origin;
+                AddUniqueSurfaceProjectionPoint(projected, new SurfaceProjectionPoint(new Vector2(Vector3.Dot(relative, right), Vector3.Dot(relative, forward)), worldPoints[i]));
+            }
+
+            return projected;
+        }
+
+        private static List<SurfaceProjectionPoint> BuildSurfaceProjectionPoints(IReadOnlyList<Vector2> projectedPoints, IReadOnlyList<Vector3> worldPoints)
+        {
+            int count = Mathf.Min(projectedPoints == null ? 0 : projectedPoints.Count, worldPoints == null ? 0 : worldPoints.Count);
+            List<SurfaceProjectionPoint> points = new(count);
+            for (int i = 0; i < count; i++)
+            {
+                points.Add(new SurfaceProjectionPoint(projectedPoints[i], worldPoints[i]));
+            }
+
+            return points;
+        }
+
+        private static List<Vector2> ExtractProjectedCoordinates(IReadOnlyList<SurfaceProjectionPoint> points)
+        {
+            List<Vector2> projected = new(points == null ? 0 : points.Count);
+            if (points == null)
+            {
+                return projected;
+            }
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                projected.Add(points[i].Projected);
+            }
+
+            return projected;
+        }
+
+        private bool TryBuildGeneratedEdgeLoop(Vector3 origin, Vector3 right, Vector3 forward, out List<Vector2> loop, out List<Vector3> worldPositions)
         {
             loop = null;
+            worldPositions = null;
             if (authoring == null || authoring.GeneratedEdges == null || authoring.GeneratedEdges.Count < 3)
             {
                 return false;
@@ -4441,6 +4758,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             loop = new List<Vector2>(ordered.Count);
+            worldPositions = new List<Vector3>(ordered.Count);
             for (int i = 0; i < ordered.Count; i++)
             {
                 if (!TryGetEdgeEndpointWorldPosition(ordered[i], out Vector3 world))
@@ -4450,6 +4768,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
                 Vector3 relative = world - origin;
                 loop.Add(new Vector2(Vector3.Dot(relative, right), Vector3.Dot(relative, forward)));
+                worldPositions.Add(world);
             }
 
             return loop.Count >= 3;
@@ -4484,6 +4803,41 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             points.Add(point);
+        }
+
+        private static void AddUniqueSurfaceProjectionPoint(List<SurfaceProjectionPoint> points, SurfaceProjectionPoint point)
+        {
+            const float duplicateDistanceSqr = 0.000001f;
+            for (int i = 0; i < points.Count; i++)
+            {
+                if ((points[i].Projected - point.Projected).sqrMagnitude <= duplicateDistanceSqr)
+                {
+                    return;
+                }
+            }
+
+            points.Add(point);
+        }
+
+        private static bool TryFindAnchorWorldPosition(IReadOnlyList<SurfaceProjectionPoint> points, Vector2 projected, out Vector3 world)
+        {
+            const float duplicateDistanceSqr = 0.000001f;
+            world = default;
+            if (points == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                if ((points[i].Projected - projected).sqrMagnitude <= duplicateDistanceSqr)
+                {
+                    world = points[i].World;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static List<Vector2> BuildConvexHull(IReadOnlyList<Vector2> points)
