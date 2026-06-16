@@ -377,8 +377,6 @@ namespace FuzzPhyte.Utility.MeshTools
                 }
 
                 Gizmos.DrawLine(meshWorld, dataWorld);
-                Gizmos.color = new Color(1f, 0.86f, 0.18f, 0.95f);
-                Gizmos.DrawWireSphere(dataWorld, pointSize * 1.35f);
             }
         }
     }

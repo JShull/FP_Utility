@@ -166,6 +166,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             float tolerance = lookup.AlignmentTolerance;
             SceneView sceneView = SceneView.currentDrawingSceneView;
             Camera sceneCamera = sceneView == null ? null : sceneView.camera;
+            TrySelectDebugPointAtMouse(lookup, sceneCamera);
 
             for (int i = 0; i < lookup.VertexLookup.Count; i++)
             {
@@ -178,13 +179,6 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
                 Color recordColor = lookup.GetDebugColor(record);
                 Handles.color = recordColor;
-                if (Handles.Button(meshWorld, Quaternion.identity, pointSize, pointSize * 1.8f, Handles.SphereHandleCap))
-                {
-                    Undo.RecordObject(lookup, "Select Surface Lookup Vertex");
-                    lookup.SetSelectedDebugMeshVertexIndex(record.MeshVertexIndex);
-                    EditorUtility.SetDirty(lookup);
-                    SceneView.RepaintAll();
-                }
 
                 if (record.MeshVertexIndex == lookup.SelectedDebugMeshVertexIndex)
                 {
@@ -226,6 +220,71 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             }
 
             Handles.color = previous;
+        }
+
+        private static void TrySelectDebugPointAtMouse(FPMeshGeneratedSurfaceLookup lookup, Camera sceneCamera)
+        {
+            Event current = Event.current;
+            if (current.type != EventType.MouseDown || current.button != 0 || current.alt || lookup.VertexLookup == null)
+            {
+                return;
+            }
+
+            int bestIndex = -1;
+            float bestDistance = float.PositiveInfinity;
+            for (int i = 0; i < lookup.VertexLookup.Count; i++)
+            {
+                FPMeshGeneratedSurfaceVertexLookupRecord record = lookup.VertexLookup[i];
+                Vector3 meshWorld = lookup.GetCurrentMeshVertexWorldPosition(record);
+                if (!TryGetDebugPointPickRadius(lookup, sceneCamera, meshWorld, out float pickRadius))
+                {
+                    continue;
+                }
+
+                Vector2 guiPoint = HandleUtility.WorldToGUIPoint(meshWorld);
+                float distance = Vector2.Distance(current.mousePosition, guiPoint);
+                if (distance > pickRadius || distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = distance;
+                bestIndex = record.MeshVertexIndex;
+            }
+
+            if (bestIndex < 0)
+            {
+                return;
+            }
+
+            Undo.RecordObject(lookup, "Select Surface Lookup Vertex");
+            lookup.SetSelectedDebugMeshVertexIndex(bestIndex);
+            EditorUtility.SetDirty(lookup);
+            SceneView.RepaintAll();
+            current.Use();
+        }
+
+        private static bool TryGetDebugPointPickRadius(FPMeshGeneratedSurfaceLookup lookup, Camera sceneCamera, Vector3 world, out float radius)
+        {
+            radius = 0f;
+            if (sceneCamera == null)
+            {
+                radius = 12f;
+                return true;
+            }
+
+            Vector3 viewport = sceneCamera.WorldToViewportPoint(world);
+            if (viewport.z <= 0.001f)
+            {
+                return false;
+            }
+
+            float pointSize = lookup.ResolveDebugPointSize(world, sceneCamera);
+            Vector3 offsetWorld = world + (sceneCamera.transform.right * pointSize);
+            Vector2 center = HandleUtility.WorldToGUIPoint(world);
+            Vector2 edge = HandleUtility.WorldToGUIPoint(offsetWorld);
+            radius = Mathf.Clamp(Vector2.Distance(center, edge) * 1.8f, 8f, 42f);
+            return true;
         }
 
         private static Vector3 GetSceneViewForward()
