@@ -310,17 +310,6 @@ namespace FuzzPhyte.Utility.Editor
 
             targetParent = (Transform)EditorGUILayout.ObjectField("Parent", targetParent, typeof(Transform), true);
             previewMaterial = (Material)EditorGUILayout.ObjectField("Material", previewMaterial, typeof(Material), false);
-            mapHeightmapToSurface = EditorGUILayout.Toggle("Map Image To Surface", mapHeightmapToSurface);
-            using (new EditorGUI.DisabledScope(!mapHeightmapToSurface))
-            {
-                surfaceTextureOverride = (Texture2D)EditorGUILayout.ObjectField("Surface Texture", surfaceTextureOverride, typeof(Texture2D), false);
-            }
-
-            if (mapHeightmapToSurface && ResolveSurfaceTexture() == null)
-            {
-                EditorGUILayout.HelpBox("Assign a Heightmap texture or Surface Texture to preview the raster on the generated mesh surface.", MessageType.None);
-            }
-
             addMeshCollider = EditorGUILayout.Toggle("Add MeshCollider", addMeshCollider);
             using (new EditorGUI.DisabledScope(IsDirectSourceModeActive()))
             {
@@ -345,6 +334,8 @@ namespace FuzzPhyte.Utility.Editor
 
             Texture2D previousHeightmap = heightmapSettings.Heightmap;
             heightmapSettings.Heightmap = (Texture2D)EditorGUILayout.ObjectField("Heightmap", heightmapSettings.Heightmap, typeof(Texture2D), false);
+            DrawSurfaceMappingSettings();
+
             bool useGeoTiff = EditorGUILayout.Toggle("Use GeoTIFF Elevation", heightmapSettings.UseGeoTiffElevationData);
             if (useGeoTiff && !heightmapSettings.UseGeoTiffElevationData)
             {
@@ -444,6 +435,22 @@ namespace FuzzPhyte.Utility.Editor
             if (GUILayout.Button("Open Heightmap Editor"))
             {
                 FPHeightmapEditorWindow.OpenWindow(meshDataAsset, heightmapSettings.Heightmap);
+            }
+        }
+
+        private void DrawSurfaceMappingSettings()
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Surface Visual", EditorStyles.boldLabel);
+            mapHeightmapToSurface = EditorGUILayout.Toggle("Map Image To Surface", mapHeightmapToSurface);
+            using (new EditorGUI.DisabledScope(!mapHeightmapToSurface))
+            {
+                surfaceTextureOverride = (Texture2D)EditorGUILayout.ObjectField("Surface Texture", surfaceTextureOverride, typeof(Texture2D), false);
+            }
+
+            if (mapHeightmapToSurface && ResolveSurfaceTexture() == null)
+            {
+                EditorGUILayout.HelpBox("Assign a Heightmap texture or Surface Texture to preview the raster on the generated mesh surface.", MessageType.None);
             }
         }
 
