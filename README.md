@@ -132,18 +132,55 @@ Open the heightmap editor from `FuzzPhyte/Utility/Rendering/FP Heightmap Editor`
 1. Optionally assign an `FPMeshGridData` asset in the `Data Asset` field.
 2. Set the grid `Mesh Name`, `Width`, `Length`, `X Segments`, `Y Segments`, and `Center Pivot`.
 3. Optionally assign a heightmap texture and choose `Height Scale`, `Height Offset`, channel, inversion, and X/Y flip settings.
-4. Adjust height processing options such as remap, edge falloff, and terracing.
-5. Set scene output options such as parent, material, `Add MeshCollider`, and `Auto Update Preview`.
-6. Click `Create Scene Object` to create a live scene mesh, or `Save Mesh Asset` to save the generated mesh to the project.
+4. Optionally enable direct source modes such as `Use GeoTIFF Elevation` or `Use Sonar Log Depth` when the mesh height should come from raster or sonar log data instead of a standard color-gradient heightmap.
+5. Use `Surface Visual` settings to map the heightmap or a separate surface texture onto the generated mesh material while keeping the mesh topology generated from the sampled height data.
+6. Adjust height processing options such as remap, edge falloff, and terracing. These processing options apply to standard texture heightmaps; direct GeoTIFF and sonar source modes use their sampled values directly.
+7. Set scene output options such as parent, material, `Add MeshCollider`, and preview update behavior.
+8. Click `Refresh Preview Mesh` to rebuild the preview, then click `Create Scene Object` to create a live scene mesh, or `Save Mesh Asset` to save the generated mesh to the project.
 
 The generated grid uses UV0 coordinates for heightmap sampling. If no heightmap is assigned, the tool generates a flat grid. If a heightmap is assigned, vertices are displaced on the Y axis using the selected texture channel and processing settings.
 
 #### Mesh Generator - Preview Controls
 
 * The right-side preview shows the generated grid before it is created in the scene or saved as an asset.
-* Enable `Show Vertices` and `Show Edges` to inspect the grid topology and heightmap deformation.
+* Use the preview `Display` controls to toggle `Surfaces`, `Edges`, and `Vertices` independently. This makes it possible to inspect the textured surface, mesh wireframe, vertex distribution, or any combination of those views.
 * Use `Projection` to switch between `Perspective` and `Orthographic`, and use `Invert Camera Orbit` to flip the camera orbit preference.
 * The upper-right orientation triad follows Unity's scene view style and shows the current X/Y/Z view orientation.
+* Direct GeoTIFF and sonar source modes are designed for large files, so preview rebuilds are manual. Use `Refresh Preview Mesh` when source settings are ready instead of relying on automatic rebuilds for every field edit.
+
+#### Mesh Generator - Surface Visual Mapping
+
+`Surface Visual` controls how the generated mesh is shaded in the preview and on created scene objects.
+
+* `Map Image To Surface` maps an image onto the generated mesh using the grid's UV0 coordinates.
+* `Surface Texture` can override the visual texture without changing the height source.
+* If `Surface Texture` is empty, the assigned `Heightmap` texture is used as the visual surface texture.
+* If a custom material is assigned in `Scene Output`, the generator clones that material for preview/output and assigns the visual texture to common Unity texture properties such as `_BaseMap` and `_MainTex`.
+* Surface visual mapping is separate from height sampling. The same image can drive both height and color, or one file can drive height while another is used only for the material.
+
+#### Mesh Generator - GeoTIFF Elevation Mode
+
+`Use GeoTIFF Elevation` lets the generator sample a TIFF/GeoTIFF file directly for vertex height instead of using normalized color-channel values from a standard Unity texture.
+
+* If a `Heightmap` texture asset is assigned, its project path is used as the GeoTIFF source path automatically.
+* External `.tif` or `.tiff` files can be assigned through the `GeoTIFF File` field when no heightmap asset is assigned.
+* The GeoTIFF inspection panel reports raster size, bit depth, compression, layout, NoData value, value range, pixel scale, real-world size, and GDAL scale/offset metadata when available.
+* `Coordinate System` supports WGS84 and projected workflows. `Units To Meters` is used for projected coordinate systems when real-world source units need conversion into Unity meters.
+* `Match Grid Real Scale` locks the editable grid width and length to the inspected GeoTIFF real-world size so generated mesh dimensions stay in sync with source metadata.
+* Direct GeoTIFF height mode applies height as `Y = Height Offset + sample * Height Scale`. If the source is an image/intensity raster instead of a DEM, values may need a much smaller height scale.
+
+#### Mesh Generator - Sonar Log Mode
+
+`Use Sonar Log Depth` lets the generator build a raster from supported sonar log files and use that raster to displace the grid.
+
+* Supported source files include `.svlog` and `.svlz`.
+* `Waterfall` mode lays sonar samples out as a forward scan using survey speed, ping rate, range, and ping step settings.
+* `Geospatial Mosaic` mode uses MAVLink navigation packets and Omniscan mono profile packets to place samples into a local meter-space mosaic.
+* Geospatial controls include `Nav Source`, `Heading Source`, `Overlap Mode`, `Cell Size Meters`, and `Time Offset ms`.
+* `LocalPositionNed` is the recommended first navigation source for Unity-local survey meshes. `GlobalPositionInt` is available for GPS-based workflows that will later be aligned with projected raster or GeoTIFF data.
+* `Match Grid Log Bounds` locks the grid width and length to the inspected sonar raster bounds.
+* The sonar inspection panel reports source data kind, packet/sample counts, MAVLink navigation counts, raster resolution, local bounds, value range, and checksum warnings.
+* Omniscan profile logs currently provide acoustic intensity values in dB for the surface height workflow, not guaranteed bathymetric depth. Use `Height Scale` and `Height Offset` to keep intensity surfaces in a useful visual range.
 
 #### FPMeshGridData
 
