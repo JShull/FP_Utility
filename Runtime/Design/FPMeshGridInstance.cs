@@ -64,13 +64,14 @@ namespace FuzzPhyte.Utility
             EnsureComponents();
 
             Mesh previousMesh = _meshFilter.sharedMesh;
-            Mesh nextMesh = FPMeshGridBuilder.Build(DataAsset.GridSettings);
             FPMeshHeightmapSettings heightmapSettings = DataAsset.HeightmapSettings.Sanitized();
             if (heightmapOverride != null)
             {
                 heightmapSettings.Heightmap = heightmapOverride;
             }
 
+            FPMeshGridBuildSettings gridSettings = FPMeshHeightmapUtility.ApplySourceRealScaleToGrid(DataAsset.GridSettings, heightmapSettings);
+            Mesh nextMesh = FPMeshGridBuilder.Build(gridSettings);
             FPMeshHeightmapUtility.ApplyHeightmap(nextMesh, heightmapSettings, DataAsset.HeightProcessSettings);
 
             _meshFilter.sharedMesh = nextMesh;

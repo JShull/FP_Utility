@@ -126,8 +126,9 @@ namespace FuzzPhyte.Utility.Editor
                 return null;
             }
 
-            Mesh mesh = FPMeshGridBuilder.Build(instance.DataAsset.GridSettings);
             FPMeshHeightmapSettings heightmapSettings = instance.DataAsset.HeightmapSettings.Sanitized();
+            FPMeshGridBuildSettings gridSettings = FPMeshHeightmapUtility.ApplySourceRealScaleToGrid(instance.DataAsset.GridSettings, heightmapSettings);
+            Mesh mesh = FPMeshGridBuilder.Build(gridSettings);
             FPMeshHeightmapUtility.ApplyHeightmap(mesh, heightmapSettings, instance.DataAsset.HeightProcessSettings);
             return mesh;
         }
