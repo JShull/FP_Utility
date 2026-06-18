@@ -68,6 +68,8 @@ namespace FuzzPhyte.Utility
         public Texture2D Heightmap;
         public float HeightScale;
         public float HeightOffset;
+        public bool MapImageToSurface;
+        public Texture2D SurfaceTexture;
         public bool UseGeoTiffElevationData;
         public string GeoTiffSourcePath;
         public bool MatchGridToGeoTiffScale;
@@ -101,6 +103,8 @@ namespace FuzzPhyte.Utility
             Heightmap = null,
             HeightScale = 1f,
             HeightOffset = 0f,
+            MapImageToSurface = true,
+            SurfaceTexture = null,
             UseGeoTiffElevationData = false,
             GeoTiffSourcePath = string.Empty,
             MatchGridToGeoTiffScale = false,
@@ -137,6 +141,8 @@ namespace FuzzPhyte.Utility
                 Heightmap = Heightmap,
                 HeightScale = HeightScale,
                 HeightOffset = HeightOffset,
+                MapImageToSurface = MapImageToSurface,
+                SurfaceTexture = SurfaceTexture,
                 UseGeoTiffElevationData = UseGeoTiffElevationData,
                 GeoTiffSourcePath = string.IsNullOrWhiteSpace(GeoTiffSourcePath) ? string.Empty : GeoTiffSourcePath.Trim(),
                 MatchGridToGeoTiffScale = MatchGridToGeoTiffScale,
@@ -220,15 +226,40 @@ namespace FuzzPhyte.Utility
     /// </summary>
     public static class FPMeshHeightmapUtility
     {
-        public static FPMeshGridBuildSettings ApplySourceRealScaleToGrid(FPMeshGridBuildSettings gridSettings, FPMeshHeightmapSettings heightmapSettings)
+        public static FPMeshHeightmapSettings ApplyGridGenerationMode(
+            FPMeshGridGenerationMode generationMode,
+            FPMeshHeightmapSettings heightmapSettings)
         {
-            FPMeshHeightmapSettings safeHeightmapSettings = heightmapSettings.Sanitized();
-            if (safeHeightmapSettings.UseSonarLogDepthData)
+            FPMeshHeightmapSettings safeSettings = heightmapSettings.Sanitized();
+            switch (generationMode)
             {
-                return ApplySonarLogRealScaleToGrid(gridSettings, safeHeightmapSettings);
+                case FPMeshGridGenerationMode.GeoTiffGrid:
+                    safeSettings.UseGeoTiffElevationData = true;
+                    safeSettings.UseSonarLogDepthData = false;
+                    break;
+                case FPMeshGridGenerationMode.SonarLogGrid:
+                    safeSettings.UseGeoTiffElevationData = false;
+                    safeSettings.UseSonarLogDepthData = true;
+                    break;
+                default:
+                    safeSettings.UseGeoTiffElevationData = false;
+                    safeSettings.UseSonarLogDepthData = false;
+                    break;
             }
 
-            return ApplyGeoTiffRealScaleToGrid(gridSettings, safeHeightmapSettings);
+            return safeSettings;
+        }
+
+        public static FPMeshGridBuildSettings ApplySourceRealScaleToGrid(FPMeshGridBuildSettings gridSettings, FPMeshHeightmapSettings heightmapSettings)
+        {
+            FPMeshGridBuildSettings safeGridSettings = gridSettings.Sanitized();
+            FPMeshHeightmapSettings safeHeightmapSettings = ApplyGridGenerationMode(safeGridSettings.GenerationMode, heightmapSettings);
+            if (safeHeightmapSettings.UseSonarLogDepthData)
+            {
+                return ApplySonarLogRealScaleToGrid(safeGridSettings, safeHeightmapSettings);
+            }
+
+            return ApplyGeoTiffRealScaleToGrid(safeGridSettings, safeHeightmapSettings);
         }
 
         public static FPMeshGridBuildSettings ApplyGeoTiffRealScaleToGrid(FPMeshGridBuildSettings gridSettings, FPMeshHeightmapSettings heightmapSettings)

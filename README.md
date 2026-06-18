@@ -130,15 +130,24 @@ Open the heightmap editor from `FuzzPhyte/Utility/Rendering/FP Heightmap Editor`
 #### Mesh Generator - How To Use It
 
 1. Optionally assign an `FPMeshGridData` asset in the `Data Asset` field.
-2. Set the grid `Mesh Name`, `Width`, `Length`, `X Segments`, `Y Segments`, and `Center Pivot`.
-3. Optionally assign a heightmap texture and choose `Height Scale`, `Height Offset`, channel, inversion, and X/Y flip settings.
-4. Optionally enable direct source modes such as `Use GeoTIFF Elevation` or `Use Sonar Log Depth` when the mesh height should come from raster or sonar log data instead of a standard color-gradient heightmap.
+2. Choose a `Generation Mode`: `Normal Grid`, `GeoTIFF Grid`, or `Sonar Log Grid`.
+3. Set the grid `Mesh Name`, `Width`, `Length`, `X Segments`, `Y Segments`, and `Center Pivot`.
+4. Optionally assign a heightmap texture and choose `Height Scale`, `Height Offset`, channel, inversion, and X/Y flip settings.
 5. Use `Surface Visual` settings to map the heightmap or a separate surface texture onto the generated mesh material while keeping the mesh topology generated from the sampled height data.
 6. Adjust height processing options such as remap, edge falloff, and terracing. These processing options apply to standard texture heightmaps; direct GeoTIFF and sonar source modes use their sampled values directly.
 7. Set scene output options such as parent, material, `Add MeshCollider`, and preview update behavior.
 8. Click `Refresh Preview Mesh` to rebuild the preview, then click `Create Scene Object` to create a live scene mesh, or `Save Mesh Asset` to save the generated mesh to the project.
 
-The generated grid uses UV0 coordinates for heightmap sampling. If no heightmap is assigned, the tool generates a flat grid. If a heightmap is assigned, vertices are displaced on the Y axis using the selected texture channel and processing settings.
+The generated grid uses UV0 coordinates for heightmap sampling. In `Normal Grid` mode, if no heightmap is assigned, the tool generates a flat grid. If a heightmap is assigned, vertices are displaced on the Y axis using the selected texture channel and processing settings. In GeoTIFF and sonar modes, the selected source data becomes the direct height source while the heightmap editor and surface visual tools remain available as optional grid extensions.
+
+#### Mesh Generator - Generation Modes
+
+The `Generation Mode` stored in `FPMeshGridData.GridSettings` controls which source panels are shown and which direct source flags are active.
+
+* `Normal Grid` shows only the generic mesh grid controls: width, length, segment counts, pivot, optional heightmap deformation, surface visual mapping, and scene output.
+* `GeoTIFF Grid` shows GeoTIFF reference, coordinate system, real-scale matching, and GeoTIFF inspection controls.
+* `Sonar Log Grid` shows sonar log reference, waterfall/geospatial mosaic options, sonar raster settings, MAVLink placement controls, and sonar inspection controls.
+* Switching modes hides unrelated source parameters and synchronizes the stored heightmap source flags so hidden GeoTIFF or sonar values do not affect a normal grid build.
 
 #### Mesh Generator - Preview Controls
 
@@ -153,14 +162,14 @@ The generated grid uses UV0 coordinates for heightmap sampling. If no heightmap 
 `Surface Visual` controls how the generated mesh is shaded in the preview and on created scene objects.
 
 * `Map Image To Surface` maps an image onto the generated mesh using the grid's UV0 coordinates.
-* `Surface Texture` can override the visual texture without changing the height source.
+* `Surface Texture` can override the visual texture without changing the height source. This reference is stored in `FPMeshGridData.HeightmapSettings` when settings are saved to a data asset.
 * If `Surface Texture` is empty, the assigned `Heightmap` texture is used as the visual surface texture.
 * If a custom material is assigned in `Scene Output`, the generator clones that material for preview/output and assigns the visual texture to common Unity texture properties such as `_BaseMap` and `_MainTex`.
 * Surface visual mapping is separate from height sampling. The same image can drive both height and color, or one file can drive height while another is used only for the material.
 
 #### Mesh Generator - GeoTIFF Elevation Mode
 
-`Use GeoTIFF Elevation` lets the generator sample a TIFF/GeoTIFF file directly for vertex height instead of using normalized color-channel values from a standard Unity texture.
+`GeoTIFF Grid` mode lets the generator sample a TIFF/GeoTIFF file directly for vertex height instead of using normalized color-channel values from a standard Unity texture.
 
 * If a `Heightmap` texture asset is assigned, its project path is used as the GeoTIFF source path automatically.
 * External `.tif` or `.tiff` files can be assigned through the `GeoTIFF File` field when no heightmap asset is assigned.
@@ -171,7 +180,7 @@ The generated grid uses UV0 coordinates for heightmap sampling. If no heightmap 
 
 #### Mesh Generator - Sonar Log Mode
 
-`Use Sonar Log Depth` lets the generator build a raster from supported sonar log files and use that raster to displace the grid.
+`Sonar Log Grid` mode lets the generator build a raster from supported sonar log files and use that raster to displace the grid.
 
 * Supported source files include `.svlog` and `.svlz`.
 * `Waterfall` mode lays sonar samples out as a forward scan using survey speed, ping rate, range, and ping step settings.
@@ -188,8 +197,8 @@ The generated grid uses UV0 coordinates for heightmap sampling. If no heightmap 
 
 The asset stores:
 
-* `GridSettings`, including mesh name, width, length, segment counts, and pivot mode.
-* `HeightmapSettings`, including the heightmap texture, height scale, offset, channel, inversion, and flips.
+* `GridSettings`, including generation mode, mesh name, width, length, segment counts, and pivot mode.
+* `HeightmapSettings`, including the heightmap texture, surface texture reference, height scale, offset, channel, inversion, and flips.
 * `HeightProcessSettings`, including remap, edge falloff, and terracing.
 
 Use `Load Settings From Data Asset` to pull a recipe into the generator. Use `Save Current Settings To Data Asset` to write the current generator and heightmap settings back into the asset.

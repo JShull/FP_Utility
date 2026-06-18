@@ -15,9 +15,17 @@ namespace FuzzPhyte.Utility
     /// <summary>
     /// Settings used to build a flat rectangular grid mesh on the XZ plane.
     /// </summary>
+    public enum FPMeshGridGenerationMode
+    {
+        NormalGrid = 0,
+        GeoTiffGrid = 1,
+        SonarLogGrid = 2
+    }
+
     [Serializable]
     public struct FPMeshGridBuildSettings
     {
+        public FPMeshGridGenerationMode GenerationMode;
         public string MeshName;
         public float Width;
         public float Length;
@@ -27,6 +35,7 @@ namespace FuzzPhyte.Utility
 
         public static FPMeshGridBuildSettings Default => new FPMeshGridBuildSettings
         {
+            GenerationMode = FPMeshGridGenerationMode.NormalGrid,
             MeshName = "FP_GridSurface",
             Width = 1f,
             Length = 1f,
@@ -39,6 +48,7 @@ namespace FuzzPhyte.Utility
         {
             return new FPMeshGridBuildSettings
             {
+                GenerationMode = GenerationMode,
                 MeshName = string.IsNullOrWhiteSpace(MeshName) ? "FP_GridSurface" : MeshName.Trim(),
                 Width = Mathf.Max(0.01f, Width),
                 Length = Mathf.Max(0.01f, Length),

@@ -27,7 +27,7 @@ namespace FuzzPhyte.Utility
             FPMeshHeightProcessSettings heightProcessSettings)
         {
             GridSettings = gridSettings.Sanitized();
-            HeightmapSettings = heightmapSettings.Sanitized();
+            HeightmapSettings = FPMeshHeightmapUtility.ApplyGridGenerationMode(GridSettings.GenerationMode, heightmapSettings);
             HeightProcessSettings = heightProcessSettings.Sanitized();
 
             if (string.IsNullOrWhiteSpace(UniqueID))
@@ -41,7 +41,7 @@ namespace FuzzPhyte.Utility
         private void OnValidate()
         {
             GridSettings = GridSettings.Sanitized();
-            HeightmapSettings = HeightmapSettings.Sanitized();
+            HeightmapSettings = FPMeshHeightmapUtility.ApplyGridGenerationMode(GridSettings.GenerationMode, HeightmapSettings);
             HeightProcessSettings = HeightProcessSettings.Sanitized();
             NotifyChanged();
         }

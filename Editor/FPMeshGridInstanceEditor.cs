@@ -126,8 +126,11 @@ namespace FuzzPhyte.Utility.Editor
                 return null;
             }
 
-            FPMeshHeightmapSettings heightmapSettings = instance.DataAsset.HeightmapSettings.Sanitized();
-            FPMeshGridBuildSettings gridSettings = FPMeshHeightmapUtility.ApplySourceRealScaleToGrid(instance.DataAsset.GridSettings, heightmapSettings);
+            FPMeshGridBuildSettings storedGridSettings = instance.DataAsset.GridSettings.Sanitized();
+            FPMeshHeightmapSettings heightmapSettings = FPMeshHeightmapUtility.ApplyGridGenerationMode(
+                storedGridSettings.GenerationMode,
+                instance.DataAsset.HeightmapSettings);
+            FPMeshGridBuildSettings gridSettings = FPMeshHeightmapUtility.ApplySourceRealScaleToGrid(storedGridSettings, heightmapSettings);
             Mesh mesh = FPMeshGridBuilder.Build(gridSettings);
             FPMeshHeightmapUtility.ApplyHeightmap(mesh, heightmapSettings, instance.DataAsset.HeightProcessSettings);
             return mesh;

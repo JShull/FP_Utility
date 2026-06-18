@@ -29,10 +29,6 @@ namespace FuzzPhyte.Utility.Editor
         [SerializeField]
         private Material previewMaterial;
         [SerializeField]
-        private bool mapHeightmapToSurface = true;
-        [SerializeField]
-        private Texture2D surfaceTextureOverride;
-        [SerializeField]
         private bool addMeshCollider;
         [SerializeField]
         private FPMeshHeightmapSettings heightmapSettings = FPMeshHeightmapSettings.Default;
@@ -282,6 +278,18 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.LabelField("Mesh Data", EditorStyles.boldLabel);
 
             meshDataAsset = (FPMeshGridData)EditorGUILayout.ObjectField("Data Asset", meshDataAsset, typeof(FPMeshGridData), false);
+            FPMeshGridGenerationMode previousMode = gridSettings.GenerationMode;
+            gridSettings.GenerationMode = (FPMeshGridGenerationMode)EditorGUILayout.EnumPopup("Generation Mode", gridSettings.GenerationMode);
+            if (gridSettings.GenerationMode != previousMode)
+            {
+                geoTiffInspectionDirty = true;
+                sonarLogInspectionDirty = true;
+                effectiveGridDirty = true;
+            }
+
+            SyncHeightmapSourceFlagsToGenerationMode();
+
+            EditorGUILayout.HelpBox(GetGenerationModeHelpText(), MessageType.None);
 
             using (new EditorGUI.DisabledScope(meshDataAsset == null))
             {
@@ -330,37 +338,25 @@ namespace FuzzPhyte.Utility.Editor
 
         private void DrawHeightmapSettings()
         {
-            EditorGUILayout.LabelField("Heightmap", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Heightmap / Surface Visual", EditorStyles.boldLabel);
 
             Texture2D previousHeightmap = heightmapSettings.Heightmap;
             heightmapSettings.Heightmap = (Texture2D)EditorGUILayout.ObjectField("Heightmap", heightmapSettings.Heightmap, typeof(Texture2D), false);
             DrawSurfaceMappingSettings();
 
-            bool useGeoTiff = EditorGUILayout.Toggle("Use GeoTIFF Elevation", heightmapSettings.UseGeoTiffElevationData);
-            if (useGeoTiff && !heightmapSettings.UseGeoTiffElevationData)
-            {
-                heightmapSettings.UseSonarLogDepthData = false;
-            }
-
-            heightmapSettings.UseGeoTiffElevationData = useGeoTiff;
-            if (heightmapSettings.UseGeoTiffElevationData)
+            SyncHeightmapSourceFlagsToGenerationMode();
+            bool geoTiffMode = IsGeoTiffGridMode();
+            bool sonarLogMode = IsSonarLogGridMode();
+            if (geoTiffMode)
             {
                 SyncGeoTiffSourcePathFromHeightmap(previousHeightmap);
             }
-
-            bool useSonarLog = EditorGUILayout.Toggle("Use Sonar Log Depth", heightmapSettings.UseSonarLogDepthData);
-            if (useSonarLog && !heightmapSettings.UseSonarLogDepthData)
-            {
-                heightmapSettings.UseGeoTiffElevationData = false;
-            }
-
-            heightmapSettings.UseSonarLogDepthData = useSonarLog;
 
             heightmapSettings.HeightScale = EditorGUILayout.FloatField("Height Scale", heightmapSettings.HeightScale);
             heightmapSettings.HeightOffset = EditorGUILayout.FloatField("Height Offset", heightmapSettings.HeightOffset);
             heightmapSettings.Channel = (FPMeshHeightmapChannel)EditorGUILayout.EnumPopup("Channel", heightmapSettings.Channel);
 
-            if (heightmapSettings.UseGeoTiffElevationData)
+            if (geoTiffMode)
             {
                 EditorGUILayout.Space();
                 EditorGUILayout.LabelField("GeoTIFF Reference", EditorStyles.boldLabel);
@@ -404,7 +400,7 @@ namespace FuzzPhyte.Utility.Editor
                 DrawGeoTiffInspectionPanel();
             }
 
-            if (heightmapSettings.UseSonarLogDepthData)
+            if (sonarLogMode)
             {
                 DrawSonarLogSettings();
             }
@@ -413,13 +409,13 @@ namespace FuzzPhyte.Utility.Editor
             heightmapSettings.FlipX = EditorGUILayout.Toggle("Flip X", heightmapSettings.FlipX);
             heightmapSettings.FlipY = EditorGUILayout.Toggle("Flip Y", heightmapSettings.FlipY);
 
-            if (heightmapSettings.UseGeoTiffElevationData)
+            if (geoTiffMode)
             {
                 EditorGUILayout.HelpBox(
                     "GeoTIFF elevation mode treats sampled raster values as height data: Y = Height Offset + sample * Height Scale. Height processing remap, falloff, and terracing are skipped.",
                     MessageType.Info);
             }
-            else if (heightmapSettings.UseSonarLogDepthData)
+            else if (sonarLogMode)
             {
                 EditorGUILayout.HelpBox(
                     "Sonar log mode reads Cerulean Surveyor point packets and grids depth samples into the mesh. Use Refresh Preview to parse large files on demand.",
@@ -442,13 +438,13 @@ namespace FuzzPhyte.Utility.Editor
         {
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Surface Visual", EditorStyles.boldLabel);
-            mapHeightmapToSurface = EditorGUILayout.Toggle("Map Image To Surface", mapHeightmapToSurface);
-            using (new EditorGUI.DisabledScope(!mapHeightmapToSurface))
+            heightmapSettings.MapImageToSurface = EditorGUILayout.Toggle("Map Image To Surface", heightmapSettings.MapImageToSurface);
+            using (new EditorGUI.DisabledScope(!heightmapSettings.MapImageToSurface))
             {
-                surfaceTextureOverride = (Texture2D)EditorGUILayout.ObjectField("Surface Texture", surfaceTextureOverride, typeof(Texture2D), false);
+                heightmapSettings.SurfaceTexture = (Texture2D)EditorGUILayout.ObjectField("Surface Texture", heightmapSettings.SurfaceTexture, typeof(Texture2D), false);
             }
 
-            if (mapHeightmapToSurface && ResolveSurfaceTexture() == null)
+            if (heightmapSettings.MapImageToSurface && ResolveSurfaceTexture() == null)
             {
                 EditorGUILayout.HelpBox("Assign a Heightmap texture or Surface Texture to preview the raster on the generated mesh surface.", MessageType.None);
             }
@@ -459,7 +455,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("GeoTIFF Inspection", EditorStyles.boldLabel);
 
-            FPMeshHeightmapSettings safeSettings = heightmapSettings.Sanitized();
+            FPMeshHeightmapSettings safeSettings = GetModeSyncedHeightmapSettings();
             if (string.IsNullOrWhiteSpace(safeSettings.GeoTiffSourcePath))
             {
                 EditorGUILayout.HelpBox("Assign a GeoTIFF heightmap or source path to inspect raster metadata.", MessageType.None);
@@ -648,7 +644,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Sonar Log Inspection", EditorStyles.boldLabel);
 
-            FPMeshHeightmapSettings safeSettings = heightmapSettings.Sanitized();
+            FPMeshHeightmapSettings safeSettings = GetModeSyncedHeightmapSettings();
             if (string.IsNullOrWhiteSpace(safeSettings.SonarLogSourcePath))
             {
                 EditorGUILayout.HelpBox("Assign a .svlog or .svlz file to inspect packet-derived point data.", MessageType.None);
@@ -721,7 +717,8 @@ namespace FuzzPhyte.Utility.Editor
         {
             EditorGUILayout.LabelField("Height Processing", EditorStyles.boldLabel);
 
-            using (new EditorGUI.DisabledScope(heightmapSettings.UseGeoTiffElevationData || heightmapSettings.UseSonarLogDepthData))
+            bool directSourceMode = IsDirectSourceModeActive();
+            using (new EditorGUI.DisabledScope(directSourceMode))
             {
                 heightProcessSettings.UseRemap = EditorGUILayout.Toggle("Use Remap", heightProcessSettings.UseRemap);
                 using (new EditorGUI.DisabledScope(!heightProcessSettings.UseRemap))
@@ -744,7 +741,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
 
-            string helpText = heightmapSettings.UseGeoTiffElevationData || heightmapSettings.UseSonarLogDepthData
+            string helpText = directSourceMode
                 ? "Height processing is skipped while direct source data is enabled so sampled elevation/depth values stay in their original range."
                 : "Use remap to isolate the useful height range, falloff to soften edges or create island shapes, and terracing for stepped surfaces.";
             EditorGUILayout.HelpBox(helpText, MessageType.None);
@@ -792,6 +789,7 @@ namespace FuzzPhyte.Utility.Editor
 
             gridSettings = meshDataAsset.GridSettings.Sanitized();
             heightmapSettings = meshDataAsset.HeightmapSettings.Sanitized();
+            SyncHeightmapSourceFlagsToGenerationMode();
             heightProcessSettings = meshDataAsset.HeightProcessSettings.Sanitized();
             effectiveGridDirty = true;
             previewDirty = true;
@@ -809,10 +807,49 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
+            SyncHeightmapSourceFlagsToGenerationMode();
             Undo.RecordObject(meshDataAsset, "Update Mesh Grid Data");
             meshDataAsset.Capture(gridSettings, heightmapSettings, heightProcessSettings);
             EditorUtility.SetDirty(meshDataAsset);
             AssetDatabase.SaveAssets();
+        }
+
+        private void SyncHeightmapSourceFlagsToGenerationMode()
+        {
+            heightmapSettings = FPMeshHeightmapUtility.ApplyGridGenerationMode(gridSettings.GenerationMode, heightmapSettings);
+        }
+
+        private FPMeshHeightmapSettings GetModeSyncedHeightmapSettings()
+        {
+            return FPMeshHeightmapUtility.ApplyGridGenerationMode(gridSettings.GenerationMode, heightmapSettings);
+        }
+
+        private bool IsNormalGridMode()
+        {
+            return gridSettings.Sanitized().GenerationMode == FPMeshGridGenerationMode.NormalGrid;
+        }
+
+        private bool IsGeoTiffGridMode()
+        {
+            return gridSettings.Sanitized().GenerationMode == FPMeshGridGenerationMode.GeoTiffGrid;
+        }
+
+        private bool IsSonarLogGridMode()
+        {
+            return gridSettings.Sanitized().GenerationMode == FPMeshGridGenerationMode.SonarLogGrid;
+        }
+
+        private string GetGenerationModeHelpText()
+        {
+            switch (gridSettings.Sanitized().GenerationMode)
+            {
+                case FPMeshGridGenerationMode.GeoTiffGrid:
+                    return "GeoTIFF Grid samples raster values directly for mesh height and can lock grid size to geospatial metadata. Heightmap editor and surface visual mapping remain available as optional texture tools.";
+                case FPMeshGridGenerationMode.SonarLogGrid:
+                    return "Sonar Log Grid builds a raster from supported sonar logs, with optional MAVLink geospatial placement. Heightmap editor and surface visual mapping remain available as optional texture tools.";
+                default:
+                    return "Normal Grid uses Width, Length, X Segments, and Y Segments only. Heightmap deformation, surface texture mapping, and the heightmap editor can still be used as optional extensions.";
+            }
         }
 
         private void RefreshPreviewMesh()
@@ -830,7 +867,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private void RefreshActiveSourceInspection()
         {
-            FPMeshHeightmapSettings safeSettings = heightmapSettings.Sanitized();
+            FPMeshHeightmapSettings safeSettings = GetModeSyncedHeightmapSettings();
             if (safeSettings.UseSonarLogDepthData && !string.IsNullOrWhiteSpace(safeSettings.SonarLogSourcePath))
             {
                 sonarLogInspectionDirty = true;
@@ -845,16 +882,17 @@ namespace FuzzPhyte.Utility.Editor
 
         private Mesh BuildMesh(bool forceSourceLoad = false)
         {
+            FPMeshHeightmapSettings buildHeightmapSettings = GetModeSyncedHeightmapSettings();
             if (forceSourceLoad)
             {
                 RefreshActiveSourceInspection();
             }
 
             FPMeshGridBuildSettings buildSettings = forceSourceLoad
-                ? FPMeshHeightmapUtility.ApplySourceRealScaleToGrid(gridSettings, heightmapSettings)
+                ? FPMeshHeightmapUtility.ApplySourceRealScaleToGrid(gridSettings, buildHeightmapSettings)
                 : GetEffectiveGridSettings();
             Mesh mesh = FPMeshGridBuilder.Build(buildSettings);
-            FPMeshHeightmapUtility.ApplyHeightmap(mesh, heightmapSettings, heightProcessSettings);
+            FPMeshHeightmapUtility.ApplyHeightmap(mesh, buildHeightmapSettings, heightProcessSettings);
             return mesh;
         }
 
@@ -1275,12 +1313,13 @@ namespace FuzzPhyte.Utility.Editor
 
         private Texture2D ResolveSurfaceTexture()
         {
-            if (!mapHeightmapToSurface)
+            FPMeshHeightmapSettings safeSettings = heightmapSettings.Sanitized();
+            if (!safeSettings.MapImageToSurface)
             {
                 return null;
             }
 
-            return surfaceTextureOverride != null ? surfaceTextureOverride : heightmapSettings.Heightmap;
+            return safeSettings.SurfaceTexture != null ? safeSettings.SurfaceTexture : safeSettings.Heightmap;
         }
 
         private static Material CreateSurfaceMaterialInstance(Material sourceMaterial, HideFlags hideFlags, string materialName)
@@ -1400,6 +1439,7 @@ namespace FuzzPhyte.Utility.Editor
 
             if (meshDataAsset != null)
             {
+                SyncHeightmapSourceFlagsToGenerationMode();
                 Undo.RecordObject(meshDataAsset, "Update Mesh Grid Data");
                 meshDataAsset.Capture(gridSettings, heightmapSettings, heightProcessSettings);
                 EditorUtility.SetDirty(meshDataAsset);
@@ -1598,7 +1638,7 @@ namespace FuzzPhyte.Utility.Editor
                 return effectiveGridSettings;
             }
 
-            FPMeshHeightmapSettings safeHeightmapSettings = heightmapSettings.Sanitized();
+            FPMeshHeightmapSettings safeHeightmapSettings = GetModeSyncedHeightmapSettings();
             effectiveGridSettings = gridSettings.Sanitized();
             if (safeHeightmapSettings.UseSonarLogDepthData)
             {
@@ -1638,7 +1678,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private bool IsSourceRealScaleRequested()
         {
-            FPMeshHeightmapSettings safeHeightmapSettings = heightmapSettings.Sanitized();
+            FPMeshHeightmapSettings safeHeightmapSettings = GetModeSyncedHeightmapSettings();
             return (safeHeightmapSettings.UseGeoTiffElevationData
                     && safeHeightmapSettings.MatchGridToGeoTiffScale
                     && !string.IsNullOrWhiteSpace(safeHeightmapSettings.GeoTiffSourcePath))
@@ -1672,13 +1712,12 @@ namespace FuzzPhyte.Utility.Editor
 
         private bool IsDirectSourceModeActive()
         {
-            FPMeshHeightmapSettings safeHeightmapSettings = heightmapSettings.Sanitized();
-            return safeHeightmapSettings.UseGeoTiffElevationData || safeHeightmapSettings.UseSonarLogDepthData;
+            return IsGeoTiffGridMode() || IsSonarLogGridMode();
         }
 
         private bool TryGetGeoTiffInspection(out FPMeshGeoTiffRaster raster, out string error)
         {
-            FPMeshHeightmapSettings safeSettings = heightmapSettings.Sanitized();
+            FPMeshHeightmapSettings safeSettings = GetModeSyncedHeightmapSettings();
             string sourcePath = safeSettings.GeoTiffSourcePath;
             if (string.IsNullOrWhiteSpace(sourcePath))
             {
@@ -1714,7 +1753,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private bool TryGetSonarLogInspection(out FPMeshSonarLogRaster raster, out string error)
         {
-            FPMeshHeightmapSettings safeSettings = heightmapSettings.Sanitized();
+            FPMeshHeightmapSettings safeSettings = GetModeSyncedHeightmapSettings();
             string sourcePath = safeSettings.SonarLogSourcePath;
             string settingsKey = GetSonarLogInspectionSettingsKey(safeSettings);
             if (string.IsNullOrWhiteSpace(sourcePath))
