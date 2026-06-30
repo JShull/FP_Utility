@@ -870,6 +870,13 @@ namespace FuzzPhyte.Utility
             return FPToolState.NA;
         }
     }
+    public interface IFPToolEndPoint
+    {
+        List<GameObject> OnToolSelectionReturnEndPoints();
+        GameObject OnToolSelectionReturnClosestEndPoint(PointerEventData eventData);
+        (bool, Vector3) ReturnWorldMidPoint();
+        GameObject OnToolSelectionReturnRootGameObject();
+    }
     public interface IFPUIEventListener<T> where T : class
     {
         void OnUIEvent(FP_UIEventData<T> eventData);
