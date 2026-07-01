@@ -71,11 +71,55 @@ namespace FuzzPhyte.Utility.Editor
 
             return manifest;
         }
+
+        public static bool TryGetDependencyReference(string manifestPath, string packageName, out string dependencyReference)
+        {
+            dependencyReference = string.Empty;
+
+            if (!File.Exists(manifestPath))
+            {
+                UnityEngine.Debug.LogError("Could not find manifest.json file.");
+                return false;
+            }
+
+            string[] lines = File.ReadAllLines(manifestPath);
+            bool inDependenciesSection = false;
+            Regex dependencyPattern = new Regex($"^\\s*\"{Regex.Escape(packageName)}\"\\s*:\\s*\"([^\"]+)\"");
+
+            foreach (string line in lines)
+            {
+                if (line.Trim().StartsWith("\"dependencies\":"))
+                {
+                    inDependenciesSection = true;
+                    continue;
+                }
+
+                if (inDependenciesSection && line.Trim().StartsWith("}"))
+                {
+                    break;
+                }
+
+                if (!inDependenciesSection)
+                {
+                    continue;
+                }
+
+                Match match = dependencyPattern.Match(line);
+                if (match.Success)
+                {
+                    dependencyReference = match.Groups[1].Value;
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
     #endregion
     //quick way to check for FuzzPhyte package updates
     public static class FPCheckPackageUpdates
     {
+        private const string UtilityPackageName = "com.fuzzphyte.utility";
         static List<Request> _updateRequests;
         
         // Add a menu item in the Unity Editor under "Tools/FuzzPhyte/Update FP Packages"
@@ -84,14 +128,36 @@ namespace FuzzPhyte.Utility.Editor
         {
             CheckForPackageUpdates("com.fuzzphyte.");
         }
+
+        public static void RunUtilityPackageUpdateCheck()
+        {
+            CheckForPackageUpdate(UtilityPackageName);
+        }
+
+        private static string GetManifestPath()
+        {
+            var projectRoot = new DirectoryInfo(Application.dataPath).Parent.FullName;
+            return Path.Combine(projectRoot, "Packages", "manifest.json");
+        }
+
+        private static void CheckForPackageUpdate(string packageName)
+        {
+            string manifestPath = GetManifestPath();
+            if (!FPManifest.TryGetDependencyReference(manifestPath, packageName, out string dependencyReference))
+            {
+                UnityEngine.Debug.LogWarning($"Could not find {packageName} in manifest.json dependencies.");
+                return;
+            }
+
+            StartPackageUpdateRequests(new List<string> { dependencyReference });
+        }
+
         private static void CheckForPackageUpdates(string packageNameConvention)
         {
             //EditorApplication.update -= CheckForPackageUpdates;
 
             // Get all FP_ package URLs from the manifest
-            var projectRoot = new DirectoryInfo(Application.dataPath).Parent.FullName;
-
-            string manifestPath = Path.Combine(projectRoot, "Packages", "manifest.json");
+            string manifestPath = GetManifestPath();
             if (!File.Exists(manifestPath))
             {
                 UnityEngine.Debug.LogError("Could not find manifest.json file.");
@@ -103,10 +169,15 @@ namespace FuzzPhyte.Utility.Editor
                 UnityEngine.Debug.LogError("Null on Manifest");
                 return;
             }
+            StartPackageUpdateRequests(manifest.dependencyUrls);
+        }
+
+        private static void StartPackageUpdateRequests(List<string> dependencyReferences)
+        {
             _updateRequests = new List<Request>();
-            for (int i=0; i<manifest.dependencyUrls.Count;i++)
+            for (int i=0; i<dependencyReferences.Count;i++)
             {
-                var dependency = manifest.dependencyUrls[i];
+                var dependency = dependencyReferences[i];
                 //UnityEngine.Debug.Log($"Fetching latest for package: {dependency}");
                 var request = Client.Add(dependency);
                 if(request != null)
@@ -114,23 +185,38 @@ namespace FuzzPhyte.Utility.Editor
                     _updateRequests.Add(request);
                 }
             }
-            UnityEngine.Debug.Log($"Send off {manifest.dependencyUrls.Count} requests");
+
+            UnityEngine.Debug.Log($"Send off {dependencyReferences.Count} requests");
             // Start listening for update completion
-            MonitorUpdateRequests();
+            EditorApplication.update -= MonitorUpdateRequests;
+            EditorApplication.update += MonitorUpdateRequests;
         }
         
         private static void MonitorUpdateRequests()
         {
-            //bool allComplete = true;
-            
+            if (_updateRequests == null || _updateRequests.Count == 0)
+            {
+                EditorApplication.update -= MonitorUpdateRequests;
+                return;
+            }
+
+            bool allComplete = true;
             foreach (var request in _updateRequests)
             {
                 if (!request.IsCompleted)
                 {
-                    //allComplete = false;
+                    allComplete = false;
                     continue;
                 }
+            }
 
+            if (!allComplete)
+            {
+                return;
+            }
+
+            foreach (var request in _updateRequests)
+            {
                 if (request.Status == StatusCode.Success)
                 {
                     UnityEngine.Debug.Log($"Package {request.ToString() } updated successfully.");
@@ -140,13 +226,9 @@ namespace FuzzPhyte.Utility.Editor
                     UnityEngine.Debug.LogError($"Failed to update package: {request.Error.message}");
                 }
             }
-            /*
-            // If all requests are complete, stop monitoring
-            if (allComplete)
-            {
-                //EditorApplication.update -= MonitorUpdateRequests;
-            }
-            */
+
+            EditorApplication.update -= MonitorUpdateRequests;
+            _updateRequests = null;
         }
     }
 

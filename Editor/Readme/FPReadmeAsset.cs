@@ -24,12 +24,15 @@ namespace FuzzPhyte.Utility.Editor
         [TextArea(3, 8)]
         public string overview;
 
+        public List<FPReadmeLink> overviewLinks = new();
+
         public List<FPReadmeSection> sections = new();
     }
     [Serializable]
     public class FPReadmeSection
     {
         public string heading;
+        public bool showSeparatorBefore;
 
         [TextArea(3, 12)]
         public string body;

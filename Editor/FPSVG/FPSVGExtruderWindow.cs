@@ -34,6 +34,8 @@ namespace FuzzPhyte.Utility.Editor
         private Color regionLabelColor = new Color(1f, 0.82f, 0.25f, 1f);
         [SerializeField]
         private Color selectionColor = new Color(0.01f, 0.61f, 0.98f, 0.28f);
+        [SerializeField]
+        private bool regionsFoldout = true;
 
         private readonly List<FPSVGRegion> regions = new List<FPSVGRegion>();
         private readonly List<string> warnings = new List<string>();
@@ -46,10 +48,10 @@ namespace FuzzPhyte.Utility.Editor
         private bool generateMeshQueued;
 
         private const float ParameterPanelWidth = 352f;
-        private const float PreviewHeightControlWidth = 58f;
         private const float BottomDebugHeight = 108f;
         private const float WorkspacePadding = 4f;
         private const float PanelGap = 6f;
+        private const float PreviewHeightScrollSensitivity = 0.08f;
 
         [MenuItem("FuzzPhyte/Utility/Mesh/SVG Extruder", priority = FP_UtilityData.MENU_UTILITY_RENDERING + 4)]
         public static void ShowWindow()
@@ -97,13 +99,11 @@ namespace FuzzPhyte.Utility.Editor
             Rect topRect = new Rect(workspaceRect.x, workspaceRect.y, workspaceRect.width, topHeight);
             Rect debugRect = new Rect(workspaceRect.x, topRect.yMax + PanelGap, workspaceRect.width, workspaceRect.height - topHeight - PanelGap);
 
-            float leftWidth = Mathf.Clamp(ParameterPanelWidth, 240f, Mathf.Max(240f, topRect.width - 260f - PreviewHeightControlWidth - (PanelGap * 2f)));
+            float leftWidth = Mathf.Clamp(ParameterPanelWidth, 260f, Mathf.Max(260f, topRect.width - 280f - PanelGap));
             Rect parameterRect = new Rect(topRect.x, topRect.y, leftWidth, topRect.height);
-            Rect heightControlRect = new Rect(parameterRect.xMax + PanelGap, topRect.y, PreviewHeightControlWidth, topRect.height);
-            Rect previewRect = new Rect(heightControlRect.xMax + PanelGap, topRect.y, Mathf.Max(100f, topRect.xMax - heightControlRect.xMax - PanelGap), topRect.height);
+            Rect previewRect = new Rect(parameterRect.xMax + PanelGap, topRect.y, Mathf.Max(100f, topRect.xMax - parameterRect.xMax - PanelGap), topRect.height);
 
             DrawParameterPanelContainer(parameterRect);
-            DrawPreviewHeightControl(heightControlRect);
             DrawPreviewPanelContainer(previewRect);
             DrawDebugPanel(debugRect);
         }
@@ -112,7 +112,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
             Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
-            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, 760f + (regions.Count * 22f));
+            Rect viewRect = new Rect(0f, 0f, innerRect.width - 16f, GetParameterViewHeight());
 
             parameterScrollPosition = GUI.BeginScrollView(innerRect, parameterScrollPosition, viewRect);
             GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
@@ -124,30 +124,21 @@ namespace FuzzPhyte.Utility.Editor
         private void DrawParameterPanel()
         {
             DrawSourceSettings();
-            FP_Utility_Editor.DrawUILine(Color.gray);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawMeshSettings();
-            FP_Utility_Editor.DrawUILine(Color.gray);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawSceneSettings();
-            FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawActions();
-            FP_Utility_Editor.DrawUILine(Color.gray);
-            DrawRegionList();
-        }
-
-        private void DrawPreviewHeightControl(Rect rect)
-        {
-            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
-            GUI.Label(new Rect(rect.x + 4f, rect.y + 6f, rect.width - 8f, 18f), "Height", EditorStyles.centeredGreyMiniLabel);
-
-            Rect sliderRect = new Rect(rect.x + 8f, rect.y + 30f, rect.width - 16f, rect.height - 62f);
-            previewHeight = GUI.VerticalSlider(sliderRect, previewHeight, 900f, 160f);
-            previewHeight = Mathf.Clamp(previewHeight, 160f, 900f);
-            GUI.Label(new Rect(rect.x + 4f, rect.yMax - 24f, rect.width - 8f, 18f), Mathf.RoundToInt(previewHeight).ToString(), EditorStyles.centeredGreyMiniLabel);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawRegionPanel();
         }
 
         private void DrawPreviewPanelContainer(Rect rect)
         {
             GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            HandlePreviewHeightInput(rect);
+
             float availablePreviewHeight = Mathf.Max(24f, rect.height - 20f);
             float drawnPreviewHeight = Mathf.Min(availablePreviewHeight, previewHeight);
             float previewY = rect.y + 10f + ((availablePreviewHeight - drawnPreviewHeight) * 0.5f);
@@ -158,6 +149,8 @@ namespace FuzzPhyte.Utility.Editor
                 regions[clickedIndex].Included = !regions[clickedIndex].Included;
                 Repaint();
             }
+
+            DrawPreviewOverlay(rect);
         }
 
         private void DrawDebugPanel(Rect rect)
@@ -265,7 +258,6 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            EditorGUILayout.LabelField("Regions", EditorStyles.boldLabel);
             int includedCount = 0;
             for (int i = 0; i < regions.Count; i++)
             {
@@ -286,6 +278,73 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             EditorGUILayout.LabelField("Included Regions", includedCount.ToString());
+        }
+
+        private void DrawRegionPanel()
+        {
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    regionsFoldout = EditorGUILayout.Foldout(
+                        regionsFoldout,
+                        "Regions",
+                        true
+                    );
+
+                    GUILayout.FlexibleSpace();
+                    EditorGUILayout.LabelField(
+                        $"{CountIncludedRegions()} / {regions.Count}",
+                        EditorStyles.miniLabel,
+                        GUILayout.Width(72f)
+                    );
+                }
+
+                if (!regionsFoldout)
+                {
+                    return;
+                }
+
+                DrawRegionList();
+            }
+        }
+
+        private float GetParameterViewHeight()
+        {
+            float baseHeight = 760f;
+            if (!regionsFoldout)
+            {
+                return baseHeight;
+            }
+
+            return baseHeight + (regions.Count * 22f);
+        }
+
+        private void HandlePreviewHeightInput(Rect rect)
+        {
+            Event current = Event.current;
+            if (current.type != EventType.ScrollWheel || !rect.Contains(current.mousePosition))
+            {
+                return;
+            }
+
+            float scale = Mathf.Exp(-current.delta.y * PreviewHeightScrollSensitivity);
+            previewHeight = Mathf.Clamp(previewHeight * scale, 160f, 900f);
+            current.Use();
+            Repaint();
+        }
+
+        private void DrawPreviewOverlay(Rect rect)
+        {
+            Rect overlayRect = new Rect(rect.x + 8f, rect.y + 8f, 186f, 58f);
+            GUI.Box(overlayRect, GUIContent.none, EditorStyles.helpBox);
+
+            Rect lineRect = new Rect(overlayRect.x + 6f, overlayRect.y + 5f, overlayRect.width - 12f, 18f);
+            GUI.Label(lineRect, $"Regions: {regions.Count}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Included: {CountIncludedRegions()}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Preview Pixels: {Mathf.RoundToInt(previewHeight)}", EditorStyles.miniLabel);
         }
 
         private static void DrawRegionColorSwatch(Rect rect, FPSVGRegion region)

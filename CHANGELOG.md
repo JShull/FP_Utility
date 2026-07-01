@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-01
+
+### 1.0.0 Added
+
+- [@JShull](https://github.com/jshull)
+  - FP Readme Tool
+    - Added inline Markdown link support for readme body text using `[Label](target)` syntax.
+    - Added Unity menu link support for readme links, including `menu:` / `unity-menu:` targets and direct `FuzzPhyte/...` menu paths.
+    - Added overview-level readme links so the top readme area can include clickable web or tool links below the package overview.
+    - Added optional section separators, larger section heading rendering, and builder controls for expanding or collapsing all sections.
+    - Added a footer help toggle for inline link syntax so the help text can be shown once at the bottom of the Readme Builder instead of repeated in every section.
+  - FP Utility package startup
+    - Added an editor session startup check for UPM-loaded FP Utility packages.
+    - Added a package startup message toggle under `FuzzPhyte/Utility/Package Messages/Show Startup Messages`.
+    - Added automatic selection and pinging of the package-root `Readme` FP Readme Asset after the startup message closes.
+  - FP Video Sphere Generator
+    - Added a right-side mesh preview panel for generated sphere, ellipsoid, and quad video surfaces.
+    - Added preview camera projection, invert orbit, vertex overlay, edge overlay, orbit gizmo, scene orientation gizmo, and scroll-wheel zoom controls.
+  - FP Action-Event Scanner documentation
+    - Added README documentation for scanning `event`, `delegate`, and `Action` usage across FuzzPhyte package folders.
+
+### 1.0.0 Modified
+
+- [@JShull](https://github.com/jshull)
+  - FP Readme Asset inspector
+    - Updated readme link rendering so HTTP links keep the normal link color while Unity menu links use `FP_Utility_Editor.WarningColor`.
+    - Updated inline link layout to preserve normal word spacing and draw clickable link overlays on the same visual line as surrounding text.
+    - Updated the package `Readme.asset` content and visual section layout for the current utility tool set.
+  - FP SVG Extruder
+    - Updated UI dividers to use the shared warning-color mesh tool separator style.
+    - Replaced the vertical preview height slider with scroll-wheel preview scaling in the preview panel.
+    - Added a collapsible Regions panel and preview overlay stats for regions, included regions, and preview pixel height.
+  - FP Video Sphere Generator
+    - Reworked the window into the same left-parameter / right-preview layout used by the mesh tools.
+    - Moved generation actions into a stable lower action area and added spacing to prevent the Scene Output controls from clipping.
+  - Package update checks
+    - Added targeted update checking for `com.fuzzphyte.utility` when the package startup session check runs.
+    - Updated package update request monitoring so it waits for all package requests to finish before logging results and detaching from editor updates.
+  - Documentation
+    - Added README coverage for the FP Video Sphere Generator and FP Action-Event Scanner workflows.
+    - Updated package readme links and menu references for the current FuzzPhyte utility navigation.
+  - `package.json`
+    - Version bumped to `1.0.0`.
+    - Added Unity Entities package dependencies used by the current utility package.
+
+### 1.0.0 Removed
+
+- [@JShull](https://github.com/jshull)
+  - Removed the bundled `CoordinateSharp` precompiled library assets and cleared the runtime assembly definition's `CoordinateSharp.dll` reference.
+
 ## [0.9.7] - 2026-05-27
 
 ### 0.9.7 Added

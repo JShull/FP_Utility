@@ -11,6 +11,7 @@ namespace FuzzPhyte.Utility.Editor.Video
     using FuzzPhyte.Utility.Video;
     using UnityEditor;
     using UnityEngine;
+    using UnityEngine.Rendering;
 
     /// <summary>
     /// Builds and saves an inside-out sphere mesh for 360 video rendering workflows.
@@ -26,14 +27,31 @@ namespace FuzzPhyte.Utility.Editor.Video
         [SerializeField] private Transform targetParent;
         [SerializeField] private bool addMeshCollider;
         [SerializeField] private GameObject lastGeneratedObject;
+        [SerializeField] private FPMeshPreviewProjection cameraProjection = FPMeshPreviewProjection.Perspective;
+        [SerializeField] private bool invertCameraOrbit;
+        [SerializeField] private bool showVertices;
+        [SerializeField] private bool showEdges;
 
         private Vector2 scrollPosition;
+        private PreviewRenderUtility previewUtility;
+        private Mesh previewMesh;
+        private Material generatedPreviewMaterial;
+        private Quaternion previewRotation = Quaternion.Euler(22f, -35f, 0f);
+        private float previewZoom = 1.45f;
+        private int activeOrbitAxis = -1;
+        private bool previewDirty = true;
+
+        private const float ParameterPanelWidth = 352f;
+        private const float WorkspacePadding = 4f;
+        private const float PanelGap = 6f;
+        private const float ActionPanelHeight = 110f;
+        private const float ParameterViewHeight = 760f;
 
         [MenuItem("FuzzPhyte/Utility/Video/FP Video Sphere Generator", priority = FP_UtilityData.MENU_UTILITY_VIDEO + 1)]
         public static void ShowWindow()
         {
             FPVideoSphereGeneratorWindow window = GetWindow<FPVideoSphereGeneratorWindow>("FP Video Sphere");
-            window.minSize = new Vector2(360f, 300f);
+            window.minSize = new Vector2(760f, 520f);
             window.SyncSelectionDefaults();
         }
 
@@ -45,27 +63,89 @@ namespace FuzzPhyte.Utility.Editor.Video
             }
 
             SyncSelectionDefaults();
+            EnsurePreviewUtility();
+            previewDirty = true;
+        }
+
+        private void OnDisable()
+        {
+            CleanupPreviewMesh();
+
+            if (previewUtility != null)
+            {
+                previewUtility.Cleanup();
+                previewUtility = null;
+            }
+
+            if (generatedPreviewMaterial != null)
+            {
+                DestroyImmediate(generatedPreviewMaterial);
+                generatedPreviewMaterial = null;
+            }
         }
 
         private void OnGUI()
         {
-            using (EditorGUILayout.ScrollViewScope scrollView = new EditorGUILayout.ScrollViewScope(scrollPosition))
+            GUILayout.Label("FP Video Sphere Generator", EditorStyles.boldLabel);
+            DrawWorkspace();
+        }
+
+        private void DrawWorkspace()
+        {
+            Rect previousRect = GUILayoutUtility.GetLastRect();
+            float workspaceTop = previousRect.yMax + 4f;
+            Rect workspaceRect = new Rect(
+                WorkspacePadding,
+                workspaceTop,
+                Mathf.Max(100f, position.width - (WorkspacePadding * 2f)),
+                Mathf.Max(100f, position.height - workspaceTop - WorkspacePadding));
+
+            float leftWidth = Mathf.Clamp(ParameterPanelWidth, 260f, Mathf.Max(260f, workspaceRect.width - 280f - PanelGap));
+            Rect parameterRect = new Rect(workspaceRect.x, workspaceRect.y, leftWidth, workspaceRect.height);
+            Rect previewRect = new Rect(parameterRect.xMax + PanelGap, workspaceRect.y, Mathf.Max(100f, workspaceRect.xMax - parameterRect.xMax - PanelGap), workspaceRect.height);
+
+            DrawParameterPanelContainer(parameterRect);
+            DrawPreviewPanelContainer(previewRect);
+        }
+
+        private void DrawParameterPanelContainer(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+            Rect actionRect = new Rect(innerRect.x, innerRect.yMax - ActionPanelHeight, innerRect.width, ActionPanelHeight);
+            Rect scrollRect = new Rect(innerRect.x, innerRect.y, innerRect.width, Mathf.Max(40f, innerRect.height - ActionPanelHeight - 6f));
+            Rect viewRect = new Rect(0f, 0f, scrollRect.width - 16f, ParameterViewHeight);
+
+            scrollPosition = GUI.BeginScrollView(scrollRect, scrollPosition, viewRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
+            DrawParameterPanel();
+            GUILayout.EndArea();
+            GUI.EndScrollView();
+
+            GUILayout.BeginArea(actionRect);
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawActions();
+            GUILayout.EndArea();
+        }
+
+        private void DrawParameterPanel()
+        {
+            EditorGUI.BeginChangeCheck();
+
+            DrawHeader();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawSphereSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawCameraSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawAssetSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawSceneSettings();
+
+            if (EditorGUI.EndChangeCheck())
             {
-                scrollPosition = scrollView.scrollPosition;
-
-                DrawHeader();
-                FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-
-                DrawSphereSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawAssetSettings();
-                FP_Utility_Editor.DrawUILine(Color.gray);
-
-                DrawSceneSettings();
-                FP_Utility_Editor.DrawUILine(FP_Utility_Editor.OkayColor);
-
-                DrawActions();
+                previewDirty = true;
+                Repaint();
             }
         }
 
@@ -76,6 +156,15 @@ namespace FuzzPhyte.Utility.Editor.Video
                 "Generates video-ready meshes for 360 and flat playback workflows. " +
                 "Sphere and Ellipsoid are intended for immersive equirectangular content, while Quad is useful for flat video surfaces.",
                 MessageType.Info);
+        }
+
+        private void DrawCameraSettings()
+        {
+            EditorGUILayout.LabelField("Camera Properties", EditorStyles.boldLabel);
+            cameraProjection = FPMeshPreviewEditorUtility.DrawProjectionPopup(cameraProjection);
+            invertCameraOrbit = FPMeshPreviewEditorUtility.DrawInvertCameraOrbitToggle(invertCameraOrbit);
+            showVertices = FPMeshPreviewEditorUtility.DrawShowVerticesToggle(showVertices);
+            showEdges = FPMeshPreviewEditorUtility.DrawShowEdgesToggle(showEdges);
         }
 
         private void DrawSphereSettings()
@@ -192,6 +281,8 @@ namespace FuzzPhyte.Utility.Editor.Video
             {
                 SyncSelectionDefaults();
             }
+
+            EditorGUILayout.Space(10f);
         }
 
         private void DrawActions()
@@ -212,6 +303,72 @@ namespace FuzzPhyte.Utility.Editor.Video
             }
 
             GUI.color = originalColor;
+        }
+
+        private void DrawPreviewPanelContainer(Rect rect)
+        {
+            GUI.Box(rect, GUIContent.none, EditorStyles.helpBox);
+            Rect previewRect = new Rect(rect.x + 10f, rect.y + 10f, rect.width - 20f, rect.height - 20f);
+
+            if (Event.current.type == EventType.Repaint && previewDirty)
+            {
+                RebuildPreview();
+            }
+
+            DrawVideoPreview(previewRect);
+        }
+
+        private void DrawVideoPreview(Rect rect)
+        {
+            HandlePreviewInput(rect);
+
+            if (previewMesh == null)
+            {
+                GUI.Label(rect, "Adjust mesh settings to preview the generated video surface.", EditorStyles.centeredGreyMiniLabel);
+                return;
+            }
+
+            EnsurePreviewUtility();
+            EnsurePreviewMaterials();
+
+            if (Event.current.type != EventType.Repaint)
+            {
+                FPMeshPreviewEditorUtility.DrawOrbitGizmo(rect, SetPreviewView);
+                return;
+            }
+
+            previewUtility.BeginPreview(rect, GUIStyle.none);
+            previewUtility.camera.backgroundColor = new Color(0.12f, 0.12f, 0.12f, 1f);
+            previewUtility.camera.clearFlags = CameraClearFlags.Color;
+            previewUtility.camera.fieldOfView = FPMeshPreviewEditorUtility.DefaultFieldOfView;
+            previewUtility.lights[0].intensity = 1.1f;
+            previewUtility.lights[0].transform.rotation = Quaternion.Euler(35f, 35f, 0f);
+            previewUtility.lights[1].intensity = 0.55f;
+
+            Bounds bounds = CalculatePreviewBounds();
+            float distance = FPMeshPreviewEditorUtility.CalculateFitDistance(bounds, rect) * Mathf.Max(0.5f, previewZoom);
+            Vector3 forward = previewRotation * Vector3.forward;
+            previewUtility.camera.transform.position = bounds.center - (forward * distance);
+            previewUtility.camera.transform.rotation = previewRotation;
+            previewUtility.camera.orthographic = cameraProjection == FPMeshPreviewProjection.Orthographic;
+            if (previewUtility.camera.orthographic)
+            {
+                previewUtility.camera.orthographicSize = FPMeshPreviewEditorUtility.CalculateOrthographicSize(bounds, rect, previewRotation) * Mathf.Max(0.5f, previewZoom);
+            }
+
+            float radius = Mathf.Max(0.1f, bounds.extents.magnitude);
+            previewUtility.camera.nearClipPlane = Mathf.Max(0.001f, distance - (radius * 2.4f));
+            previewUtility.camera.farClipPlane = distance + (radius * 3.4f);
+
+            DrawPreviewMesh(previewMesh, generatedPreviewMaterial);
+            previewUtility.camera.Render();
+            Texture result = previewUtility.EndPreview();
+            GUI.DrawTexture(rect, result, ScaleMode.StretchToFill, false);
+
+            DrawMeshOverlays(rect);
+            DrawPreviewOverlay(rect);
+            FPMeshPreviewEditorUtility.DrawSceneOrientationGizmo(rect, previewUtility.camera, cameraProjection);
+            FPMeshPreviewEditorUtility.DrawOrbitGizmo(rect, SetPreviewView);
         }
 
         private void SyncSelectionDefaults()
@@ -243,6 +400,201 @@ namespace FuzzPhyte.Utility.Editor.Video
                 default:
                     return FPVideoSphereBuilder.Build(sphereSettings);
             }
+        }
+
+        private void RebuildPreview()
+        {
+            previewDirty = false;
+            CleanupPreviewMesh();
+
+            previewMesh = BuildMesh();
+            if (previewMesh != null)
+            {
+                previewMesh.name = $"Preview_{previewMesh.name}";
+                previewMesh.hideFlags = HideFlags.HideAndDontSave;
+            }
+        }
+
+        private void CleanupPreviewMesh()
+        {
+            if (previewMesh == null)
+            {
+                return;
+            }
+
+            DestroyImmediate(previewMesh);
+            previewMesh = null;
+        }
+
+        private Bounds CalculatePreviewBounds()
+        {
+            if (previewMesh == null)
+            {
+                return new Bounds(Vector3.zero, Vector3.one);
+            }
+
+            Bounds bounds = previewMesh.bounds;
+            if (bounds.size.sqrMagnitude <= 0.0000001f)
+            {
+                bounds.Expand(0.1f);
+            }
+
+            return bounds;
+        }
+
+        private void DrawPreviewMesh(Mesh mesh, Material material)
+        {
+            if (mesh == null || material == null)
+            {
+                return;
+            }
+
+            int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
+            for (int i = 0; i < subMeshCount; i++)
+            {
+                previewUtility.DrawMesh(mesh, Matrix4x4.identity, material, i);
+            }
+        }
+
+        private void DrawMeshOverlays(Rect rect)
+        {
+            if ((!showVertices && !showEdges) || previewUtility == null || previewUtility.camera == null)
+            {
+                return;
+            }
+
+            if (showEdges)
+            {
+                FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.EdgeOverlayColor, 1.5f);
+            }
+
+            if (showVertices)
+            {
+                FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.VertexOverlayColor, 2.5f);
+            }
+        }
+
+        private void DrawPreviewOverlay(Rect rect)
+        {
+            Rect overlayRect = new Rect(rect.x + 8f, rect.y + 8f, 226f, 108f);
+            GUI.Box(overlayRect, GUIContent.none, EditorStyles.helpBox);
+
+            Rect lineRect = new Rect(overlayRect.x + 6f, overlayRect.y + 5f, overlayRect.width - 12f, 18f);
+            GUI.Label(lineRect, $"Shape: {meshShape}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Preview Vertices: {GetVertexCount(previewMesh)}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Preview Triangles: {GetTriangleCount(previewMesh)}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Submeshes: {GetSubMeshCount(previewMesh)}", EditorStyles.miniLabel);
+            lineRect.y += 18f;
+            GUI.Label(lineRect, $"Zoom: {previewZoom:0.##}x", EditorStyles.miniLabel);
+        }
+
+        private static int GetVertexCount(Mesh mesh)
+        {
+            return mesh == null ? 0 : mesh.vertexCount;
+        }
+
+        private static int GetTriangleCount(Mesh mesh)
+        {
+            return mesh == null ? 0 : mesh.triangles.Length / 3;
+        }
+
+        private static int GetSubMeshCount(Mesh mesh)
+        {
+            return mesh == null ? 0 : mesh.subMeshCount;
+        }
+
+        private void HandlePreviewInput(Rect rect)
+        {
+            Event current = Event.current;
+            if (!rect.Contains(current.mousePosition))
+            {
+                return;
+            }
+
+            if (current.type == EventType.ScrollWheel)
+            {
+                float zoomFactor = Mathf.Exp(current.delta.y * 0.08f);
+                previewZoom = Mathf.Clamp(previewZoom * zoomFactor, 0.5f, 12f);
+                current.Use();
+                Repaint();
+                return;
+            }
+
+            if (current.type == EventType.MouseDown && current.button == 0)
+            {
+                int axis = FPMeshPreviewEditorUtility.GetOrbitAxisAtPosition(rect, current.mousePosition);
+                if (axis >= 0)
+                {
+                    activeOrbitAxis = axis;
+                    current.Use();
+                    return;
+                }
+            }
+
+            if ((current.type == EventType.MouseUp || current.type == EventType.Ignore) && activeOrbitAxis >= 0)
+            {
+                activeOrbitAxis = -1;
+                current.Use();
+                return;
+            }
+
+            if (current.type == EventType.MouseDrag && current.button == 0 && activeOrbitAxis >= 0)
+            {
+                previewRotation = FPMeshPreviewEditorUtility.ApplyOrbitAxisDrag(previewRotation, activeOrbitAxis, current.delta);
+                current.Use();
+                Repaint();
+                return;
+            }
+
+            if (FPMeshPreviewEditorUtility.IsOrbitGizmoPosition(rect, current.mousePosition))
+            {
+                return;
+            }
+
+            if (current.type == EventType.MouseDrag && current.button == 0)
+            {
+                previewRotation = FPMeshPreviewEditorUtility.ApplyUnityStyleOrbit(previewRotation, current.delta, invertCameraOrbit);
+                current.Use();
+                Repaint();
+            }
+        }
+
+        private void SetPreviewView(Vector3 viewDirection, Vector3 up)
+        {
+            previewRotation = Quaternion.LookRotation(viewDirection, up);
+            Repaint();
+        }
+
+        private void EnsurePreviewUtility()
+        {
+            if (previewUtility != null)
+            {
+                return;
+            }
+
+            previewUtility = new PreviewRenderUtility();
+            previewUtility.camera.nearClipPlane = 0.01f;
+            previewUtility.camera.farClipPlane = 5000f;
+        }
+
+        private void EnsurePreviewMaterials()
+        {
+            if (generatedPreviewMaterial != null)
+            {
+                return;
+            }
+
+            generatedPreviewMaterial = new Material(Shader.Find("Hidden/Internal-Colored"))
+            {
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            generatedPreviewMaterial.SetColor("_Color", FPMeshPreviewEditorUtility.PreviewMeshColor);
+            generatedPreviewMaterial.SetInt("_Cull", (int)CullMode.Off);
+            generatedPreviewMaterial.SetInt("_ZWrite", 1);
+            generatedPreviewMaterial.SetInt("_ZTest", (int)CompareFunction.LessEqual);
         }
 
         private void CreateSceneObject()

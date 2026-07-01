@@ -239,6 +239,41 @@ Use the heightmap editor to:
 * `Use GPU Working Copy` enables GPU-backed editing and debug views for source, shader source, mask influence, and final influence.
 * Brush edits are made on a working copy. The original source texture is not changed until a new PNG is saved.
 
+### FP Video Sphere Generator
+
+FP Video Sphere Generator is an editor-only mesh authoring tool for creating video-ready playback surfaces. It can generate inside-out sphere meshes for 360 equirectangular video, ellipsoid meshes for stretched immersive volumes, and segmented quads for flat video surfaces, kiosks, billboards, or UI-style playback planes.
+
+Open the tool from `FuzzPhyte/Utility/Video/FP Video Sphere Generator`.
+
+The sphere path is backed by `FPVideoSphereBuilder`, which builds a UV sphere with equirectangular-friendly UVs, tangents, normals, and optional inside-out triangle winding. Inside-out output is the default because it is intended for placing the viewer or camera inside the mesh and projecting 360 video onto the interior surface.
+
+#### FP Video Sphere Generator - How To Use It
+
+1. Open the window from `FuzzPhyte/Utility/Video/FP Video Sphere Generator`.
+2. Choose a `Shape`: `Sphere`, `Ellipsoid`, or `Quad`.
+3. For `Sphere`, set `Mesh Name`, `Radius`, `Longitude Segments`, `Latitude Segments`, and whether the mesh should be `Inside Out`.
+4. For `Ellipsoid`, set non-uniform `Radii` plus longitude/latitude segment counts.
+5. For `Quad`, set `Width`, `Height`, segment counts, and whether the surface facing should be flipped.
+6. Review the generated `Vertices` and `Triangles` counts before creating or saving the mesh.
+7. Optionally assign a target parent, material, and `Add MeshCollider` setting under `Scene Output`.
+8. Use `Create Scene Object` to create a live scene mesh, or `Save Mesh Asset` to save the generated mesh into the project.
+
+#### FP Video Sphere Generator - Asset Workflow
+
+* `Target Mesh` can reference an existing saved mesh asset when you want to rebuild a video surface in place.
+* `Use Selected Mesh Asset` assigns the currently selected persistent `Mesh` asset as the overwrite target.
+* `Overwrite Target Mesh` rebuilds the selected target asset while preserving references to that mesh asset.
+* `Save Mesh Asset` saves a new mesh asset and updates any live scene object created by the tool to use the saved asset.
+* Suggested file names include the shape settings, such as radius and segment counts, so generated assets remain easier to identify.
+
+#### FP Video Sphere Builder Notes
+
+* `FPVideoSphereBuilder.Build` sanitizes settings before mesh creation. Radius is clamped above zero, longitude segments are clamped from `3` to `512`, and latitude segments are clamped from `2` to `256`.
+* Generated sphere vertices use `(longitudeSegments + 1) * (latitudeSegments + 1)` so the UV seam can close cleanly.
+* UVs are written for equirectangular playback, with horizontal coordinates reversed as `1 - u`.
+* When `GenerateInsideOut` is enabled, normals are flipped inward and triangle winding is reversed for interior viewing.
+* Meshes with more than 65,535 vertices automatically use 32-bit indices.
+
 ### FP Audio Segment Tool
 
 FP Audio Segment Tool is an editor-only AudioClip trimming and cleanup helper. It lets you preview a source clip waveform, choose an in/out segment, add independent mute or cut regions, and export the processed result as a WAV asset.
@@ -377,6 +412,35 @@ The change is applied to the audio importer's default sample settings and the ac
   * Pings the underlying asset in the Project window and makes it the active selection.
 * `Save to JSON`
   * Dumps the scanned asset list to a JSON file under `Assets/_FPUtility` by default.
+
+### FP Action-Event Scanner
+
+FP Action-Event Scanner is an editor-only package audit window for finding C# `event`, `delegate`, and `Action` declarations or usages across FuzzPhyte package folders. It is intended as an internal package-maintenance tool when you need a quick map of where event-style communication is happening across `FP_` packages.
+
+The scanner builds its package filter list from top-level folders under `Assets` whose names start with `FP_`. Enabled packages are scanned recursively for `.cs` files, and matching lines are grouped first by package and then by script path. Packages with scanner hits are highlighted in green in the filter list.
+
+#### Action-Event Scanner - How To Use It
+
+1. Open the window from `FuzzPhyte/Utility/Editor/Action-Event Scanner`.
+2. Use `Open File With` to choose the default app, Visual Studio, VS Code, or JetBrains Rider for result links.
+3. Toggle package filters to control which `FP_` folders are included in the scan.
+4. Use `Select All` or `Deselect All` to quickly change all package filters.
+5. Click `Rescan Project` after changing filters or after code changes.
+6. Click a script path in the results list to open that file in the selected editor.
+7. Use `Export Results to File` to save the grouped results as a Markdown report.
+
+#### Action-Event Scanner - Menu & Window Actions
+
+* `FuzzPhyte/Utility/Editor/Action-Event Scanner`
+  * Opens the `FP Action-Event Scanner` editor window.
+* `Open File With`
+  * Chooses how clicked result files are opened: default app, Visual Studio, VS Code, or JetBrains Rider.
+* `Select All` and `Deselect All`
+  * Bulk-toggle all discovered `FP_` package filters.
+* `Rescan Project`
+  * Searches enabled package folders for matching `event`, `delegate`, and `Action` lines.
+* `Export Results to File`
+  * Writes the grouped scan results to a Markdown file with file links and line numbers.
 
 ## Software Architecture
 

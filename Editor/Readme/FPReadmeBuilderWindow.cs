@@ -13,6 +13,12 @@ namespace FuzzPhyte.Utility.Editor
     using UnityEngine;
     public class FPReadmeBuilderWindow:EditorWindow
     {
+        private const string ShowInlineLinkHelpPrefsKey =
+            "FuzzPhyte.Utility.Editor.ReadmeBuilder.ShowInlineLinkHelp";
+
+        private const string InlineLinkHelpText =
+            "Inline links support Markdown syntax. Use [Docs](https://example.com) for web links or [Audio Combine](menu:FuzzPhyte/Utility/Audio/Combine Tool) for Unity menu items.";
+
         private enum BuilderMode
         {
             CreateNew,
@@ -33,9 +39,11 @@ namespace FuzzPhyte.Utility.Editor
 
         private DefaultAsset outputFolder;
 
+        private readonly List<LinkDraft> overviewLinks = new();
         private readonly List<SectionDraft> sections = new();
 
         private Vector2 scroll;
+        private bool showInlineLinkHelp = true;
 
         [MenuItem("FuzzPhyte/Utility/Editor/Readme Tool/Readme Builder", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 30)]
         public static void Open()
@@ -71,6 +79,8 @@ namespace FuzzPhyte.Utility.Editor
 
         private void OnEnable()
         {
+            showInlineLinkHelp = EditorPrefs.GetBool(ShowInlineLinkHelpPrefsKey, true);
+
             if (sections.Count == 0 && existingReadme == null)
             {
                 ResetToDefaultDraft();
@@ -91,6 +101,9 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.Space(12);
 
             DrawBuildControls();
+            EditorGUILayout.Space(12);
+
+            DrawInlineLinkHelpFooter();
 
             EditorGUILayout.EndScrollView();
         }
@@ -180,11 +193,34 @@ namespace FuzzPhyte.Utility.Editor
                 minHeight: 100f,
                 maxHeight: 180f
                 );
+
+            EditorGUILayout.Space(4);
+            DrawLinksList(
+                "Overview Links",
+                overviewLinks,
+                "Documentation",
+                "https://"
+            );
         }
 
         private void DrawSections()
         {
             EditorGUILayout.LabelField("Sections", EditorStyles.boldLabel);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Expand All"))
+                {
+                    SetAllSectionFoldouts(true);
+                }
+
+                if (GUILayout.Button("Collapse All"))
+                {
+                    SetAllSectionFoldouts(false);
+                }
+            }
+
+            EditorGUILayout.Space(4);
 
             for (int i = 0; i < sections.Count; i++)
             {
@@ -262,6 +298,14 @@ namespace FuzzPhyte.Utility.Editor
                     section.heading
                 );
 
+                using (new EditorGUI.DisabledScope(index == 0))
+                {
+                    section.showSeparatorBefore = EditorGUILayout.Toggle(
+                        "Show Separator Before",
+                        index > 0 && section.showSeparatorBefore
+                    );
+                }
+
                 section.body = DrawWrappedScrollableTextAreaWithLargeEditor(
                     "Body",
                     section.body,
@@ -276,38 +320,73 @@ namespace FuzzPhyte.Utility.Editor
                 );
 
                 EditorGUILayout.Space(4);
-                EditorGUILayout.LabelField("Links", EditorStyles.miniBoldLabel);
+                DrawLinksList(
+                    "Links",
+                    section.links,
+                    "Documentation",
+                    "https://"
+                );
+            }
+        }
 
-                for (int i = 0; i < section.links.Count; i++)
+        private static void DrawLinksList(
+            string label,
+            List<LinkDraft> links,
+            string defaultLabel,
+            string defaultTarget)
+        {
+            EditorGUILayout.LabelField(label, EditorStyles.miniBoldLabel);
+
+            for (int i = 0; i < links.Count; i++)
+            {
+                var link = links[i];
+
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                 {
-                    var link = section.links[i];
-
-                    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                    using (new EditorGUILayout.HorizontalScope())
                     {
-                        using (new EditorGUILayout.HorizontalScope())
+                        EditorGUILayout.LabelField($"Link {i + 1}", EditorStyles.miniBoldLabel);
+
+                        if (GUILayout.Button("X", GUILayout.Width(24)))
                         {
-                            EditorGUILayout.LabelField($"Link {i + 1}", EditorStyles.miniBoldLabel);
-
-                            if (GUILayout.Button("X", GUILayout.Width(24)))
-                            {
-                                section.links.RemoveAt(i);
-                                GUIUtility.ExitGUI();
-                            }
+                            links.RemoveAt(i);
+                            GUIUtility.ExitGUI();
                         }
-
-                        link.label = EditorGUILayout.TextField("Label", link.label);
-                        link.url = EditorGUILayout.TextField("URL", link.url);
                     }
-                }
 
-                if (GUILayout.Button("+ Add Link"))
-                {
-                    section.links.Add(new LinkDraft
-                    {
-                        label = "Documentation",
-                        url = "https://"
-                    });
+                    link.label = EditorGUILayout.TextField("Label", link.label);
+                    link.url = EditorGUILayout.TextField("Target", link.url);
                 }
+            }
+
+            if (GUILayout.Button("+ Add Link"))
+            {
+                links.Add(new LinkDraft
+                {
+                    label = defaultLabel,
+                    url = defaultTarget
+                });
+            }
+        }
+
+        private void DrawInlineLinkHelpFooter()
+        {
+            EditorGUILayout.LabelField("Help", EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            showInlineLinkHelp = EditorGUILayout.ToggleLeft(
+                "Show inline link syntax help",
+                showInlineLinkHelp
+            );
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorPrefs.SetBool(ShowInlineLinkHelpPrefsKey, showInlineLinkHelp);
+            }
+
+            if (showInlineLinkHelp)
+            {
+                EditorGUILayout.HelpBox(InlineLinkHelpText, MessageType.None);
             }
         }
 
@@ -417,14 +496,26 @@ namespace FuzzPhyte.Utility.Editor
             readme.subtitle = subtitle;
             readme.version = version;
             readme.overview = overview;
+            readme.overviewLinks = new List<FPReadmeLink>();
+
+            foreach (var linkDraft in overviewLinks)
+            {
+                readme.overviewLinks.Add(new FPReadmeLink
+                {
+                    label = linkDraft.label,
+                    url = linkDraft.url
+                });
+            }
 
             readme.sections = new List<FPReadmeSection>();
 
-            foreach (var draft in sections)
+            for (var i = 0; i < sections.Count; i++)
             {
+                var draft = sections[i];
                 var section = new FPReadmeSection
                 {
                     heading = draft.heading,
+                    showSeparatorBefore = i > 0 && draft.showSeparatorBefore,
                     body = draft.body,
                     links = new List<FPReadmeLink>()
                 };
@@ -447,6 +538,7 @@ namespace FuzzPhyte.Utility.Editor
             existingReadme = readme;
             mode = BuilderMode.EditExisting;
 
+            overviewLinks.Clear();
             sections.Clear();
 
             if (readme == null)
@@ -460,6 +552,18 @@ namespace FuzzPhyte.Utility.Editor
             version = readme.version;
             overview = readme.overview;
 
+            if (readme.overviewLinks != null)
+            {
+                foreach (var existingLink in readme.overviewLinks)
+                {
+                    overviewLinks.Add(new LinkDraft
+                    {
+                        label = existingLink.label,
+                        url = existingLink.url
+                    });
+                }
+            }
+
             if (readme.sections != null)
             {
                 foreach (var existingSection in readme.sections)
@@ -467,6 +571,7 @@ namespace FuzzPhyte.Utility.Editor
                     var sectionDraft = new SectionDraft
                     {
                         heading = existingSection.heading,
+                        showSeparatorBefore = existingSection.showSeparatorBefore,
                         body = existingSection.body,
                         foldout = true,
                         links = new List<LinkDraft>()
@@ -509,6 +614,7 @@ namespace FuzzPhyte.Utility.Editor
             version = "0.0.1";
             overview = "This package contains tools, scripts, and assets for a FuzzPhyte Unity module.";
 
+            overviewLinks.Clear();
             sections.Clear();
 
             sections.Add(new SectionDraft
@@ -543,6 +649,16 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             (sections[index], sections[newIndex]) = (sections[newIndex], sections[index]);
+        }
+
+        private void SetAllSectionFoldouts(bool expanded)
+        {
+            foreach (var section in sections)
+            {
+                section.foldout = expanded;
+            }
+
+            Repaint();
         }
 
         private static string DrawWrappedScrollableTextArea(
@@ -637,6 +753,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             public string heading;
             public string body;
+            public bool showSeparatorBefore;
             public bool foldout = true;
             public Vector2 scrollPosition;
             public List<LinkDraft> links = new();
