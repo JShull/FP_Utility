@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - FP Utility package startup
     - Added an editor session startup check for UPM-loaded FP Utility packages.
     - Added a package startup message toggle under `FuzzPhyte/Utility/Package Messages/Show Startup Messages`.
+    - Added a custom startup message popup that uses the package `Editor/Gizmos/FP_BanditWorks.png` image.
     - Added automatic selection and pinging of the package-root `Readme` FP Readme Asset after the startup message closes.
   - FP Video Sphere Generator
     - Added a right-side mesh preview panel for generated sphere, ellipsoid, and quad video surfaces.
