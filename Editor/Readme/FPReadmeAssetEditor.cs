@@ -30,36 +30,49 @@ namespace FuzzPhyte.Utility.Editor
         public override void OnInspectorGUI()
         {
             var readme = (FPReadmeAsset)target;
+            var packageReadme = IsPackageAsset(readme);
+            var previousGuiEnabled = GUI.enabled;
 
-            DrawHeader(readme);
+            GUI.enabled = true;
 
-            EditorGUILayout.Space(12);
-
-            if (!string.IsNullOrWhiteSpace(readme.overview))
+            try
             {
-                DrawBodyText(readme.overview);
-            }
+                DrawHeader(readme);
 
-            if (readme.overviewLinks != null)
-            {
-                foreach (var link in readme.overviewLinks)
-                {
-                    DrawLink(link);
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(readme.overview) ||
-                (readme.overviewLinks != null && readme.overviewLinks.Count > 0))
-            {
                 EditorGUILayout.Space(12);
-            }
 
-            for (var i = 0; i < readme.sections.Count; i++)
+                if (!string.IsNullOrWhiteSpace(readme.overview))
+                {
+                    DrawBodyText(readme.overview);
+                }
+
+                if (readme.overviewLinks != null)
+                {
+                    foreach (var link in readme.overviewLinks)
+                    {
+                        DrawLink(link);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(readme.overview) ||
+                    (readme.overviewLinks != null && readme.overviewLinks.Count > 0))
+                {
+                    EditorGUILayout.Space(12);
+                }
+
+                for (var i = 0; i < readme.sections.Count; i++)
+                {
+                    DrawSection(readme.sections[i], i > 0 && readme.sections[i].showSeparatorBefore);
+                }
+
+                EditorGUILayout.Space(16);
+            }
+            finally
             {
-                DrawSection(readme.sections[i], i > 0 && readme.sections[i].showSeparatorBefore);
+                GUI.enabled = previousGuiEnabled;
             }
 
-            EditorGUILayout.Space(16);
+            GUI.enabled = true;
 
             using (new EditorGUI.DisabledScope(true))
             {
@@ -73,11 +86,24 @@ namespace FuzzPhyte.Utility.Editor
 
             EditorGUILayout.Space();
 
-            if (GUILayout.Button("Edit Readme Data"))
+            using (new EditorGUI.DisabledScope(packageReadme))
             {
-                Selection.activeObject = readme;
-                EditorGUIUtility.PingObject(readme);
+                if (GUILayout.Button("Edit Readme Data"))
+                {
+                    Selection.activeObject = readme;
+                    EditorGUIUtility.PingObject(readme);
+                }
             }
+
+            if (packageReadme)
+            {
+                EditorGUILayout.HelpBox(
+                    "This package Readme is displayed from the installed package, so it is read-only. Embed or copy the package before editing the asset.",
+                    MessageType.None
+                );
+            }
+
+            GUI.enabled = previousGuiEnabled;
         }
 
         private static void DrawHeader(FPReadmeAsset readme)
@@ -553,6 +579,12 @@ namespace FuzzPhyte.Utility.Editor
         private static bool IsMenuTarget(string target)
         {
             return TryGetMenuPath(target, out _);
+        }
+
+        private static bool IsPackageAsset(Object asset)
+        {
+            var assetPath = AssetDatabase.GetAssetPath(asset);
+            return assetPath.StartsWith("Packages/", System.StringComparison.OrdinalIgnoreCase);
         }
     }
 }
