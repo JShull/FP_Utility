@@ -95,10 +95,17 @@ namespace FuzzPhyte.Utility.DebugTools
         {
             _instance = this;
             EnsureMaterial();
+            RenderPipelineManager.endCameraRendering -= HandleEndCameraRendering;
+            RenderPipelineManager.endCameraRendering += HandleEndCameraRendering;
+            Camera.onPostRender -= HandleCameraPostRender;
+            Camera.onPostRender += HandleCameraPostRender;
         }
 
         private void OnDisable()
         {
+            RenderPipelineManager.endCameraRendering -= HandleEndCameraRendering;
+            Camera.onPostRender -= HandleCameraPostRender;
+
             if (_instance == this)
             {
                 _instance = null;
@@ -138,9 +145,18 @@ namespace FuzzPhyte.Utility.DebugTools
             PruneExpired();
         }
 
-        private void OnRenderObject()
+        private void HandleEndCameraRendering(ScriptableRenderContext context, Camera camera)
         {
-            Camera camera = Camera.current;
+            RenderForCamera(camera);
+        }
+
+        private void HandleCameraPostRender(Camera camera)
+        {
+            RenderForCamera(camera);
+        }
+
+        private void RenderForCamera(Camera camera)
+        {
             if (camera == null || !ShouldDrawCamera(camera))
             {
                 return;
@@ -158,8 +174,12 @@ namespace FuzzPhyte.Utility.DebugTools
                 return;
             }
 
+            GL.PushMatrix();
+            GL.modelview = camera.worldToCameraMatrix;
+            GL.LoadProjectionMatrix(GL.GetGPUProjectionMatrix(camera.projectionMatrix, camera.targetTexture != null));
             DrawDepthGroup(material, camera, true);
             DrawDepthGroup(material, camera, false);
+            GL.PopMatrix();
         }
 
         public static void Clear()
