@@ -4,6 +4,75 @@
 
 FP_Utility is designed and built to be a simple set of base classes to be used in almost all future FuzzPhyte packages. There is an element of Scriptable Object and an element of just simple input/output functions as well as some core scripts timed to timers etc. There are a lot of static functions to help with file management and Unity Editor management. Please see the FP_UtilityData class as well as the FP_Utility_Editor class for a lot of these functions/enums/structs etc.
 
+## Runtime Debug Tools
+
+### Runtime Debug Draw
+
+Runtime Debug Draw is an editor-only runtime visualization helper for drawing gizmo-like marks into scene and game cameras while working in the Unity Editor. It is intended for quick gameplay debugging where another system owns the state and only needs a lightweight way to show what is happening in the world.
+
+The runtime API lives in `FuzzPhyte.Utility.DebugTools.FPRuntimeDebugDraw`. Calls are build-safe no-ops outside the Unity Editor, so gameplay scripts can call the debug methods without wrapping every call in `#if UNITY_EDITOR`.
+
+#### Runtime Debug Draw - How To Use It
+
+1. Add calls from the script that already knows the current debug state, such as a selection manager, event manager, character controller, or click handler.
+2. Call the draw methods each frame for persistent state such as a selected actor, active target, or navigation link.
+3. Pass a `duration` when a mark should remain visible for a short time, such as a click marker or one-shot event.
+4. Use `depthTest` to choose whether the visual should obey scene depth or draw over the scene like an always-visible handle.
+
+Example selected-character command debug:
+
+```csharp
+using FuzzPhyte.Utility.DebugTools;
+using UnityEngine;
+
+public class CharacterOrderDebug : MonoBehaviour
+{
+    [SerializeField] private Transform selectedCharacter;
+    [SerializeField] private Vector3 targetPoint;
+
+    private void LateUpdate()
+    {
+        if (selectedCharacter == null)
+        {
+            return;
+        }
+
+        FPRuntimeDebugDraw.DrawSelectionMarker(selectedCharacter.position, 0.75f, Color.cyan);
+        FPRuntimeDebugDraw.DrawTargetMarker(targetPoint, 0.35f, Color.yellow);
+        FPRuntimeDebugDraw.DrawLink(selectedCharacter.position, targetPoint, Color.yellow);
+    }
+}
+```
+
+#### Runtime Debug Draw - Available Visuals
+
+* `DrawLine` and `DrawRay` draw simple world-space links.
+* `DrawCameraRelativeRay` draws a ray whose length adapts per rendering camera, similar to handle sizing.
+* `DrawPoint` draws a camera-facing point quad and can scale relative to the active camera.
+* `DrawWireCircle`, `DrawWireSphere`, `DrawWireBox`, `DrawBounds`, and `DrawPlane` cover common gizmo-style shapes.
+* `DrawSelectionMarker` draws a quick selected-object visual.
+* `DrawTargetMarker` and `DrawClickMarker` draw destination or click feedback marks.
+* `DrawLink` draws a connection line with optional endpoint points.
+* `DrawMeshEdges`, `DrawMeshVertices`, and `DrawMeshNormals` provide mesh inspection helpers for runtime debugging.
+
+#### Runtime Debug Draw - Notes
+
+* Runtime Debug Draw does not own selection, click, event, or character state. The calling system decides when a visual should be drawn.
+* The renderer batches line primitives and camera-facing point primitives by depth mode to keep a few hundred debug marks lightweight.
+* The system uses only `UnityEngine` APIs and does not require URP renderer features, TMP, Input System, or ECS.
+* ECS is not required for typical debug overlay use. If debug data already lives in Entities or tens of thousands of markers need to be visualized every frame, an ECS or buffer-backed adapter can be layered on later without changing normal caller code.
+
+### Runtime Mesh Debug Overlay
+
+`FPRuntimeMeshDebugOverlay` is a drop-in component for visualizing a `MeshFilter` or assigned mesh during editor Play Mode. It uses Runtime Debug Draw to show mesh edges, vertices, normals, and bounds in the camera.
+
+#### Runtime Mesh Debug Overlay - How To Use It
+
+1. Add `FPRuntimeMeshDebugOverlay` to a GameObject with a `MeshFilter`, or assign an `Override Mesh`.
+2. Enable the overlays you need: `Draw Edges`, `Draw Vertices`, `Draw Normals`, or `Draw Bounds`.
+3. Use the camera-relative vertex and normal settings to keep debug marks readable as the camera moves or switches between perspective and orthographic modes.
+4. Toggle `Depth Test` depending on whether the debug overlay should sit inside the scene depth or draw over it.
+
 ## Internal Utility Tools
 
 ### Convex Generator
