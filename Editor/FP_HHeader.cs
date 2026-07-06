@@ -41,6 +41,7 @@ namespace FuzzPhyte.Utility.Editor
         private static bool pendingSceneRefresh;
         private static bool pendingCollapsedStateRestore;
         public static bool IsEnabled => EditorPrefs.GetBool(FP_UtilityData.FP_HHeader_ENABLED_KEY+ "_" + SceneManager.GetActiveScene().name, true);
+        private static bool IsDebugLoggingEnabled => EditorPrefs.GetBool(FP_UtilityData.FP_HHeader_DEBUG_LOGGING_KEY, false);
 
         static FP_HHeader()
         {
@@ -166,11 +167,11 @@ namespace FuzzPhyte.Utility.Editor
                     //Debug.LogWarning($"We had our Obj return null, lets use the name of the last object changed |{lastChangedObjectName}|");
                     if (lastChangedObjectName == "") 
                     {
-                        Debug.LogWarning($"Blank Name?");
+                        LogWarning($"Blank Name?");
                     }
                     else
                     {
-                        Debug.LogWarning($"looking for last changed object name= {lastChangedObjectName}");
+                        LogWarning($"looking for last changed object name= {lastChangedObjectName}");
                     }
                     obj = FP_Utility_Editor.FindGameObjectByNameInactive(lastChangedObjectName);
                     if (obj != null)
@@ -205,7 +206,7 @@ namespace FuzzPhyte.Utility.Editor
             if (obj.name != prevName)
             {
                 // Name has changed, check if it still meets the criteria
-                Debug.LogWarning($"FP_HHeader: *************************:NAME CHANGED:*************************");
+                LogWarning($"FP_HHeader: *************************:NAME CHANGED:*************************");
 
                 if (obj.name != obj.name.ToUpper() || obj.activeInHierarchy)
                 {
@@ -241,12 +242,12 @@ namespace FuzzPhyte.Utility.Editor
                             previousNames.Add(obj.name, key);
                         }
                         lastChangedObjectName = obj.name;
-                        Debug.LogWarning($"FP_HHeader: Updating last changed object:{prevName}, now = {lastChangedObjectName}");
+                        LogWarning($"FP_HHeader: Updating last changed object:{prevName}, now = {lastChangedObjectName}");
                     
                     }
                     else
                     {
-                        Debug.LogWarning($"FP_HHeader: Foldout state does not contain the previous name: {prevName}");
+                        LogWarning($"FP_HHeader: Foldout state does not contain the previous name: {prevName}");
                         ShowSubsequentObjects(obj);
                         foldoutStates.Remove(key);
                         previousNames.Remove(key);
@@ -1139,7 +1140,7 @@ namespace FuzzPhyte.Utility.Editor
             int count = Mathf.Min(keys.Count, values.Count);
             if(lastOtherValues.Count != count)
             {
-                Debug.LogWarning($"Last Other Values Count does not match the keys count, this is a problem: Reset everything");
+                LogWarning($"Last Other Values Count does not match the keys count, this is a problem: Reset everything");
                 for (int i = 0; i < count; i++)
                 {
 
@@ -1199,6 +1200,37 @@ namespace FuzzPhyte.Utility.Editor
         }
         #endregion
         #region Menu Functions
+        private static void Log(string message)
+        {
+            if (IsDebugLoggingEnabled)
+            {
+                Debug.Log(message);
+            }
+        }
+
+        private static void LogWarning(string message)
+        {
+            if (IsDebugLoggingEnabled)
+            {
+                Debug.LogWarning(message);
+            }
+        }
+
+        [MenuItem("FuzzPhyte/Header/FPHeader Debug On/Off", false, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER + 20)]
+        private static void ToggleFPHeaderDebugLogging()
+        {
+            bool newValue = !IsDebugLoggingEnabled;
+            EditorPrefs.SetBool(FP_UtilityData.FP_HHeader_DEBUG_LOGGING_KEY, newValue);
+            Debug.Log($"FP_HHeader debug logging is now {(newValue ? "Enabled" : "Disabled")}");
+        }
+
+        [MenuItem("FuzzPhyte/Header/FPHeader Debug On/Off", true, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER + 20)]
+        private static bool ValidateFPHeaderDebugLogging()
+        {
+            Menu.SetChecked("FuzzPhyte/Header/FPHeader Debug On/Off", IsDebugLoggingEnabled);
+            return true;
+        }
+
         [MenuItem("FuzzPhyte/Header/Enable FP_HHeader", false, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER + 1)]
         private static void ToggleHeaderMenuMain() => ToggleHeaderSystem();
         [MenuItem("FuzzPhyte/Header/Enable FP_HHeader", true, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER + 1)]
@@ -1232,7 +1264,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             bool newValue = !IsEnabled;
             EditorPrefs.SetBool(FP_UtilityData.FP_HHeader_ENABLED_KEY + "_" + SceneManager.GetActiveScene().name, newValue);
-            Debug.LogWarning($"FP_HHeader is now {(newValue ? "Enabled" : "Disabled")}");
+            LogWarning($"FP_HHeader is now {(newValue ? "Enabled" : "Disabled")}");
 
             if (!newValue)
             {
@@ -1316,7 +1348,7 @@ namespace FuzzPhyte.Utility.Editor
             //these resets my data
             SaveFoldoutStatesToPrefs();
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
-            Debug.LogWarning($"FP_HHeader: Editor forced data reset, refreshing FuzzPhyte Header!");
+            LogWarning($"FP_HHeader: Editor forced data reset, refreshing FuzzPhyte Header!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
             EditorApplication.RepaintHierarchyWindow();
         }
@@ -1324,13 +1356,13 @@ namespace FuzzPhyte.Utility.Editor
         {
             if (Application.isPlaying)
             {
-                Debug.LogWarning("You can only run this in Edit Mode.");
+                LogWarning("You can only run this in Edit Mode.");
                 return false;
             }
 
             if (headerData == null)
             {
-                Debug.LogWarning("Please assign a valid FP_HHeaderData asset.");
+                LogWarning("Please assign a valid FP_HHeaderData asset.");
                 return false;
             }
 
@@ -1350,7 +1382,7 @@ namespace FuzzPhyte.Utility.Editor
                     GameObject existing = GameObject.Find(safeName);
                     if (existing != null)
                     {
-                        Debug.LogWarning($"A GameObject named '{safeName}' already exists. Skipping.");
+                        LogWarning($"A GameObject named '{safeName}' already exists. Skipping.");
                         continue;
                     }
 
@@ -1374,12 +1406,12 @@ namespace FuzzPhyte.Utility.Editor
 
             if (createHeaders)
             {
-                Debug.Log($"Created {headerData.Headers.Count} header GameObjects from: {headerData.name}");
+                Log($"Created {headerData.Headers.Count} header GameObjects from: {headerData.name}");
                 CreateHeaderDataFile();
             }
             else
             {
-                Debug.Log($"Applied header style from: {headerData.name}");
+                Log($"Applied header style from: {headerData.name}");
             }
 
             return true;
@@ -1419,7 +1451,7 @@ namespace FuzzPhyte.Utility.Editor
             }
             else
             {
-                Debug.LogWarning("Please select a valid FP_HHeaderData asset.");
+                LogWarning("Please select a valid FP_HHeaderData asset.");
             }
         }
         [MenuItem("Assets/FuzzPhyte/Header/Save Headers", false, 51)]
@@ -1436,9 +1468,9 @@ namespace FuzzPhyte.Utility.Editor
             asset.SelectAllIconActive = hhSelectAllIconActive;
             asset.UniqueID = System.DateTime.Now.ToLongTimeString()+"FPHeader_42"; 
             var path = Path.Combine("Assets", "FP_Utility\\Editor\\FP_HHeader");
-            Debug.Log($"{Application.dataPath}");
+            Log($"{Application.dataPath}");
             var fileName = System.DateTime.Now.ToString("MMddyyyy_hhmmss") + "_FPHHeader.asset";
-            Debug.Log($"Local Path= {path}");
+            Log($"Local Path= {path}");
             var items = FP_Utility_Editor.CreateAssetPath("FP_Utility\\Editor", "FP_HHeader");
             var itemsCreatedPath = "";
             if (items.Item1)
@@ -1447,10 +1479,10 @@ namespace FuzzPhyte.Utility.Editor
             }
             else
             {
-                Debug.LogWarning($"Didn't find the directory, created it for you {items.Item2}");
+                LogWarning($"Didn't find the directory, created it for you {items.Item2}");
                 itemsCreatedPath = FP_Utility_Editor.CreateAssetAt(asset, Path.Combine(path, fileName));
             }
-            Debug.LogWarning($"FP_HHeader: Asset Created at {itemsCreatedPath}");
+            LogWarning($"FP_HHeader: Asset Created at {itemsCreatedPath}");
             
             Scene activeScene = SceneManager.GetActiveScene();
             EditorPrefs.SetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name, itemsCreatedPath);
@@ -1470,7 +1502,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorPrefs.DeleteKey(previousKey);
             EditorPrefs.DeleteKey(hiddenKey);
 
-            Debug.LogWarning($"FP_HHeader: Cleared all Editor Prefs tied to the scene: {activeScene.name}");
+            LogWarning($"FP_HHeader: Cleared all Editor Prefs tied to the scene: {activeScene.name}");
         }
 
         
