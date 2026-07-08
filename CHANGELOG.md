@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- [@JShull](https://github.com/jshull)
+  - Mesh OBJ export
+    - Added public `FPMeshExportSource`, `FPMeshExportOptions`, and `FPMeshExportFacade` types so other FP packages can export batches through the shared OBJ writer.
+    - Added runtime texture snapshot fallback for OBJ material export when textures do not have project asset paths.
+
 ## [1.0.0] - 2026-07-01
 
 ### 1.0.0 Added

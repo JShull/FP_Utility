@@ -9,6 +9,38 @@ namespace FuzzPhyte.Utility.Editor
     using UnityEngine;
     using Object = UnityEngine.Object;
 
+    public sealed class FPMeshExportSource
+    {
+        public string Name;
+        public Mesh Mesh;
+        public Matrix4x4 Matrix;
+        public Material[] Materials;
+        public Object SourceObject;
+        public bool DestroyMeshAfterExport;
+
+        public FPMeshExportSource(string name, Mesh mesh, Matrix4x4 matrix, Material[] materials = null, Object sourceObject = null, bool destroyMeshAfterExport = false)
+        {
+            Name = string.IsNullOrWhiteSpace(name) ? "Mesh" : name;
+            Mesh = mesh;
+            Matrix = matrix;
+            Materials = materials;
+            SourceObject = sourceObject;
+            DestroyMeshAfterExport = destroyMeshAfterExport;
+        }
+    }
+
+    public sealed class FPMeshExportOptions
+    {
+        public bool ExportMaterials = true;
+        public bool CopyTextures = true;
+        public bool IncludeChildren = true;
+        public bool IncludeInactive = true;
+        public bool IncludeMeshFilters = true;
+        public bool IncludeSkinnedMeshRenderers = true;
+        public bool IncludeMeshColliders = true;
+        public bool RootLocalSpace = true;
+    }
+
     internal sealed class FPMeshObjExportSource
     {
         public string Name;
@@ -515,7 +547,26 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
 
-            return material.HasProperty("_MainTex") ? material.GetTexture("_MainTex") : null;
+            if (material.HasProperty("_MainTex"))
+            {
+                Texture texture = material.GetTexture("_MainTex");
+                if (texture != null)
+                {
+                    return texture;
+                }
+            }
+
+            string[] textureProperties = material.GetTexturePropertyNames();
+            for (int i = 0; i < textureProperties.Length; i++)
+            {
+                Texture texture = material.GetTexture(textureProperties[i]);
+                if (texture != null)
+                {
+                    return texture;
+                }
+            }
+
+            return null;
         }
 
         private static bool TryCopyTexture(Texture texture, string outputDirectory, Dictionary<Texture, string> copiedTextures, out string relativePath)
@@ -534,13 +585,13 @@ namespace FuzzPhyte.Utility.Editor
             string assetPath = AssetDatabase.GetAssetPath(texture);
             if (string.IsNullOrWhiteSpace(assetPath))
             {
-                return false;
+                return TrySnapshotRuntimeTexture(texture, outputDirectory, copiedTextures, out relativePath);
             }
 
             string sourcePath = Path.GetFullPath(assetPath);
             if (!File.Exists(sourcePath))
             {
-                return false;
+                return TrySnapshotRuntimeTexture(texture, outputDirectory, copiedTextures, out relativePath);
             }
 
             string extension = Path.GetExtension(sourcePath);
@@ -562,6 +613,70 @@ namespace FuzzPhyte.Utility.Editor
             relativePath = Path.GetFileName(destinationPath);
             copiedTextures[texture] = relativePath;
             return true;
+        }
+
+        private static bool TrySnapshotRuntimeTexture(Texture texture, string outputDirectory, Dictionary<Texture, string> copiedTextures, out string relativePath)
+        {
+            relativePath = null;
+            if (texture == null)
+            {
+                return false;
+            }
+
+            if (texture.width <= 0 || texture.height <= 0)
+            {
+                return false;
+            }
+
+            string fileName = SanitizeFileName(texture.name);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                fileName = "FP_RuntimeTexture";
+            }
+
+            string destinationPath = Path.Combine(outputDirectory, fileName + ".png");
+            int suffix = 1;
+            while (File.Exists(destinationPath))
+            {
+                destinationPath = Path.Combine(outputDirectory, fileName + "_" + suffix + ".png");
+                suffix++;
+            }
+
+            RenderTexture previousActive = RenderTexture.active;
+            RenderTexture renderTexture = null;
+            Texture2D readable = null;
+
+            try
+            {
+                renderTexture = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGB32);
+                Graphics.Blit(texture, renderTexture);
+                RenderTexture.active = renderTexture;
+                readable = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
+                readable.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
+                readable.Apply();
+                File.WriteAllBytes(destinationPath, readable.EncodeToPNG());
+                relativePath = Path.GetFileName(destinationPath);
+                copiedTextures[texture] = relativePath;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"[OBJ Export] Could not snapshot runtime texture '{texture.name}': {exception.Message}");
+                return false;
+            }
+            finally
+            {
+                RenderTexture.active = previousActive;
+                if (renderTexture != null)
+                {
+                    RenderTexture.ReleaseTemporary(renderTexture);
+                }
+
+                if (readable != null)
+                {
+                    Object.DestroyImmediate(readable);
+                }
+            }
         }
 
         private static string BuildFaceIndex(int vertexIndex, int vertexOffset, int uvOffset, int normalOffset, bool hasUv, bool hasNormals)
@@ -634,6 +749,83 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return safe;
+        }
+    }
+
+    public static class FPMeshExportFacade
+    {
+        public static bool ExportObj(
+            IReadOnlyList<FPMeshExportSource> sources,
+            string path,
+            FPMeshExportOptions options,
+            out string message)
+        {
+            List<FPMeshObjExportSource> objSources = ConvertSources(sources);
+            return FPMeshObjExportUtility.ExportSources(objSources, path, ConvertOptions(options), out message);
+        }
+
+        public static bool ExportObjWithDialog(
+            IReadOnlyList<FPMeshExportSource> sources,
+            string defaultName,
+            FPMeshExportOptions options)
+        {
+            List<FPMeshObjExportSource> objSources = ConvertSources(sources);
+            return FPMeshObjExportUtility.ExportSourcesWithDialog(objSources, defaultName, ConvertOptions(options));
+        }
+
+        public static List<FPMeshExportSource> CollectGameObjectSources(GameObject root, FPMeshExportOptions options, Predicate<GameObject> isValidObject = null)
+        {
+            List<FPMeshObjExportSource> objSources = FPMeshObjExportUtility.CollectGameObjectSources(root, ConvertOptions(options), isValidObject);
+            var publicSources = new List<FPMeshExportSource>(objSources.Count);
+            for (int i = 0; i < objSources.Count; i++)
+            {
+                FPMeshObjExportSource source = objSources[i];
+                publicSources.Add(new FPMeshExportSource(source.Name, source.Mesh, source.Matrix, source.Materials, null, source.DestroyMeshAfterExport));
+            }
+
+            return publicSources;
+        }
+
+        private static List<FPMeshObjExportSource> ConvertSources(IReadOnlyList<FPMeshExportSource> sources)
+        {
+            var objSources = new List<FPMeshObjExportSource>();
+            if (sources == null)
+            {
+                return objSources;
+            }
+
+            for (int i = 0; i < sources.Count; i++)
+            {
+                FPMeshExportSource source = sources[i];
+                if (source == null)
+                {
+                    continue;
+                }
+
+                objSources.Add(new FPMeshObjExportSource(source.Name, source.Mesh, source.Matrix, source.Materials, source.DestroyMeshAfterExport));
+            }
+
+            return objSources;
+        }
+
+        private static FPMeshObjExportOptions ConvertOptions(FPMeshExportOptions options)
+        {
+            if (options == null)
+            {
+                return new FPMeshObjExportOptions();
+            }
+
+            return new FPMeshObjExportOptions
+            {
+                ExportMaterials = options.ExportMaterials,
+                CopyTextures = options.CopyTextures,
+                IncludeChildren = options.IncludeChildren,
+                IncludeInactive = options.IncludeInactive,
+                IncludeMeshFilters = options.IncludeMeshFilters,
+                IncludeSkinnedMeshRenderers = options.IncludeSkinnedMeshRenderers,
+                IncludeMeshColliders = options.IncludeMeshColliders,
+                RootLocalSpace = options.RootLocalSpace
+            };
         }
     }
 
