@@ -23,6 +23,12 @@ namespace FuzzPhyte.Utility.Editor
         // Root under which we search for meshes (or null to use explicit selection)
         [SerializeField]
         private GameObject rootObject;
+        [SerializeField]
+        private bool showLooseSourceObjects = true;
+        [SerializeField]
+        private GameObject sourceObjectToAdd;
+        [SerializeField]
+        private List<GameObject> looseSourceObjects = new List<GameObject>();
 
         // General options
         [SerializeField]
@@ -52,6 +58,8 @@ namespace FuzzPhyte.Utility.Editor
         [SerializeField]
         private string combinedMeshName = "FP_CombinedCollider";
         [SerializeField]
+        private bool flipOutputNormals = false;
+        [SerializeField]
         private bool addMeshColliderToRoot = true;
         [SerializeField]
         private bool replaceExistingMeshCollider = true;
@@ -59,6 +67,16 @@ namespace FuzzPhyte.Utility.Editor
         private bool makeColliderConvex = false;
         [SerializeField]
         private bool isTrigger = false;
+        [SerializeField]
+        private FPMeshObjMaterialExportMode objMaterialExportMode = FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures;
+        [SerializeField]
+        private int objAtlasSize = 4096;
+        [SerializeField]
+        private int objAtlasPadding = 4;
+        [SerializeField]
+        private string objAtlasAlbedoPropertyFallbacks = "overlayTexture_0";
+        [SerializeField]
+        private FPMeshObjAtlasUvTransform objAtlasUvTransform = FPMeshObjAtlasUvTransform.Rotate180;
 
         private Vector2 scrollPos;
         private Mesh previewMesh;
@@ -74,6 +92,10 @@ namespace FuzzPhyte.Utility.Editor
         private const float WorkspacePadding = 4f;
         private const float PanelGap = 6f;
         private const float ActionPanelHeight = 142f;
+        private const float BaseParameterPanelViewHeight = 784f;
+        private const float LooseSourceObjectListControlsHeight = 142f;
+        private const float RootlessOutputHelpHeight = 36f;
+        private const float AtlasExportControlsHeight = 96f;
 
         [MenuItem("FuzzPhyte/Utility/Mesh/Combine Meshes", priority = FP_UtilityData.MENU_UTILITY_MESH + 1)]
         public static void ShowWindow()
@@ -124,15 +146,6 @@ namespace FuzzPhyte.Utility.Editor
 
         private void OnGUI()
         {
-            if (rootObject == null && Selection.activeGameObject != null)
-            {
-                // soft default to current selection on first open
-                rootObject = Selection.activeGameObject;
-                if (string.IsNullOrEmpty(combinedMeshName))
-                    combinedMeshName = $"{rootObject.name}_CombinedCollider";
-                previewDirty = true;
-            }
-
             GUILayout.Label("Combine Meshes", EditorStyles.boldLabel);
             DrawWorkspace();
         }
@@ -161,7 +174,7 @@ namespace FuzzPhyte.Utility.Editor
             Rect innerRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
             Rect actionRect = new Rect(innerRect.x, innerRect.yMax - ActionPanelHeight, innerRect.width, ActionPanelHeight);
             Rect scrollRect = new Rect(innerRect.x, innerRect.y, innerRect.width, Mathf.Max(40f, innerRect.height - ActionPanelHeight - 6f));
-            Rect viewRect = new Rect(0f, 0f, scrollRect.width - 16f, 680f);
+            Rect viewRect = new Rect(0f, 0f, scrollRect.width - 16f, CalculateParameterPanelViewHeight());
 
             scrollPos = GUI.BeginScrollView(scrollRect, scrollPos, viewRect);
             GUILayout.BeginArea(new Rect(0f, 0f, viewRect.width, viewRect.height));
@@ -173,6 +186,29 @@ namespace FuzzPhyte.Utility.Editor
             FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawActionButtons();
             GUILayout.EndArea();
+        }
+
+        private float CalculateParameterPanelViewHeight()
+        {
+            float viewHeight = BaseParameterPanelViewHeight;
+
+            if (rootObject == null)
+            {
+                viewHeight += RootlessOutputHelpHeight;
+            }
+
+            if (objMaterialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas)
+            {
+                viewHeight += AtlasExportControlsHeight;
+            }
+
+            if (rootObject == null && showLooseSourceObjects)
+            {
+                float rowHeight = EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+                viewHeight += LooseSourceObjectListControlsHeight + (looseSourceObjects.Count * rowHeight);
+            }
+
+            return viewHeight;
         }
 
         private void DrawParameterPanel()
@@ -201,7 +237,7 @@ namespace FuzzPhyte.Utility.Editor
             GUILayout.Label("Combine Meshes", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "Combine multiple MeshFilters / SkinnedMeshRenderers / MeshColliders into a single Mesh asset, " +
-                "baked using world-space positions into the local space of the selected root.\n\n" +
+                "baked using world-space positions into the selected root's local space, or world space when no root is assigned.\n\n" +
                 "Ideal for generating a single MeshCollider from many scene meshes.",
                 MessageType.Info);
         }
@@ -235,6 +271,145 @@ namespace FuzzPhyte.Utility.Editor
                     previewDirty = true;
                 }
             }
+
+            if (rootObject == null)
+            {
+                DrawLooseSourceObjectList();
+            }
+        }
+
+        private void DrawLooseSourceObjectList()
+        {
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.BeginHorizontal();
+            showLooseSourceObjects = EditorGUILayout.Foldout(
+                showLooseSourceObjects,
+                $"Loose Source Objects ({GetLooseSourceObjectCount()})",
+                true);
+
+            using (new EditorGUI.DisabledScope(looseSourceObjects.Count == 0))
+            {
+                if (GUILayout.Button("Clear All", EditorStyles.miniButton, GUILayout.Width(68f)))
+                {
+                    looseSourceObjects.Clear();
+                    previewDirty = true;
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            if (!showLooseSourceObjects)
+            {
+                return;
+            }
+
+            EditorGUILayout.BeginHorizontal();
+            sourceObjectToAdd = (GameObject)EditorGUILayout.ObjectField("Add Object", sourceObjectToAdd, typeof(GameObject), true);
+            using (new EditorGUI.DisabledScope(sourceObjectToAdd == null))
+            {
+                if (GUILayout.Button("Add", GUILayout.Width(48f)))
+                {
+                    if (AddLooseSourceObject(sourceObjectToAdd))
+                    {
+                        SetDefaultNameFromLooseSources();
+                        previewDirty = true;
+                    }
+
+                    sourceObjectToAdd = null;
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            DrawLooseSourceDropArea();
+
+            using (new EditorGUI.DisabledScope(Selection.gameObjects == null || Selection.gameObjects.Length == 0))
+            {
+                if (GUILayout.Button("Use Current Selection As Sources"))
+                {
+                    looseSourceObjects.Clear();
+                    if (AddLooseSourceObjects(Selection.gameObjects))
+                    {
+                        SetDefaultNameFromLooseSources();
+                        previewDirty = true;
+                    }
+                }
+            }
+
+            for (int i = 0; i < looseSourceObjects.Count; i++)
+            {
+                EditorGUILayout.BeginHorizontal();
+                looseSourceObjects[i] = (GameObject)EditorGUILayout.ObjectField($"Source {i + 1}", looseSourceObjects[i], typeof(GameObject), true);
+                if (GUILayout.Button("-", GUILayout.Width(24f)))
+                {
+                    looseSourceObjects.RemoveAt(i);
+                    previewDirty = true;
+                    i--;
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Add Empty Slot"))
+            {
+                looseSourceObjects.Add(null);
+                previewDirty = true;
+            }
+
+            using (new EditorGUI.DisabledScope(looseSourceObjects.Count == 0))
+            {
+                if (GUILayout.Button("Clear"))
+                {
+                    looseSourceObjects.Clear();
+                    previewDirty = true;
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawLooseSourceDropArea()
+        {
+            Rect dropRect = GUILayoutUtility.GetRect(0f, 34f, GUILayout.ExpandWidth(true));
+            GUI.Box(dropRect, "Drag Source Objects Here", EditorStyles.helpBox);
+
+            Event current = Event.current;
+            if (!dropRect.Contains(current.mousePosition))
+            {
+                return;
+            }
+
+            if (current.type != EventType.DragUpdated && current.type != EventType.DragPerform)
+            {
+                return;
+            }
+
+            bool hasGameObject = false;
+            Object[] objectReferences = DragAndDrop.objectReferences;
+            for (int i = 0; i < objectReferences.Length; i++)
+            {
+                if (objectReferences[i] is GameObject)
+                {
+                    hasGameObject = true;
+                    break;
+                }
+            }
+
+            if (!hasGameObject)
+            {
+                return;
+            }
+
+            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+            if (current.type == EventType.DragPerform)
+            {
+                DragAndDrop.AcceptDrag();
+                if (AddLooseSourceObjects(objectReferences))
+                {
+                    SetDefaultNameFromLooseSources();
+                    previewDirty = true;
+                }
+            }
+
+            current.Use();
         }
 
         private void DrawSourceSettings()
@@ -272,15 +447,39 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.LabelField("Output Settings", EditorStyles.boldLabel);
 
             combinedMeshName = EditorGUILayout.TextField("Combined Mesh Name", combinedMeshName);
+            flipOutputNormals = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Flip Output Normals", flipOutputNormals);
 
             EditorGUILayout.Space();
-            addMeshColliderToRoot = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Add MeshCollider to Root", addMeshColliderToRoot);
+            using (new EditorGUI.DisabledScope(rootObject == null))
+            {
+                addMeshColliderToRoot = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Add MeshCollider to Root", addMeshColliderToRoot);
+            }
 
-            using (new EditorGUI.DisabledScope(!addMeshColliderToRoot))
+            using (new EditorGUI.DisabledScope(rootObject == null || !addMeshColliderToRoot))
             {
                 replaceExistingMeshCollider = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Replace Existing Collider", replaceExistingMeshCollider);
                 makeColliderConvex = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Collider Convex", makeColliderConvex);
                 isTrigger = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Collider Is Trigger", isTrigger);
+            }
+
+            if (rootObject == null)
+            {
+                EditorGUILayout.HelpBox("Root collider output is only available when Root Object is assigned.", MessageType.None);
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("OBJ Export Settings", EditorStyles.boldLabel);
+            objMaterialExportMode = (FPMeshObjMaterialExportMode)EditorGUILayout.EnumPopup("Material Export Mode", objMaterialExportMode);
+            if (objMaterialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas)
+            {
+                objAtlasSize = EditorGUILayout.IntPopup(
+                    "Atlas Size",
+                    Mathf.Clamp(objAtlasSize, 128, 16384),
+                    new[] { "1024", "2048", "4096", "8192", "16384" },
+                    new[] { 1024, 2048, 4096, 8192, 16384 });
+                objAtlasPadding = EditorGUILayout.IntSlider("Atlas Padding", objAtlasPadding, 0, 32);
+                objAtlasAlbedoPropertyFallbacks = EditorGUILayout.TextField("Albedo Fallback Properties", objAtlasAlbedoPropertyFallbacks);
+                objAtlasUvTransform = (FPMeshObjAtlasUvTransform)EditorGUILayout.EnumPopup("Atlas UV Transform", objAtlasUvTransform);
             }
         }
 
@@ -288,7 +487,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             EditorGUILayout.Space();
 
-            bool canCombine = rootObject != null && PreviewMeshCount() > 0;
+            bool canCombine = PreviewMeshCount() > 0;
 
             using (new EditorGUI.DisabledScope(!canCombine))
             {
@@ -315,7 +514,9 @@ namespace FuzzPhyte.Utility.Editor
             if (!canCombine)
             {
                 EditorGUILayout.HelpBox(
-                    "Assign a root object and ensure there are MeshFilters, SkinnedMeshRenderers, and/or MeshColliders under it.",
+                    rootObject == null
+                        ? "Assign a root object or add source objects with valid MeshFilters, SkinnedMeshRenderers, and/or MeshColliders."
+                        : "Ensure there are MeshFilters, SkinnedMeshRenderers, and/or MeshColliders under the root object.",
                     MessageType.Warning);
             }
         }
@@ -337,9 +538,9 @@ namespace FuzzPhyte.Utility.Editor
         {
             HandlePreviewInput(rect);
 
-            if (rootObject == null)
+            if (rootObject == null && GetLooseSourceObjectCount() == 0)
             {
-                GUI.Label(rect, "Assign a root object to preview.", EditorStyles.centeredGreyMiniLabel);
+                GUI.Label(rect, "Assign a root object or add source objects to preview.", EditorStyles.centeredGreyMiniLabel);
                 return;
             }
 
@@ -411,11 +612,65 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
+        private int GetLooseSourceObjectCount()
+        {
+            int count = 0;
+            for (int i = 0; i < looseSourceObjects.Count; i++)
+            {
+                if (looseSourceObjects[i] != null)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private bool AddLooseSourceObjects(Object[] objects)
+        {
+            bool addedAny = false;
+            for (int i = 0; i < objects.Length; i++)
+            {
+                if (objects[i] is GameObject go)
+                {
+                    addedAny |= AddLooseSourceObject(go);
+                }
+            }
+
+            return addedAny;
+        }
+
+        private bool AddLooseSourceObject(GameObject sourceObject)
+        {
+            if (sourceObject == null || looseSourceObjects.Contains(sourceObject))
+            {
+                return false;
+            }
+
+            looseSourceObjects.Add(sourceObject);
+            return true;
+        }
+
+        private void SetDefaultNameFromLooseSources()
+        {
+            if (!string.IsNullOrEmpty(combinedMeshName) && combinedMeshName != "FP_CombinedCollider")
+            {
+                return;
+            }
+
+            for (int i = 0; i < looseSourceObjects.Count; i++)
+            {
+                GameObject sourceObject = looseSourceObjects[i];
+                if (sourceObject != null)
+                {
+                    combinedMeshName = $"{sourceObject.name}_CombinedCollider";
+                    return;
+                }
+            }
+        }
+
         private int PreviewMeshCount()
         {
-            if (rootObject == null)
-                return 0;
-
             var sources = GetSourceMeshes();
             return sources.Count;
         }
@@ -428,21 +683,45 @@ namespace FuzzPhyte.Utility.Editor
             if (!includeMeshFilters && !includeSkinnedMeshRenderers && !includeMeshColliders)
                 return result;
 
-            if (rootObject == null)
+            if (rootObject != null)
+            {
+                CollectSourceMeshes(rootObject, result, sourceComponents);
                 return result;
+            }
+
+            for (int i = 0; i < looseSourceObjects.Count; i++)
+            {
+                GameObject sourceObject = looseSourceObjects[i];
+                if (sourceObject == null)
+                {
+                    continue;
+                }
+
+                CollectSourceMeshes(sourceObject, result, sourceComponents);
+            }
+
+            return result;
+        }
+
+        private void CollectSourceMeshes(GameObject sourceRoot, List<MeshSource> result, HashSet<Component> sourceComponents)
+        {
+            if (sourceRoot == null)
+            {
+                return;
+            }
 
             if (includeMeshFilters)
             {
                 var filters = includeChildren
-                    ? rootObject.GetComponentsInChildren<MeshFilter>(includeInactive)
-                    : rootObject.GetComponents<MeshFilter>();
+                    ? sourceRoot.GetComponentsInChildren<MeshFilter>(includeInactive)
+                    : sourceRoot.GetComponents<MeshFilter>();
 
                 foreach (var mf in filters)
                 {
                     if (!IsValidSourceObject(mf.gameObject))
                         continue;
 
-                    if (mf.sharedMesh != null)
+                    if (mf.sharedMesh != null && !sourceComponents.Contains(mf))
                     {
                         result.Add(new MeshSource(mf.sharedMesh, mf.transform));
                         sourceComponents.Add(mf);
@@ -453,15 +732,15 @@ namespace FuzzPhyte.Utility.Editor
             if (includeSkinnedMeshRenderers)
             {
                 var skinnedRenderers = includeChildren
-                    ? rootObject.GetComponentsInChildren<SkinnedMeshRenderer>(includeInactive)
-                    : rootObject.GetComponents<SkinnedMeshRenderer>();
+                    ? sourceRoot.GetComponentsInChildren<SkinnedMeshRenderer>(includeInactive)
+                    : sourceRoot.GetComponents<SkinnedMeshRenderer>();
 
                 foreach (var smr in skinnedRenderers)
                 {
                     if (!IsValidSourceObject(smr.gameObject))
                         continue;
 
-                    if (smr.sharedMesh != null)
+                    if (smr.sharedMesh != null && !sourceComponents.Contains(smr))
                     {
                         result.Add(new MeshSource(smr.sharedMesh, smr.transform));
                         sourceComponents.Add(smr);
@@ -472,15 +751,15 @@ namespace FuzzPhyte.Utility.Editor
             if (includeMeshColliders)
             {
                 var colliders = includeChildren
-                    ? rootObject.GetComponentsInChildren<MeshCollider>(includeInactive)
-                    : rootObject.GetComponents<MeshCollider>();
+                    ? sourceRoot.GetComponentsInChildren<MeshCollider>(includeInactive)
+                    : sourceRoot.GetComponents<MeshCollider>();
 
                 foreach (var col in colliders)
                 {
                     if (!IsValidSourceObject(col.gameObject))
                         continue;
 
-                    if (col.sharedMesh == null)
+                    if (col.sharedMesh == null || sourceComponents.Contains(col))
                         continue;
 
                     // Prefer visual mesh sources when present, but fall back to the collider's mesh.
@@ -496,8 +775,6 @@ namespace FuzzPhyte.Utility.Editor
                     sourceComponents.Add(col);
                 }
             }
-
-            return result;
         }
 
         private void RebuildPreview()
@@ -542,19 +819,61 @@ namespace FuzzPhyte.Utility.Editor
                 mergeSubMeshes: false,
                 useMatrices: true);
 
+            if (flipOutputNormals)
+            {
+                FlipMeshNormals(combinedMesh);
+            }
+
             combinedMesh.RecalculateBounds();
             return combinedMesh;
+        }
+
+        private static void FlipMeshNormals(Mesh mesh)
+        {
+            if (mesh == null)
+            {
+                return;
+            }
+
+            int subMeshCount = mesh.subMeshCount;
+            for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
+            {
+                MeshTopology topology = mesh.GetTopology(subMesh);
+                int step = topology == MeshTopology.Quads ? 4 : topology == MeshTopology.Triangles ? 3 : 0;
+                if (step == 0)
+                {
+                    continue;
+                }
+
+                int[] indices = mesh.GetIndices(subMesh);
+                for (int i = 0; i + step - 1 < indices.Length; i += step)
+                {
+                    System.Array.Reverse(indices, i, step);
+                }
+
+                mesh.SetIndices(indices, topology, subMesh, false);
+            }
+
+            Vector3[] normals = mesh.normals;
+            if (normals != null && normals.Length == mesh.vertexCount)
+            {
+                for (int i = 0; i < normals.Length; i++)
+                {
+                    normals[i] = -normals[i];
+                }
+
+                mesh.normals = normals;
+            }
+            else
+            {
+                mesh.RecalculateNormals();
+            }
         }
 
         private List<CombineInstance> BuildCombineInstances(List<MeshSource> sources)
         {
             var combineInstances = new List<CombineInstance>();
-            if (rootObject == null)
-            {
-                return combineInstances;
-            }
-
-            var rootToLocal = rootObject.transform.worldToLocalMatrix;
+            var rootToLocal = GetBakeRootToLocalMatrix();
 
             foreach (var source in sources)
             {
@@ -580,6 +899,13 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return combineInstances;
+        }
+
+        private Matrix4x4 GetBakeRootToLocalMatrix()
+        {
+            return rootObject == null
+                ? Matrix4x4.identity
+                : rootObject.transform.worldToLocalMatrix;
         }
 
         private static int EstimateVertexCount(List<CombineInstance> combineInstances)
@@ -628,13 +954,8 @@ namespace FuzzPhyte.Utility.Editor
 
         private void DrawSourcePreviewMeshes()
         {
-            if (rootObject == null)
-            {
-                return;
-            }
-
             var sources = GetSourceMeshes();
-            var rootToLocal = rootObject.transform.worldToLocalMatrix;
+            var rootToLocal = GetBakeRootToLocalMatrix();
             for (int i = 0; i < sources.Count; i++)
             {
                 MeshSource source = sources[i];
@@ -659,10 +980,10 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            if (showSourceMesh && rootObject != null)
+            if (showSourceMesh)
             {
                 var sources = GetSourceMeshes();
-                var rootToLocal = rootObject.transform.worldToLocalMatrix;
+                var rootToLocal = GetBakeRootToLocalMatrix();
                 for (int i = 0; i < sources.Count; i++)
                 {
                     MeshSource source = sources[i];
@@ -933,12 +1254,6 @@ namespace FuzzPhyte.Utility.Editor
 
         private void CombineAndSave()
         {
-            if (rootObject == null)
-            {
-                Debug.LogError("[Combine Meshes] Root object is null.");
-                return;
-            }
-
             var sources = GetSourceMeshes();
             if (sources.Count == 0)
             {
@@ -976,7 +1291,7 @@ namespace FuzzPhyte.Utility.Editor
             Debug.Log($"[Combine Meshes] {result}");
 
             // Optionally hook up a MeshCollider on the root
-            if (addMeshColliderToRoot)
+            if (rootObject != null && addMeshColliderToRoot)
             {
                 var rootCollider = rootObject.GetComponent<MeshCollider>();
                 if (rootCollider == null)
@@ -1005,12 +1320,6 @@ namespace FuzzPhyte.Utility.Editor
 
         private void ExportCombinedObj()
         {
-            if (rootObject == null)
-            {
-                Debug.LogError("[Combine Meshes] Root object is null.");
-                return;
-            }
-
             var options = new FPMeshObjExportOptions
             {
                 IncludeChildren = includeChildren,
@@ -1018,14 +1327,43 @@ namespace FuzzPhyte.Utility.Editor
                 IncludeMeshFilters = includeMeshFilters,
                 IncludeSkinnedMeshRenderers = includeSkinnedMeshRenderers,
                 IncludeMeshColliders = includeMeshColliders,
-                RootLocalSpace = true,
+                RootLocalSpace = rootObject != null,
+                FlipNormals = flipOutputNormals,
+                MirrorX = true,
                 ExportMaterials = true,
-                CopyTextures = true
+                CopyTextures = objMaterialExportMode == FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures,
+                MaterialExportMode = objMaterialExportMode,
+                AtlasSize = objAtlasSize,
+                AtlasPadding = objAtlasPadding,
+                AtlasAlbedoPropertyFallbacks = objAtlasAlbedoPropertyFallbacks,
+                AtlasUvTransform = objAtlasUvTransform
             };
 
-            List<FPMeshObjExportSource> sources = FPMeshObjExportUtility.CollectGameObjectSources(rootObject, options, IsValidSourceObject);
-            string defaultName = string.IsNullOrEmpty(combinedMeshName) ? rootObject.name + "_Combined" : combinedMeshName;
+            List<FPMeshObjExportSource> sources = CollectObjExportSources(options);
+            string defaultName = string.IsNullOrEmpty(combinedMeshName) ? "FP_Combined" : combinedMeshName;
             FPMeshObjExportUtility.ExportSourcesWithDialog(sources, defaultName, options);
+        }
+
+        private List<FPMeshObjExportSource> CollectObjExportSources(FPMeshObjExportOptions options)
+        {
+            if (rootObject != null)
+            {
+                return FPMeshObjExportUtility.CollectGameObjectSources(rootObject, options, IsValidSourceObject);
+            }
+
+            var sources = new List<FPMeshObjExportSource>();
+            for (int i = 0; i < looseSourceObjects.Count; i++)
+            {
+                GameObject sourceObject = looseSourceObjects[i];
+                if (sourceObject == null)
+                {
+                    continue;
+                }
+
+                sources.AddRange(FPMeshObjExportUtility.CollectGameObjectSources(sourceObject, options, IsValidSourceObject));
+            }
+
+            return sources;
         }
     }
 }

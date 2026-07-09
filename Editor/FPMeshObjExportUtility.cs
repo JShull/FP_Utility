@@ -9,6 +9,21 @@ namespace FuzzPhyte.Utility.Editor
     using UnityEngine;
     using Object = UnityEngine.Object;
 
+    public enum FPMeshObjMaterialExportMode
+    {
+        PreserveMaterialsAndTextures,
+        GenericWhiteMaterial,
+        SingleAlbedoAtlas
+    }
+
+    public enum FPMeshObjAtlasUvTransform
+    {
+        None,
+        FlipU,
+        FlipV,
+        Rotate180
+    }
+
     public sealed class FPMeshExportSource
     {
         public string Name;
@@ -39,6 +54,13 @@ namespace FuzzPhyte.Utility.Editor
         public bool IncludeSkinnedMeshRenderers = true;
         public bool IncludeMeshColliders = true;
         public bool RootLocalSpace = true;
+        public bool FlipNormals = false;
+        public bool MirrorX = false;
+        public FPMeshObjMaterialExportMode MaterialExportMode = FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures;
+        public int AtlasSize = 4096;
+        public int AtlasPadding = 4;
+        public string AtlasAlbedoPropertyFallbacks = "overlayTexture_0";
+        public FPMeshObjAtlasUvTransform AtlasUvTransform = FPMeshObjAtlasUvTransform.Rotate180;
     }
 
     internal sealed class FPMeshObjExportSource
@@ -69,11 +91,20 @@ namespace FuzzPhyte.Utility.Editor
         public bool IncludeSkinnedMeshRenderers = true;
         public bool IncludeMeshColliders = true;
         public bool RootLocalSpace = true;
+        public bool FlipNormals = false;
+        public bool MirrorX = false;
+        public FPMeshObjMaterialExportMode MaterialExportMode = FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures;
+        public int AtlasSize = 4096;
+        public int AtlasPadding = 4;
+        public string AtlasAlbedoPropertyFallbacks = "overlayTexture_0";
+        public FPMeshObjAtlasUvTransform AtlasUvTransform = FPMeshObjAtlasUvTransform.Rotate180;
     }
 
     internal static class FPMeshObjExportUtility
     {
         private const string DefaultMaterialName = "FP_Default";
+        private const string GenericWhiteMaterialName = "FP_GenericWhite";
+        private const string AtlasMaterialName = "FP_AlbedoAtlas";
 
         [MenuItem("GameObject/FuzzPhyte/Mesh/Export Selection as OBJ", false, 30)]
         private static void ExportSelectedGameObjectMenu()
@@ -194,11 +225,24 @@ namespace FuzzPhyte.Utility.Editor
                 var mtlBuilder = new StringBuilder(2048);
                 var materialNames = new Dictionary<Material, string>();
                 var copiedTextures = new Dictionary<Texture, string>();
+                FPMeshObjTextureAtlasContext atlasContext = null;
+                if (options.ExportMaterials && options.MaterialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas)
+                {
+                    atlasContext = BuildAlbedoAtlasContext(sources, directory, SanitizeFileName(objFileName), options);
+                }
 
                 objBuilder.AppendLine("# FuzzPhyte OBJ Export");
                 if (options.ExportMaterials)
                 {
                     objBuilder.Append("mtllib ").AppendLine(mtlFileName.Replace("\\", "/"));
+                    if (options.MaterialExportMode == FPMeshObjMaterialExportMode.GenericWhiteMaterial)
+                    {
+                        WriteGenericWhiteMaterial(mtlBuilder, GenericWhiteMaterialName);
+                    }
+                    else if (atlasContext != null)
+                    {
+                        WriteAtlasMaterial(mtlBuilder, AtlasMaterialName, atlasContext.RelativeTexturePath);
+                    }
                 }
 
                 int vertexOffset = 1;
@@ -228,6 +272,10 @@ namespace FuzzPhyte.Utility.Editor
                     }
 
                     Vector2[] uv = mesh.uv;
+                    bool hasUv = uv != null && uv.Length == vertices.Length;
+                    bool writeSourceUv = atlasContext == null &&
+                                         hasUv &&
+                                         options.MaterialExportMode != FPMeshObjMaterialExportMode.GenericWhiteMaterial;
                     Vector3[] normals = mesh.normals;
                     Matrix4x4 normalMatrix = source.Matrix.inverse.transpose;
                     string objectName = SanitizeObjName(source.Name);
@@ -237,13 +285,18 @@ namespace FuzzPhyte.Utility.Editor
                     for (int v = 0; v < vertices.Length; v++)
                     {
                         Vector3 position = source.Matrix.MultiplyPoint3x4(vertices[v]);
+                        if (options.MirrorX)
+                        {
+                            position.x = -position.x;
+                        }
+
                         objBuilder.Append("v ")
                             .Append(Float(position.x)).Append(' ')
                             .Append(Float(position.y)).Append(' ')
                             .Append(Float(position.z)).AppendLine();
                     }
 
-                    if (uv != null && uv.Length == vertices.Length)
+                    if (writeSourceUv)
                     {
                         for (int u = 0; u < uv.Length; u++)
                         {
@@ -259,6 +312,16 @@ namespace FuzzPhyte.Utility.Editor
                         for (int n = 0; n < normals.Length; n++)
                         {
                             Vector3 normal = normalMatrix.MultiplyVector(normals[n]).normalized;
+                            if (options.MirrorX)
+                            {
+                                normal.x = -normal.x;
+                            }
+
+                            if (options.FlipNormals)
+                            {
+                                normal = -normal;
+                            }
+
                             objBuilder.Append("vn ")
                                 .Append(Float(normal.x)).Append(' ')
                                 .Append(Float(normal.y)).Append(' ')
@@ -277,22 +340,51 @@ namespace FuzzPhyte.Utility.Editor
                         }
 
                         Material material = ResolveMaterial(source.Materials, subMesh);
-                        string materialName = GetMaterialName(material, materialNames);
+                        string materialName = GetMaterialNameForMode(material, materialNames, options, atlasContext);
                         if (options.ExportMaterials)
                         {
                             objBuilder.Append("usemtl ").AppendLine(materialName);
-                            EnsureMaterialWritten(material, materialName, mtlBuilder, directory, options, copiedTextures);
+                            if (options.MaterialExportMode == FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures)
+                            {
+                                EnsureMaterialWritten(material, materialName, mtlBuilder, directory, options, copiedTextures);
+                            }
                         }
 
                         int[] indices = mesh.GetIndices(subMesh);
                         int step = topology == MeshTopology.Quads ? 4 : 3;
                         for (int index = 0; index + step - 1 < indices.Length; index += step)
                         {
+                            int[] atlasUvIndices = null;
+                            if (atlasContext != null)
+                            {
+                                atlasUvIndices = new int[step];
+                                for (int corner = 0; corner < step; corner++)
+                                {
+                                    int vertexIndex = indices[index + corner];
+                                    Vector2 sourceUv = hasUv ? uv[vertexIndex] : new Vector2(0.5f, 0.5f);
+                                    Vector2 remappedUv = RemapAtlasUv(sourceUv, material, atlasContext);
+                                    objBuilder.Append("vt ")
+                                        .Append(Float(remappedUv.x)).Append(' ')
+                                        .Append(Float(remappedUv.y)).AppendLine();
+                                    atlasUvIndices[corner] = uvOffset;
+                                    uvOffset++;
+                                }
+                            }
+
                             objBuilder.Append('f');
+                            bool reverseWinding = options.FlipNormals ^ options.MirrorX;
                             for (int corner = 0; corner < step; corner++)
                             {
-                                int vertexIndex = indices[index + corner];
-                                objBuilder.Append(' ').Append(BuildFaceIndex(vertexIndex, vertexOffset, uvOffset, normalOffset, uv != null && uv.Length == vertices.Length, hasNormals));
+                                int sourceCorner = reverseWinding ? step - 1 - corner : corner;
+                                int vertexIndex = indices[index + sourceCorner];
+                                if (atlasContext != null)
+                                {
+                                    objBuilder.Append(' ').Append(BuildFaceIndexWithUvIndex(vertexIndex, vertexOffset, atlasUvIndices[sourceCorner], normalOffset, hasNormals));
+                                }
+                                else
+                                {
+                                    objBuilder.Append(' ').Append(BuildFaceIndex(vertexIndex, vertexOffset, uvOffset, normalOffset, writeSourceUv, hasNormals));
+                                }
                             }
 
                             objBuilder.AppendLine();
@@ -300,7 +392,10 @@ namespace FuzzPhyte.Utility.Editor
                     }
 
                     vertexOffset += vertices.Length;
-                    uvOffset += uv != null && uv.Length == vertices.Length ? uv.Length : 0;
+                    if (atlasContext == null)
+                    {
+                        uvOffset += writeSourceUv ? uv.Length : 0;
+                    }
                     normalOffset += hasNormals ? normals.Length : 0;
                     exportedMeshes++;
                 }
@@ -424,7 +519,12 @@ namespace FuzzPhyte.Utility.Editor
                         continue;
                     }
 
-                    result.Add(new FPMeshObjExportSource(collider.gameObject.name + "_Collider", collider.sharedMesh, rootToLocal * collider.transform.localToWorldMatrix));
+                    MeshRenderer meshRenderer = collider.GetComponent<MeshRenderer>();
+                    result.Add(new FPMeshObjExportSource(
+                        collider.gameObject.name + "_Collider",
+                        collider.sharedMesh,
+                        rootToLocal * collider.transform.localToWorldMatrix,
+                        meshRenderer == null ? null : meshRenderer.sharedMaterials));
                     includedComponents.Add(collider);
                 }
             }
@@ -482,6 +582,325 @@ namespace FuzzPhyte.Utility.Editor
 
             materialNames[material] = materialName;
             return materialName;
+        }
+
+        private static string GetMaterialNameForMode(Material material, Dictionary<Material, string> materialNames, FPMeshObjExportOptions options, FPMeshObjTextureAtlasContext atlasContext)
+        {
+            if (!options.ExportMaterials)
+            {
+                return string.Empty;
+            }
+
+            switch (options.MaterialExportMode)
+            {
+                case FPMeshObjMaterialExportMode.GenericWhiteMaterial:
+                    return GenericWhiteMaterialName;
+                case FPMeshObjMaterialExportMode.SingleAlbedoAtlas:
+                    return atlasContext == null ? GenericWhiteMaterialName : AtlasMaterialName;
+                default:
+                    return GetMaterialName(material, materialNames);
+            }
+        }
+
+        private sealed class FPMeshObjTextureAtlasContext
+        {
+            public readonly Dictionary<int, FPMeshObjTextureAtlasMapping> Mappings = new Dictionary<int, FPMeshObjTextureAtlasMapping>();
+            public string RelativeTexturePath;
+            public FPMeshObjAtlasUvTransform UvTransform;
+        }
+
+        private sealed class FPMeshObjTextureAtlasMapping
+        {
+            public Rect Rect;
+            public Vector2 Scale;
+            public Vector2 Offset;
+
+            public FPMeshObjTextureAtlasMapping(Rect rect, Vector2 scale, Vector2 offset)
+            {
+                Rect = rect;
+                Scale = scale;
+                Offset = offset;
+            }
+        }
+
+        private sealed class FPMeshObjTextureAtlasInput
+        {
+            public int MaterialKey;
+            public Texture2D Texture;
+            public Vector2 Scale = Vector2.one;
+            public Vector2 Offset = Vector2.zero;
+        }
+
+        private static FPMeshObjTextureAtlasContext BuildAlbedoAtlasContext(IList<FPMeshObjExportSource> sources, string outputDirectory, string objFileName, FPMeshObjExportOptions options)
+        {
+            List<Material> materials = CollectAtlasMaterials(sources);
+            var inputs = new List<FPMeshObjTextureAtlasInput>(materials.Count);
+
+            for (int i = 0; i < materials.Count; i++)
+            {
+                inputs.Add(BuildAtlasInput(materials[i], options));
+            }
+
+            if (inputs.Count == 0)
+            {
+                inputs.Add(BuildAtlasInput(null, options));
+            }
+
+            Texture2D atlas = null;
+            try
+            {
+                var textures = new Texture2D[inputs.Count];
+                for (int i = 0; i < inputs.Count; i++)
+                {
+                    textures[i] = inputs[i].Texture;
+                }
+
+                int atlasSize = Mathf.Clamp(options.AtlasSize, 128, 16384);
+                int padding = Mathf.Max(0, options.AtlasPadding);
+                atlas = new Texture2D(atlasSize, atlasSize, TextureFormat.RGBA32, false)
+                {
+                    name = objFileName + "_AlbedoAtlas"
+                };
+
+                Rect[] rects = atlas.PackTextures(textures, padding, atlasSize);
+                atlas.Apply();
+
+                string atlasPath = GetUniqueFilePath(outputDirectory, objFileName + "_AlbedoAtlas", ".png");
+                File.WriteAllBytes(atlasPath, atlas.EncodeToPNG());
+
+                var context = new FPMeshObjTextureAtlasContext
+                {
+                    RelativeTexturePath = Path.GetFileName(atlasPath),
+                    UvTransform = options.AtlasUvTransform
+                };
+
+                for (int i = 0; i < rects.Length && i < inputs.Count; i++)
+                {
+                    context.Mappings[inputs[i].MaterialKey] = new FPMeshObjTextureAtlasMapping(rects[i], inputs[i].Scale, inputs[i].Offset);
+                }
+
+                return context;
+            }
+            finally
+            {
+                for (int i = 0; i < inputs.Count; i++)
+                {
+                    if (inputs[i].Texture != null)
+                    {
+                        Object.DestroyImmediate(inputs[i].Texture);
+                    }
+                }
+
+                if (atlas != null)
+                {
+                    Object.DestroyImmediate(atlas);
+                }
+            }
+        }
+
+        private static List<Material> CollectAtlasMaterials(IList<FPMeshObjExportSource> sources)
+        {
+            var materials = new List<Material>();
+            var materialKeys = new HashSet<int>();
+
+            if (sources == null)
+            {
+                AddAtlasMaterial(null, materials, materialKeys);
+                return materials;
+            }
+
+            for (int i = 0; i < sources.Count; i++)
+            {
+                FPMeshObjExportSource source = sources[i];
+                if (source == null || source.Mesh == null)
+                {
+                    continue;
+                }
+
+                int subMeshCount = Mathf.Max(1, source.Mesh.subMeshCount);
+                for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
+                {
+                    AddAtlasMaterial(ResolveMaterial(source.Materials, subMesh), materials, materialKeys);
+                }
+            }
+
+            AddAtlasMaterial(null, materials, materialKeys);
+
+            return materials;
+        }
+
+        private static void AddAtlasMaterial(Material material, List<Material> materials, HashSet<int> materialKeys)
+        {
+            int key = GetMaterialKey(material);
+            if (materialKeys.Add(key))
+            {
+                materials.Add(material);
+            }
+        }
+
+        private static FPMeshObjTextureAtlasInput BuildAtlasInput(Material material, FPMeshObjExportOptions options)
+        {
+            Texture texture = ResolveMaterialAlbedoTexture(material, options.AtlasAlbedoPropertyFallbacks, out string textureProperty);
+            Vector2 scale = ResolveMaterialTextureScale(material, textureProperty);
+            Vector2 offset = ResolveMaterialTextureOffset(material, textureProperty);
+            Color tint = ResolveMaterialColor(material);
+
+            Texture2D textureCopy = null;
+            if (texture != null)
+            {
+                textureCopy = CopyTextureToReadable(texture);
+            }
+
+            if (textureCopy == null)
+            {
+                textureCopy = CreateSolidTexture(tint);
+            }
+            else
+            {
+                ApplyColorTint(textureCopy, tint);
+            }
+
+            return new FPMeshObjTextureAtlasInput
+            {
+                MaterialKey = GetMaterialKey(material),
+                Texture = textureCopy,
+                Scale = scale,
+                Offset = offset
+            };
+        }
+
+        private static Texture2D CreateSolidTexture(Color color)
+        {
+            const int size = 32;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color[size * size];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = color;
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return texture;
+        }
+
+        private static Texture2D CopyTextureToReadable(Texture texture)
+        {
+            RenderTexture previousActive = RenderTexture.active;
+            RenderTexture renderTexture = null;
+            try
+            {
+                renderTexture = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGB32);
+                Graphics.Blit(texture, renderTexture);
+                RenderTexture.active = renderTexture;
+
+                var readable = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
+                readable.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
+                readable.Apply();
+                return readable;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"[OBJ Export] Could not read albedo texture '{texture.name}' for atlas export: {exception.Message}");
+                return null;
+            }
+            finally
+            {
+                RenderTexture.active = previousActive;
+                if (renderTexture != null)
+                {
+                    RenderTexture.ReleaseTemporary(renderTexture);
+                }
+            }
+        }
+
+        private static void ApplyColorTint(Texture2D texture, Color tint)
+        {
+            if (texture == null || ApproximatelyColor(tint, Color.white))
+            {
+                return;
+            }
+
+            Color[] pixels = texture.GetPixels();
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] *= tint;
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+        }
+
+        private static bool ApproximatelyColor(Color a, Color b)
+        {
+            return Mathf.Approximately(a.r, b.r) &&
+                   Mathf.Approximately(a.g, b.g) &&
+                   Mathf.Approximately(a.b, b.b) &&
+                   Mathf.Approximately(a.a, b.a);
+        }
+
+        private static Vector2 RemapAtlasUv(Vector2 sourceUv, Material material, FPMeshObjTextureAtlasContext atlasContext)
+        {
+            if (atlasContext == null)
+            {
+                return sourceUv;
+            }
+
+            int key = GetMaterialKey(material);
+            if (!atlasContext.Mappings.TryGetValue(key, out FPMeshObjTextureAtlasMapping mapping) &&
+                !atlasContext.Mappings.TryGetValue(GetMaterialKey(null), out mapping))
+            {
+                return sourceUv;
+            }
+
+            Vector2 transformedUv = new Vector2(
+                (sourceUv.x * mapping.Scale.x) + mapping.Offset.x,
+                (sourceUv.y * mapping.Scale.y) + mapping.Offset.y);
+            transformedUv = TransformAtlasTileUv(transformedUv, atlasContext.UvTransform);
+
+            float atlasU = mapping.Rect.x + (transformedUv.x * mapping.Rect.width);
+            float atlasV = mapping.Rect.y + (transformedUv.y * mapping.Rect.height);
+            return new Vector2(atlasU, atlasV);
+        }
+
+        private static Vector2 TransformAtlasTileUv(Vector2 uv, FPMeshObjAtlasUvTransform transform)
+        {
+            switch (transform)
+            {
+                case FPMeshObjAtlasUvTransform.FlipU:
+                    return new Vector2(1f - uv.x, uv.y);
+                case FPMeshObjAtlasUvTransform.FlipV:
+                    return new Vector2(uv.x, 1f - uv.y);
+                case FPMeshObjAtlasUvTransform.Rotate180:
+                    return new Vector2(1f - uv.x, 1f - uv.y);
+                default:
+                    return uv;
+            }
+        }
+
+        private static void WriteGenericWhiteMaterial(StringBuilder builder, string materialName)
+        {
+            builder.Append("newmtl ").AppendLine(materialName);
+            builder.AppendLine("Ka 0.200000 0.200000 0.200000");
+            builder.AppendLine("Kd 1 1 1");
+            builder.AppendLine("d 1");
+            builder.AppendLine("illum 2");
+            builder.AppendLine();
+        }
+
+        private static void WriteAtlasMaterial(StringBuilder builder, string materialName, string relativeTexturePath)
+        {
+            builder.Append("newmtl ").AppendLine(materialName);
+            builder.AppendLine("Ka 0.200000 0.200000 0.200000");
+            builder.AppendLine("Kd 1 1 1");
+            builder.AppendLine("d 1");
+            builder.AppendLine("illum 2");
+            if (!string.IsNullOrWhiteSpace(relativeTexturePath))
+            {
+                builder.Append("map_Kd ").AppendLine(relativeTexturePath.Replace("\\", "/"));
+            }
+
+            builder.AppendLine();
         }
 
         private static void EnsureMaterialWritten(Material material, string materialName, StringBuilder builder, string outputDirectory, FPMeshObjExportOptions options, Dictionary<Texture, string> copiedTextures)
@@ -567,6 +986,135 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return null;
+        }
+
+        private static Texture ResolveMaterialAlbedoTexture(Material material, string fallbackPropertyNames, out string textureProperty)
+        {
+            textureProperty = null;
+            if (material == null)
+            {
+                return null;
+            }
+
+            if (material.HasProperty("_BaseMap"))
+            {
+                Texture texture = material.GetTexture("_BaseMap");
+                if (texture != null)
+                {
+                    textureProperty = "_BaseMap";
+                    return texture;
+                }
+            }
+
+            if (material.HasProperty("_MainTex"))
+            {
+                Texture texture = material.GetTexture("_MainTex");
+                if (texture != null)
+                {
+                    textureProperty = "_MainTex";
+                    return texture;
+                }
+            }
+
+            Texture fallbackTexture = ResolveMaterialTextureFromFallbacks(material, fallbackPropertyNames, out textureProperty);
+            if (fallbackTexture != null)
+            {
+                return fallbackTexture;
+            }
+
+            string[] textureProperties = material.GetTexturePropertyNames();
+            for (int i = 0; i < textureProperties.Length; i++)
+            {
+                string property = textureProperties[i];
+                if (!IsLikelyAlbedoTextureProperty(property))
+                {
+                    continue;
+                }
+
+                Texture texture = material.GetTexture(property);
+                if (texture != null)
+                {
+                    textureProperty = property;
+                    return texture;
+                }
+            }
+
+            return null;
+        }
+
+        private static Texture ResolveMaterialTextureFromFallbacks(Material material, string fallbackPropertyNames, out string textureProperty)
+        {
+            textureProperty = null;
+            if (material == null || string.IsNullOrWhiteSpace(fallbackPropertyNames))
+            {
+                return null;
+            }
+
+            string[] names = fallbackPropertyNames.Split(',');
+            for (int i = 0; i < names.Length; i++)
+            {
+                string property = names[i].Trim();
+                if (string.IsNullOrEmpty(property) || !material.HasProperty(property))
+                {
+                    continue;
+                }
+
+                Texture texture = material.GetTexture(property);
+                if (texture != null)
+                {
+                    textureProperty = property;
+                    return texture;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsLikelyAlbedoTextureProperty(string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                return false;
+            }
+
+            string lowerName = propertyName.ToLowerInvariant();
+            return lowerName.Contains("albedo") ||
+                   lowerName.Contains("basemap") ||
+                   lowerName.Contains("base_map") ||
+                   lowerName.Contains("basecolor") ||
+                   lowerName.Contains("base_color") ||
+                   lowerName.Contains("diffuse") ||
+                   lowerName.Contains("colormap") ||
+                   lowerName.Contains("color_map") ||
+                   lowerName.Contains("overlaytexture") ||
+                   lowerName.Contains("overlay_texture") ||
+                   lowerName.Contains("maintex") ||
+                   lowerName.Contains("main_tex");
+        }
+
+        private static Vector2 ResolveMaterialTextureScale(Material material, string textureProperty)
+        {
+            if (material == null || string.IsNullOrEmpty(textureProperty) || !material.HasProperty(textureProperty))
+            {
+                return Vector2.one;
+            }
+
+            return material.GetTextureScale(textureProperty);
+        }
+
+        private static Vector2 ResolveMaterialTextureOffset(Material material, string textureProperty)
+        {
+            if (material == null || string.IsNullOrEmpty(textureProperty) || !material.HasProperty(textureProperty))
+            {
+                return Vector2.zero;
+            }
+
+            return material.GetTextureOffset(textureProperty);
+        }
+
+        private static int GetMaterialKey(Material material)
+        {
+            return material == null ? 0 : material.GetInstanceID();
         }
 
         private static bool TryCopyTexture(Texture texture, string outputDirectory, Dictionary<Texture, string> copiedTextures, out string relativePath)
@@ -700,6 +1248,17 @@ namespace FuzzPhyte.Utility.Editor
             return v.ToString(CultureInfo.InvariantCulture);
         }
 
+        private static string BuildFaceIndexWithUvIndex(int vertexIndex, int vertexOffset, int uvIndex, int normalOffset, bool hasNormals)
+        {
+            int v = vertexOffset + vertexIndex;
+            if (hasNormals)
+            {
+                return $"{v}/{uvIndex}/{normalOffset + vertexIndex}";
+            }
+
+            return $"{v}/{uvIndex}";
+        }
+
         private static void DestroyTemporarySources(IList<FPMeshObjExportSource> sources)
         {
             if (sources == null)
@@ -721,6 +1280,20 @@ namespace FuzzPhyte.Utility.Editor
         private static bool PathsEqual(string a, string b)
         {
             return string.Equals(Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar), Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetUniqueFilePath(string directory, string baseName, string extension)
+        {
+            string safeBaseName = SanitizeFileName(baseName);
+            string path = Path.Combine(directory, safeBaseName + extension);
+            int suffix = 1;
+            while (File.Exists(path))
+            {
+                path = Path.Combine(directory, safeBaseName + "_" + suffix + extension);
+                suffix++;
+            }
+
+            return path;
         }
 
         private static string Float(float value)
@@ -824,7 +1397,14 @@ namespace FuzzPhyte.Utility.Editor
                 IncludeMeshFilters = options.IncludeMeshFilters,
                 IncludeSkinnedMeshRenderers = options.IncludeSkinnedMeshRenderers,
                 IncludeMeshColliders = options.IncludeMeshColliders,
-                RootLocalSpace = options.RootLocalSpace
+                RootLocalSpace = options.RootLocalSpace,
+                FlipNormals = options.FlipNormals,
+                MirrorX = options.MirrorX,
+                MaterialExportMode = options.MaterialExportMode,
+                AtlasSize = options.AtlasSize,
+                AtlasPadding = options.AtlasPadding,
+                AtlasAlbedoPropertyFallbacks = options.AtlasAlbedoPropertyFallbacks,
+                AtlasUvTransform = options.AtlasUvTransform
             };
         }
     }
