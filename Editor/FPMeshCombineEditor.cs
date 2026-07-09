@@ -29,6 +29,8 @@ namespace FuzzPhyte.Utility.Editor
         private GameObject sourceObjectToAdd;
         [SerializeField]
         private List<GameObject> looseSourceObjects = new List<GameObject>();
+        [SerializeField]
+        private int selectedLooseSourceObjectIndex = -1;
 
         // General options
         [SerializeField]
@@ -96,6 +98,7 @@ namespace FuzzPhyte.Utility.Editor
         private const float LooseSourceObjectListControlsHeight = 142f;
         private const float RootlessOutputHelpHeight = 36f;
         private const float AtlasExportControlsHeight = 96f;
+        private const float LooseSourceObjectRowScrollOffset = 210f;
 
         [MenuItem("FuzzPhyte/Utility/Mesh/Combine Meshes", priority = FP_UtilityData.MENU_UTILITY_MESH + 1)]
         public static void ShowWindow()
@@ -103,6 +106,80 @@ namespace FuzzPhyte.Utility.Editor
             var window = GetWindow<FPMeshCombineEditor>("Combine Meshes");
             window.minSize = new Vector2(760f, 420f);
             window.InitDefaults();
+        }
+
+        public static FPMeshCombineEditor ShowWindowWithLooseSourceObjects(
+            IList<GameObject> sourceObjects,
+            string outputName = null)
+        {
+            var window = GetWindow<FPMeshCombineEditor>("Combine Meshes");
+            window.minSize = new Vector2(760f, 420f);
+            window.SetLooseSourceObjects(sourceObjects, outputName);
+            return window;
+        }
+
+        public void SetLooseSourceObjects(
+            IList<GameObject> sourceObjects,
+            string outputName = null)
+        {
+            rootObject = null;
+            showLooseSourceObjects = true;
+            includeChildren = false;
+            includeInactive = true;
+            includeMeshFilters = true;
+            includeSkinnedMeshRenderers = false;
+            includeMeshColliders = false;
+            addMeshColliderToRoot = false;
+
+            ClearLooseSourceObjects();
+
+            if (sourceObjects != null)
+            {
+                for (int i = 0; i < sourceObjects.Count; i++)
+                {
+                    AddLooseSourceObject(sourceObjects[i]);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(outputName))
+            {
+                combinedMeshName = outputName;
+            }
+            else
+            {
+                SetDefaultNameFromLooseSources();
+            }
+
+            previewDirty = true;
+            Repaint();
+        }
+
+        public void ClearLooseSourceObjects()
+        {
+            looseSourceObjects.Clear();
+            sourceObjectToAdd = null;
+            selectedLooseSourceObjectIndex = -1;
+            previewDirty = true;
+        }
+
+        public void ConfigureObjExport(
+            FPMeshObjMaterialExportMode materialExportMode,
+            int atlasSize,
+            int atlasPadding,
+            string albedoFallbackProperties,
+            FPMeshObjAtlasUvTransform atlasUvTransform,
+            bool flipNormals = false)
+        {
+            objMaterialExportMode = materialExportMode;
+            objAtlasSize = Mathf.Clamp(atlasSize, 128, 16384);
+            objAtlasPadding = Mathf.Clamp(atlasPadding, 0, 32);
+            objAtlasAlbedoPropertyFallbacks = string.IsNullOrWhiteSpace(albedoFallbackProperties)
+                ? objAtlasAlbedoPropertyFallbacks
+                : albedoFallbackProperties;
+            objAtlasUvTransform = atlasUvTransform;
+            flipOutputNormals = flipNormals;
+            previewDirty = true;
+            Repaint();
         }
 
         private void OnEnable()
@@ -289,9 +366,18 @@ namespace FuzzPhyte.Utility.Editor
 
             using (new EditorGUI.DisabledScope(looseSourceObjects.Count == 0))
             {
+                if (GUILayout.Button("Clean Up", EditorStyles.miniButton, GUILayout.Width(72f)))
+                {
+                    if (RemoveDuplicateLooseSourceObjects() > 0)
+                    {
+                        previewDirty = true;
+                    }
+                }
+
                 if (GUILayout.Button("Clear All", EditorStyles.miniButton, GUILayout.Width(68f)))
                 {
                     looseSourceObjects.Clear();
+                    selectedLooseSourceObjectIndex = -1;
                     previewDirty = true;
                 }
             }
@@ -327,6 +413,7 @@ namespace FuzzPhyte.Utility.Editor
                 if (GUILayout.Button("Use Current Selection As Sources"))
                 {
                     looseSourceObjects.Clear();
+                    selectedLooseSourceObjectIndex = -1;
                     if (AddLooseSourceObjects(Selection.gameObjects))
                     {
                         SetDefaultNameFromLooseSources();
@@ -337,15 +424,12 @@ namespace FuzzPhyte.Utility.Editor
 
             for (int i = 0; i < looseSourceObjects.Count; i++)
             {
-                EditorGUILayout.BeginHorizontal();
-                looseSourceObjects[i] = (GameObject)EditorGUILayout.ObjectField($"Source {i + 1}", looseSourceObjects[i], typeof(GameObject), true);
-                if (GUILayout.Button("-", GUILayout.Width(24f)))
+                int countBeforeRow = looseSourceObjects.Count;
+                DrawLooseSourceObjectRow(i);
+                if (looseSourceObjects.Count < countBeforeRow)
                 {
-                    looseSourceObjects.RemoveAt(i);
-                    previewDirty = true;
                     i--;
                 }
-                EditorGUILayout.EndHorizontal();
             }
 
             EditorGUILayout.BeginHorizontal();
@@ -360,10 +444,97 @@ namespace FuzzPhyte.Utility.Editor
                 if (GUILayout.Button("Clear"))
                 {
                     looseSourceObjects.Clear();
+                    selectedLooseSourceObjectIndex = -1;
                     previewDirty = true;
                 }
             }
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawLooseSourceObjectRow(int index)
+        {
+            Rect rowRect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
+            if (index == selectedLooseSourceObjectIndex)
+            {
+                EditorGUI.DrawRect(rowRect, new Color(0.18f, 0.42f, 0.7f, 0.45f));
+            }
+
+            const float removeButtonWidth = 24f;
+            const float labelWidth = 72f;
+            Rect labelRect = new Rect(rowRect.x, rowRect.y, labelWidth, rowRect.height);
+            Rect buttonRect = new Rect(rowRect.xMax - removeButtonWidth, rowRect.y, removeButtonWidth, rowRect.height);
+            Rect fieldRect = new Rect(labelRect.xMax, rowRect.y, rowRect.width - labelWidth - removeButtonWidth - 4f, rowRect.height);
+
+            EditorGUI.LabelField(labelRect, $"Source {index + 1}");
+            EditorGUI.BeginChangeCheck();
+            GameObject newValue = (GameObject)EditorGUI.ObjectField(fieldRect, looseSourceObjects[index], typeof(GameObject), true);
+            if (EditorGUI.EndChangeCheck())
+            {
+                looseSourceObjects[index] = newValue;
+                previewDirty = true;
+            }
+
+            if (GUI.Button(buttonRect, "-"))
+            {
+                RemoveLooseSourceObjectAt(index);
+            }
+        }
+
+        private void RemoveLooseSourceObjectAt(int index)
+        {
+            if (index < 0 || index >= looseSourceObjects.Count)
+            {
+                return;
+            }
+
+            looseSourceObjects.RemoveAt(index);
+            if (selectedLooseSourceObjectIndex == index)
+            {
+                selectedLooseSourceObjectIndex = -1;
+            }
+            else if (selectedLooseSourceObjectIndex > index)
+            {
+                selectedLooseSourceObjectIndex--;
+            }
+
+            previewDirty = true;
+        }
+
+        private int RemoveDuplicateLooseSourceObjects()
+        {
+            if (looseSourceObjects.Count <= 1)
+            {
+                return 0;
+            }
+
+            GameObject selectedObject = selectedLooseSourceObjectIndex >= 0 && selectedLooseSourceObjectIndex < looseSourceObjects.Count
+                ? looseSourceObjects[selectedLooseSourceObjectIndex]
+                : null;
+            int removedCount = 0;
+            var seenObjects = new HashSet<GameObject>();
+
+            for (int i = 0; i < looseSourceObjects.Count; i++)
+            {
+                GameObject sourceObject = looseSourceObjects[i];
+                if (sourceObject == null || seenObjects.Add(sourceObject))
+                {
+                    continue;
+                }
+
+                looseSourceObjects.RemoveAt(i);
+                removedCount++;
+                i--;
+            }
+
+            if (removedCount == 0)
+            {
+                return 0;
+            }
+
+            selectedLooseSourceObjectIndex = selectedObject != null
+                ? looseSourceObjects.IndexOf(selectedObject)
+                : -1;
+            return removedCount;
         }
 
         private void DrawLooseSourceDropArea()
@@ -567,20 +738,7 @@ namespace FuzzPhyte.Utility.Editor
             previewUtility.lights[0].transform.rotation = Quaternion.Euler(35f, 35f, 0f);
             previewUtility.lights[1].intensity = 0.55f;
 
-            Bounds bounds = CalculatePreviewBounds();
-            float distance = FPMeshPreviewEditorUtility.CalculateFitDistance(bounds, rect) * Mathf.Max(0.5f, previewZoom);
-            Vector3 forward = previewRotation * Vector3.forward;
-            previewUtility.camera.transform.position = bounds.center - (forward * distance);
-            previewUtility.camera.transform.rotation = previewRotation;
-            previewUtility.camera.orthographic = cameraProjection == FPMeshPreviewProjection.Orthographic;
-            if (previewUtility.camera.orthographic)
-            {
-                previewUtility.camera.orthographicSize = FPMeshPreviewEditorUtility.CalculateOrthographicSize(bounds, rect, previewRotation) * Mathf.Max(0.5f, previewZoom);
-            }
-
-            float radius = Mathf.Max(0.1f, bounds.extents.magnitude);
-            previewUtility.camera.nearClipPlane = Mathf.Max(0.001f, distance - (radius * 2.4f));
-            previewUtility.camera.farClipPlane = distance + (radius * 3.4f);
+            ConfigurePreviewCamera(rect);
 
             if (showSourceMesh)
             {
@@ -604,11 +762,13 @@ namespace FuzzPhyte.Utility.Editor
         {
             public Mesh Mesh;
             public Transform Transform;
+            public GameObject SourceRoot;
 
-            public MeshSource(Mesh mesh, Transform transform)
+            public MeshSource(Mesh mesh, Transform transform, GameObject sourceRoot)
             {
                 Mesh = mesh;
                 Transform = transform;
+                SourceRoot = sourceRoot;
             }
         }
 
@@ -723,7 +883,7 @@ namespace FuzzPhyte.Utility.Editor
 
                     if (mf.sharedMesh != null && !sourceComponents.Contains(mf))
                     {
-                        result.Add(new MeshSource(mf.sharedMesh, mf.transform));
+                        result.Add(new MeshSource(mf.sharedMesh, mf.transform, sourceRoot));
                         sourceComponents.Add(mf);
                     }
                 }
@@ -742,7 +902,7 @@ namespace FuzzPhyte.Utility.Editor
 
                     if (smr.sharedMesh != null && !sourceComponents.Contains(smr))
                     {
-                        result.Add(new MeshSource(smr.sharedMesh, smr.transform));
+                        result.Add(new MeshSource(smr.sharedMesh, smr.transform, sourceRoot));
                         sourceComponents.Add(smr);
                     }
                 }
@@ -771,7 +931,7 @@ namespace FuzzPhyte.Utility.Editor
                     if (smr != null && smr.sharedMesh != null && sourceComponents.Contains(smr))
                         continue;
 
-                    result.Add(new MeshSource(col.sharedMesh, col.transform));
+                    result.Add(new MeshSource(col.sharedMesh, col.transform, sourceRoot));
                     sourceComponents.Add(col);
                 }
             }
@@ -936,6 +1096,31 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return bounds;
+        }
+
+        private void ConfigurePreviewCamera(Rect rect)
+        {
+            if (previewUtility == null || previewUtility.camera == null)
+            {
+                return;
+            }
+
+            Bounds bounds = CalculatePreviewBounds();
+            float distance = FPMeshPreviewEditorUtility.CalculateFitDistance(bounds, rect) * Mathf.Max(0.5f, previewZoom);
+            Vector3 forward = previewRotation * Vector3.forward;
+            Camera camera = previewUtility.camera;
+            camera.aspect = Mathf.Max(0.01f, rect.width / Mathf.Max(1f, rect.height));
+            camera.transform.position = bounds.center - (forward * distance);
+            camera.transform.rotation = previewRotation;
+            camera.orthographic = cameraProjection == FPMeshPreviewProjection.Orthographic;
+            if (camera.orthographic)
+            {
+                camera.orthographicSize = FPMeshPreviewEditorUtility.CalculateOrthographicSize(bounds, rect, previewRotation) * Mathf.Max(0.5f, previewZoom);
+            }
+
+            float radius = Mathf.Max(0.1f, bounds.extents.magnitude);
+            camera.nearClipPlane = Mathf.Max(0.001f, distance - (radius * 2.4f));
+            camera.farClipPlane = distance + (radius * 3.4f);
         }
 
         private void DrawPreviewMesh(Mesh mesh, Material material)
@@ -1156,6 +1341,12 @@ namespace FuzzPhyte.Utility.Editor
                     current.Use();
                     return;
                 }
+
+                if (TrySelectLooseSourceFromPreview(rect, current.mousePosition))
+                {
+                    current.Use();
+                    return;
+                }
             }
 
             if ((current.type == EventType.MouseUp || current.type == EventType.Ignore) && activeOrbitAxis >= 0)
@@ -1190,6 +1381,191 @@ namespace FuzzPhyte.Utility.Editor
                 current.Use();
                 Repaint();
             }
+        }
+
+        private bool TrySelectLooseSourceFromPreview(Rect previewRect, Vector2 mousePosition)
+        {
+            if (rootObject != null || previewMesh == null || GetLooseSourceObjectCount() == 0)
+            {
+                return false;
+            }
+
+            EnsurePreviewUtility();
+            if (previewUtility == null || previewUtility.camera == null)
+            {
+                return false;
+            }
+
+            ConfigurePreviewCamera(previewRect);
+
+            Vector2 localPosition = mousePosition - previewRect.position;
+            float viewportX = Mathf.Clamp01(localPosition.x / Mathf.Max(1f, previewRect.width));
+            float viewportY = Mathf.Clamp01(1f - (localPosition.y / Mathf.Max(1f, previewRect.height)));
+            Ray ray = previewUtility.camera.ViewportPointToRay(new Vector3(viewportX, viewportY, 0f));
+
+            var sources = GetSourceMeshes();
+            var rootToLocal = GetBakeRootToLocalMatrix();
+            float closestDistance = float.PositiveInfinity;
+            GameObject closestRoot = null;
+
+            for (int i = 0; i < sources.Count; i++)
+            {
+                MeshSource source = sources[i];
+                if (source.SourceRoot == null || source.Mesh == null || source.Transform == null)
+                {
+                    continue;
+                }
+
+                Matrix4x4 matrix = rootToLocal * source.Transform.localToWorldMatrix;
+                if (TryRaycastMesh(ray, source.Mesh, matrix, out float hitDistance) && hitDistance < closestDistance)
+                {
+                    closestDistance = hitDistance;
+                    closestRoot = source.SourceRoot;
+                }
+            }
+
+            if (closestRoot == null)
+            {
+                return false;
+            }
+
+            int sourceIndex = looseSourceObjects.IndexOf(closestRoot);
+            if (sourceIndex < 0)
+            {
+                return false;
+            }
+
+            SelectLooseSourceObjectIndex(sourceIndex);
+            return true;
+        }
+
+        private void SelectLooseSourceObjectIndex(int index)
+        {
+            selectedLooseSourceObjectIndex = index;
+            showLooseSourceObjects = true;
+
+            float rowHeight = EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+            scrollPos.y = Mathf.Max(0f, LooseSourceObjectRowScrollOffset + (index * rowHeight));
+            Repaint();
+        }
+
+        private static bool TryRaycastMesh(Ray ray, Mesh mesh, Matrix4x4 matrix, out float closestDistance)
+        {
+            closestDistance = float.PositiveInfinity;
+            if (mesh == null || !mesh.isReadable)
+            {
+                return false;
+            }
+
+            Bounds previewBounds = TransformBounds(mesh.bounds, matrix);
+            previewBounds.Expand(Mathf.Max(0.001f, previewBounds.extents.magnitude * 0.001f));
+            if (!previewBounds.IntersectRay(ray))
+            {
+                return false;
+            }
+
+            Vector3[] vertices = mesh.vertices;
+            int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
+            bool hit = false;
+
+            for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
+            {
+                MeshTopology topology = mesh.GetTopology(subMesh);
+                int[] indices = mesh.GetIndices(subMesh);
+                if (topology == MeshTopology.Triangles)
+                {
+                    for (int i = 0; i + 2 < indices.Length; i += 3)
+                    {
+                        hit |= TryRaycastIndexedTriangle(ray, vertices, indices[i], indices[i + 1], indices[i + 2], matrix, ref closestDistance);
+                    }
+                }
+                else if (topology == MeshTopology.Quads)
+                {
+                    for (int i = 0; i + 3 < indices.Length; i += 4)
+                    {
+                        hit |= TryRaycastIndexedTriangle(ray, vertices, indices[i], indices[i + 1], indices[i + 2], matrix, ref closestDistance);
+                        hit |= TryRaycastIndexedTriangle(ray, vertices, indices[i], indices[i + 2], indices[i + 3], matrix, ref closestDistance);
+                    }
+                }
+            }
+
+            return hit;
+        }
+
+        private static Bounds TransformBounds(Bounds bounds, Matrix4x4 matrix)
+        {
+            Vector3 center = matrix.MultiplyPoint3x4(bounds.center);
+            Vector3 extents = bounds.extents;
+            Vector3 axisX = matrix.MultiplyVector(new Vector3(extents.x, 0f, 0f));
+            Vector3 axisY = matrix.MultiplyVector(new Vector3(0f, extents.y, 0f));
+            Vector3 axisZ = matrix.MultiplyVector(new Vector3(0f, 0f, extents.z));
+            Vector3 transformedExtents = new Vector3(
+                Mathf.Abs(axisX.x) + Mathf.Abs(axisY.x) + Mathf.Abs(axisZ.x),
+                Mathf.Abs(axisX.y) + Mathf.Abs(axisY.y) + Mathf.Abs(axisZ.y),
+                Mathf.Abs(axisX.z) + Mathf.Abs(axisY.z) + Mathf.Abs(axisZ.z));
+
+            return new Bounds(center, transformedExtents * 2f);
+        }
+
+        private static bool TryRaycastIndexedTriangle(
+            Ray ray,
+            Vector3[] vertices,
+            int indexA,
+            int indexB,
+            int indexC,
+            Matrix4x4 matrix,
+            ref float closestDistance)
+        {
+            if (indexA < 0 || indexA >= vertices.Length ||
+                indexB < 0 || indexB >= vertices.Length ||
+                indexC < 0 || indexC >= vertices.Length)
+            {
+                return false;
+            }
+
+            Vector3 a = matrix.MultiplyPoint3x4(vertices[indexA]);
+            Vector3 b = matrix.MultiplyPoint3x4(vertices[indexB]);
+            Vector3 c = matrix.MultiplyPoint3x4(vertices[indexC]);
+            if (!RayIntersectsTriangle(ray, a, b, c, out float distance) || distance >= closestDistance)
+            {
+                return false;
+            }
+
+            closestDistance = distance;
+            return true;
+        }
+
+        private static bool RayIntersectsTriangle(Ray ray, Vector3 a, Vector3 b, Vector3 c, out float distance)
+        {
+            const float epsilon = 0.000001f;
+            distance = 0f;
+
+            Vector3 edge1 = b - a;
+            Vector3 edge2 = c - a;
+            Vector3 p = Vector3.Cross(ray.direction, edge2);
+            float determinant = Vector3.Dot(edge1, p);
+            if (Mathf.Abs(determinant) < epsilon)
+            {
+                return false;
+            }
+
+            float inverseDeterminant = 1f / determinant;
+            Vector3 t = ray.origin - a;
+            float u = Vector3.Dot(t, p) * inverseDeterminant;
+            if (u < 0f || u > 1f)
+            {
+                return false;
+            }
+
+            Vector3 q = Vector3.Cross(t, edge1);
+            float v = Vector3.Dot(ray.direction, q) * inverseDeterminant;
+            if (v < 0f || u + v > 1f)
+            {
+                return false;
+            }
+
+            distance = Vector3.Dot(edge2, q) * inverseDeterminant;
+            return distance >= 0f;
         }
 
         private void EnsurePreviewUtility()
