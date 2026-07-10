@@ -61,6 +61,7 @@ namespace FuzzPhyte.Utility.Editor
         public FPMeshObjMaterialExportMode MaterialExportMode = FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures;
         public int AtlasSize = 4096;
         public int AtlasPadding = 4;
+        public int AtlasEdgeBleed = 4;
         public string AtlasAlbedoPropertyFallbacks = "overlayTexture_0";
         public FPMeshObjAtlasUvTransform AtlasUvTransform = FPMeshObjAtlasUvTransform.Rotate180;
     }
@@ -100,6 +101,7 @@ namespace FuzzPhyte.Utility.Editor
         public FPMeshObjMaterialExportMode MaterialExportMode = FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures;
         public int AtlasSize = 4096;
         public int AtlasPadding = 4;
+        public int AtlasEdgeBleed = 4;
         public string AtlasAlbedoPropertyFallbacks = "overlayTexture_0";
         public FPMeshObjAtlasUvTransform AtlasUvTransform = FPMeshObjAtlasUvTransform.Rotate180;
     }
@@ -657,13 +659,13 @@ namespace FuzzPhyte.Utility.Editor
 
         private sealed class FPMeshObjTextureAtlasMapping
         {
-            public Rect Rect;
+            public Rect UvRect;
             public Vector2 Scale;
             public Vector2 Offset;
 
-            public FPMeshObjTextureAtlasMapping(Rect rect, Vector2 scale, Vector2 offset)
+            public FPMeshObjTextureAtlasMapping(Rect uvRect, Vector2 scale, Vector2 offset)
             {
-                Rect = rect;
+                UvRect = uvRect;
                 Scale = scale;
                 Offset = offset;
             }
@@ -675,6 +677,8 @@ namespace FuzzPhyte.Utility.Editor
             public Texture2D Texture;
             public Vector2 Scale = Vector2.one;
             public Vector2 Offset = Vector2.zero;
+            public int SourceWidth;
+            public int SourceHeight;
         }
 
         private static FPMeshObjTextureAtlasContext BuildAlbedoAtlasContext(IList<FPMeshObjExportSource> sources, string outputDirectory, string objFileName, FPMeshObjExportOptions options)
@@ -693,12 +697,18 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             Texture2D atlas = null;
+            Texture2D[] textures = null;
             try
             {
-                var textures = new Texture2D[inputs.Count];
+                int edgeBleed = Mathf.Clamp(options.AtlasEdgeBleed, 0, 64);
+                textures = new Texture2D[inputs.Count];
                 for (int i = 0; i < inputs.Count; i++)
                 {
-                    textures[i] = inputs[i].Texture;
+                    inputs[i].SourceWidth = inputs[i].Texture == null ? 0 : inputs[i].Texture.width;
+                    inputs[i].SourceHeight = inputs[i].Texture == null ? 0 : inputs[i].Texture.height;
+                    textures[i] = edgeBleed > 0
+                        ? CreateBleedTexture(inputs[i].Texture, edgeBleed)
+                        : inputs[i].Texture;
                 }
 
                 int atlasSize = Mathf.Clamp(options.AtlasSize, 128, 16384);
@@ -722,7 +732,8 @@ namespace FuzzPhyte.Utility.Editor
 
                 for (int i = 0; i < rects.Length && i < inputs.Count; i++)
                 {
-                    context.Mappings[inputs[i].MaterialKey] = new FPMeshObjTextureAtlasMapping(rects[i], inputs[i].Scale, inputs[i].Offset);
+                    Rect uvRect = CalculateInnerAtlasRect(rects[i], inputs[i], edgeBleed);
+                    context.Mappings[inputs[i].MaterialKey] = new FPMeshObjTextureAtlasMapping(uvRect, inputs[i].Scale, inputs[i].Offset);
                 }
 
                 return context;
@@ -734,6 +745,11 @@ namespace FuzzPhyte.Utility.Editor
                     if (inputs[i].Texture != null)
                     {
                         Object.DestroyImmediate(inputs[i].Texture);
+                    }
+
+                    if (textures != null && textures[i] != null && textures[i] != inputs[i].Texture)
+                    {
+                        Object.DestroyImmediate(textures[i]);
                     }
                 }
 
@@ -813,6 +829,57 @@ namespace FuzzPhyte.Utility.Editor
                 Scale = scale,
                 Offset = offset
             };
+        }
+
+        private static Texture2D CreateBleedTexture(Texture2D source, int bleedPixels)
+        {
+            if (source == null || bleedPixels <= 0)
+            {
+                return source;
+            }
+
+            int width = source.width;
+            int height = source.height;
+            int expandedWidth = width + (bleedPixels * 2);
+            int expandedHeight = height + (bleedPixels * 2);
+            var expanded = new Texture2D(expandedWidth, expandedHeight, TextureFormat.RGBA32, false)
+            {
+                name = source.name + "_Bleed"
+            };
+
+            Color[] sourcePixels = source.GetPixels();
+            var expandedPixels = new Color[expandedWidth * expandedHeight];
+            for (int y = 0; y < expandedHeight; y++)
+            {
+                int sourceY = Mathf.Clamp(y - bleedPixels, 0, height - 1);
+                for (int x = 0; x < expandedWidth; x++)
+                {
+                    int sourceX = Mathf.Clamp(x - bleedPixels, 0, width - 1);
+                    expandedPixels[(y * expandedWidth) + x] = sourcePixels[(sourceY * width) + sourceX];
+                }
+            }
+
+            expanded.SetPixels(expandedPixels);
+            expanded.Apply();
+            return expanded;
+        }
+
+        private static Rect CalculateInnerAtlasRect(Rect packedRect, FPMeshObjTextureAtlasInput input, int bleedPixels)
+        {
+            if (bleedPixels <= 0 || input == null || input.SourceWidth <= 0 || input.SourceHeight <= 0)
+            {
+                return packedRect;
+            }
+
+            float expandedWidth = input.SourceWidth + (bleedPixels * 2f);
+            float expandedHeight = input.SourceHeight + (bleedPixels * 2f);
+            float insetU = packedRect.width * (bleedPixels / expandedWidth);
+            float insetV = packedRect.height * (bleedPixels / expandedHeight);
+            return new Rect(
+                packedRect.x + insetU,
+                packedRect.y + insetV,
+                Mathf.Max(0.000001f, packedRect.width - (insetU * 2f)),
+                Mathf.Max(0.000001f, packedRect.height - (insetV * 2f)));
         }
 
         private static Texture2D CreateSolidTexture(Color color)
@@ -904,8 +971,8 @@ namespace FuzzPhyte.Utility.Editor
                 (sourceUv.y * mapping.Scale.y) + mapping.Offset.y);
             transformedUv = TransformAtlasTileUv(transformedUv, atlasContext.UvTransform);
 
-            float atlasU = mapping.Rect.x + (transformedUv.x * mapping.Rect.width);
-            float atlasV = mapping.Rect.y + (transformedUv.y * mapping.Rect.height);
+            float atlasU = mapping.UvRect.x + (transformedUv.x * mapping.UvRect.width);
+            float atlasV = mapping.UvRect.y + (transformedUv.y * mapping.UvRect.height);
             return new Vector2(atlasU, atlasV);
         }
 
@@ -1449,6 +1516,7 @@ namespace FuzzPhyte.Utility.Editor
                 MaterialExportMode = options.MaterialExportMode,
                 AtlasSize = options.AtlasSize,
                 AtlasPadding = options.AtlasPadding,
+                AtlasEdgeBleed = options.AtlasEdgeBleed,
                 AtlasAlbedoPropertyFallbacks = options.AtlasAlbedoPropertyFallbacks,
                 AtlasUvTransform = options.AtlasUvTransform
             };

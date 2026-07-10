@@ -84,6 +84,8 @@ namespace FuzzPhyte.Utility.Editor
         [SerializeField]
         private int objAtlasPadding = 4;
         [SerializeField]
+        private int objAtlasEdgeBleed = 4;
+        [SerializeField]
         private string objAtlasAlbedoPropertyFallbacks = "overlayTexture_0";
         [SerializeField]
         private FPMeshObjAtlasUvTransform objAtlasUvTransform = FPMeshObjAtlasUvTransform.Rotate180;
@@ -105,7 +107,7 @@ namespace FuzzPhyte.Utility.Editor
         private const float BaseParameterPanelViewHeight = 784f;
         private const float LooseSourceObjectListControlsHeight = 142f;
         private const float RootlessOutputHelpHeight = 36f;
-        private const float AtlasExportControlsHeight = 96f;
+        private const float AtlasExportControlsHeight = 116f;
         private const float ChunkedCombineControlsHeight = 44f;
         private const float SubmeshGroupHeaderHeight = 34f;
         private const float SubmeshGroupControlsHeight = 128f;
@@ -176,17 +178,58 @@ namespace FuzzPhyte.Utility.Editor
             previewDirty = true;
         }
 
+        public int SetSubmeshSourceGroup(string groupName, IList<GameObject> sourceObjects)
+        {
+            string resolvedGroupName = string.IsNullOrWhiteSpace(groupName)
+                ? $"Submesh {submeshGroups.Count + 1}"
+                : groupName.Trim();
+            SubmeshSourceGroup group = null;
+            for (int i = 0; i < submeshGroups.Count; i++)
+            {
+                SubmeshSourceGroup candidate = EnsureSubmeshGroup(i);
+                if (string.Equals(GetGroupName(candidate, i), resolvedGroupName, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    group = candidate;
+                    break;
+                }
+            }
+
+            if (group == null)
+            {
+                group = new SubmeshSourceGroup(resolvedGroupName);
+                submeshGroups.Add(group);
+            }
+
+            group.Name = resolvedGroupName;
+            group.IsExpanded = true;
+            group.SourceObjects.Clear();
+            if (sourceObjects != null)
+            {
+                for (int i = 0; i < sourceObjects.Count; i++)
+                {
+                    AddSourceObject(group.SourceObjects, sourceObjects[i]);
+                }
+            }
+
+            showSubmeshGroups = true;
+            previewDirty = true;
+            Repaint();
+            return GetSourceObjectCount(group.SourceObjects);
+        }
+
         public void ConfigureObjExport(
             FPMeshObjMaterialExportMode materialExportMode,
             int atlasSize,
             int atlasPadding,
             string albedoFallbackProperties,
             FPMeshObjAtlasUvTransform atlasUvTransform,
-            bool flipNormals = false)
+            bool flipNormals = false,
+            int atlasEdgeBleed = 4)
         {
             objMaterialExportMode = materialExportMode;
             objAtlasSize = Mathf.Clamp(atlasSize, 128, 16384);
             objAtlasPadding = Mathf.Clamp(atlasPadding, 0, 32);
+            objAtlasEdgeBleed = Mathf.Clamp(atlasEdgeBleed, 0, 64);
             objAtlasAlbedoPropertyFallbacks = string.IsNullOrWhiteSpace(albedoFallbackProperties)
                 ? objAtlasAlbedoPropertyFallbacks
                 : albedoFallbackProperties;
@@ -868,6 +911,7 @@ namespace FuzzPhyte.Utility.Editor
                     new[] { "1024", "2048", "4096", "8192", "16384" },
                     new[] { 1024, 2048, 4096, 8192, 16384 });
                 objAtlasPadding = EditorGUILayout.IntSlider("Atlas Padding", objAtlasPadding, 0, 32);
+                objAtlasEdgeBleed = EditorGUILayout.IntSlider("Atlas Edge Bleed", objAtlasEdgeBleed, 0, 64);
                 objAtlasAlbedoPropertyFallbacks = EditorGUILayout.TextField("Albedo Fallback Properties", objAtlasAlbedoPropertyFallbacks);
                 objAtlasUvTransform = (FPMeshObjAtlasUvTransform)EditorGUILayout.EnumPopup("Atlas UV Transform", objAtlasUvTransform);
             }
@@ -2436,6 +2480,7 @@ namespace FuzzPhyte.Utility.Editor
                 MaterialExportMode = objMaterialExportMode,
                 AtlasSize = objAtlasSize,
                 AtlasPadding = objAtlasPadding,
+                AtlasEdgeBleed = objAtlasEdgeBleed,
                 AtlasAlbedoPropertyFallbacks = objAtlasAlbedoPropertyFallbacks,
                 AtlasUvTransform = objAtlasUvTransform
             };
