@@ -27,15 +27,17 @@ namespace FuzzPhyte.Utility.Editor
     public sealed class FPMeshExportSource
     {
         public string Name;
+        public string GroupName;
         public Mesh Mesh;
         public Matrix4x4 Matrix;
         public Material[] Materials;
         public Object SourceObject;
         public bool DestroyMeshAfterExport;
 
-        public FPMeshExportSource(string name, Mesh mesh, Matrix4x4 matrix, Material[] materials = null, Object sourceObject = null, bool destroyMeshAfterExport = false)
+        public FPMeshExportSource(string name, Mesh mesh, Matrix4x4 matrix, Material[] materials = null, Object sourceObject = null, bool destroyMeshAfterExport = false, string groupName = null)
         {
             Name = string.IsNullOrWhiteSpace(name) ? "Mesh" : name;
+            GroupName = groupName;
             Mesh = mesh;
             Matrix = matrix;
             Materials = materials;
@@ -66,14 +68,16 @@ namespace FuzzPhyte.Utility.Editor
     internal sealed class FPMeshObjExportSource
     {
         public string Name;
+        public string GroupName;
         public Mesh Mesh;
         public Matrix4x4 Matrix;
         public Material[] Materials;
         public bool DestroyMeshAfterExport;
 
-        public FPMeshObjExportSource(string name, Mesh mesh, Matrix4x4 matrix, Material[] materials = null, bool destroyMeshAfterExport = false)
+        public FPMeshObjExportSource(string name, Mesh mesh, Matrix4x4 matrix, Material[] materials = null, bool destroyMeshAfterExport = false, string groupName = null)
         {
             Name = string.IsNullOrWhiteSpace(name) ? "Mesh" : name;
+            GroupName = groupName;
             Mesh = mesh;
             Matrix = matrix;
             Materials = materials;
@@ -221,7 +225,6 @@ namespace FuzzPhyte.Utility.Editor
                 string objFileName = Path.GetFileNameWithoutExtension(objPath);
                 string mtlFileName = SanitizeFileName(objFileName) + ".mtl";
                 string mtlPath = Path.Combine(directory, mtlFileName);
-                var objBuilder = new StringBuilder(8192);
                 var mtlBuilder = new StringBuilder(2048);
                 var materialNames = new Dictionary<Material, string>();
                 var copiedTextures = new Dictionary<Texture, string>();
@@ -231,182 +234,209 @@ namespace FuzzPhyte.Utility.Editor
                     atlasContext = BuildAlbedoAtlasContext(sources, directory, SanitizeFileName(objFileName), options);
                 }
 
-                objBuilder.AppendLine("# FuzzPhyte OBJ Export");
-                if (options.ExportMaterials)
-                {
-                    objBuilder.Append("mtllib ").AppendLine(mtlFileName.Replace("\\", "/"));
-                    if (options.MaterialExportMode == FPMeshObjMaterialExportMode.GenericWhiteMaterial)
-                    {
-                        WriteGenericWhiteMaterial(mtlBuilder, GenericWhiteMaterialName);
-                    }
-                    else if (atlasContext != null)
-                    {
-                        WriteAtlasMaterial(mtlBuilder, AtlasMaterialName, atlasContext.RelativeTexturePath);
-                    }
-                }
-
                 int vertexOffset = 1;
                 int uvOffset = 1;
                 int normalOffset = 1;
                 int exportedMeshes = 0;
+                string currentGroupName = null;
 
-                for (int i = 0; i < sources.Count; i++)
+                using (var objWriter = new StreamWriter(objPath, false, Encoding.UTF8))
                 {
-                    FPMeshObjExportSource source = sources[i];
-                    if (source == null || source.Mesh == null)
+                    objWriter.WriteLine("# FuzzPhyte OBJ Export");
+                    if (options.ExportMaterials)
                     {
-                        continue;
-                    }
-
-                    Mesh mesh = source.Mesh;
-                    if (!mesh.isReadable)
-                    {
-                        Debug.LogWarning($"[OBJ Export] Skipping unreadable mesh '{mesh.name}'. Enable Read/Write on the import settings to export it.");
-                        continue;
-                    }
-
-                    Vector3[] vertices = mesh.vertices;
-                    if (vertices == null || vertices.Length == 0)
-                    {
-                        continue;
-                    }
-
-                    Vector2[] uv = mesh.uv;
-                    bool hasUv = uv != null && uv.Length == vertices.Length;
-                    bool writeSourceUv = atlasContext == null &&
-                                         hasUv &&
-                                         options.MaterialExportMode != FPMeshObjMaterialExportMode.GenericWhiteMaterial;
-                    Vector3[] normals = mesh.normals;
-                    Matrix4x4 normalMatrix = source.Matrix.inverse.transpose;
-                    string objectName = SanitizeObjName(source.Name);
-
-                    objBuilder.Append("o ").AppendLine(objectName);
-
-                    for (int v = 0; v < vertices.Length; v++)
-                    {
-                        Vector3 position = source.Matrix.MultiplyPoint3x4(vertices[v]);
-                        if (options.MirrorX)
+                        objWriter.Write("mtllib ");
+                        objWriter.WriteLine(mtlFileName.Replace("\\", "/"));
+                        if (options.MaterialExportMode == FPMeshObjMaterialExportMode.GenericWhiteMaterial)
                         {
-                            position.x = -position.x;
+                            WriteGenericWhiteMaterial(mtlBuilder, GenericWhiteMaterialName);
                         }
-
-                        objBuilder.Append("v ")
-                            .Append(Float(position.x)).Append(' ')
-                            .Append(Float(position.y)).Append(' ')
-                            .Append(Float(position.z)).AppendLine();
-                    }
-
-                    if (writeSourceUv)
-                    {
-                        for (int u = 0; u < uv.Length; u++)
+                        else if (atlasContext != null)
                         {
-                            objBuilder.Append("vt ")
-                                .Append(Float(uv[u].x)).Append(' ')
-                                .Append(Float(uv[u].y)).AppendLine();
+                            WriteAtlasMaterial(mtlBuilder, AtlasMaterialName, atlasContext.RelativeTexturePath);
                         }
                     }
 
-                    bool hasNormals = normals != null && normals.Length == vertices.Length;
-                    if (hasNormals)
+                    for (int i = 0; i < sources.Count; i++)
                     {
-                        for (int n = 0; n < normals.Length; n++)
+                        FPMeshObjExportSource source = sources[i];
+                        if (source == null || source.Mesh == null)
                         {
-                            Vector3 normal = normalMatrix.MultiplyVector(normals[n]).normalized;
-                            if (options.MirrorX)
-                            {
-                                normal.x = -normal.x;
-                            }
-
-                            if (options.FlipNormals)
-                            {
-                                normal = -normal;
-                            }
-
-                            objBuilder.Append("vn ")
-                                .Append(Float(normal.x)).Append(' ')
-                                .Append(Float(normal.y)).Append(' ')
-                                .Append(Float(normal.z)).AppendLine();
-                        }
-                    }
-
-                    int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
-                    for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
-                    {
-                        MeshTopology topology = mesh.GetTopology(subMesh);
-                        if (topology != MeshTopology.Triangles && topology != MeshTopology.Quads)
-                        {
-                            Debug.LogWarning($"[OBJ Export] Skipping unsupported topology '{topology}' on '{mesh.name}' submesh {subMesh}.");
                             continue;
                         }
 
-                        Material material = ResolveMaterial(source.Materials, subMesh);
-                        string materialName = GetMaterialNameForMode(material, materialNames, options, atlasContext);
-                        if (options.ExportMaterials)
+                        Mesh mesh = source.Mesh;
+                        if (!mesh.isReadable)
                         {
-                            objBuilder.Append("usemtl ").AppendLine(materialName);
-                            if (options.MaterialExportMode == FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures)
+                            Debug.LogWarning($"[OBJ Export] Skipping unreadable mesh '{mesh.name}'. Enable Read/Write on the import settings to export it.");
+                            continue;
+                        }
+
+                        Vector3[] vertices = mesh.vertices;
+                        if (vertices == null || vertices.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        Vector2[] uv = mesh.uv;
+                        bool hasUv = uv != null && uv.Length == vertices.Length;
+                        bool writeSourceUv = atlasContext == null &&
+                                             hasUv &&
+                                             options.MaterialExportMode != FPMeshObjMaterialExportMode.GenericWhiteMaterial;
+                        Vector3[] normals = mesh.normals;
+                        Matrix4x4 normalMatrix = source.Matrix.inverse.transpose;
+                        string objectName = SanitizeObjName(source.Name);
+                        string groupName = string.IsNullOrWhiteSpace(source.GroupName)
+                            ? null
+                            : SanitizeObjName(source.GroupName);
+
+                        if (!string.IsNullOrEmpty(groupName) && groupName != currentGroupName)
+                        {
+                            objWriter.Write("g ");
+                            objWriter.WriteLine(groupName);
+                            currentGroupName = groupName;
+                        }
+
+                        objWriter.Write("o ");
+                        objWriter.WriteLine(objectName);
+
+                        for (int v = 0; v < vertices.Length; v++)
+                        {
+                            Vector3 position = source.Matrix.MultiplyPoint3x4(vertices[v]);
+                            if (options.MirrorX)
                             {
-                                EnsureMaterialWritten(material, materialName, mtlBuilder, directory, options, copiedTextures);
+                                position.x = -position.x;
+                            }
+
+                            objWriter.Write("v ");
+                            objWriter.Write(Float(position.x));
+                            objWriter.Write(' ');
+                            objWriter.Write(Float(position.y));
+                            objWriter.Write(' ');
+                            objWriter.Write(Float(position.z));
+                            objWriter.WriteLine();
+                        }
+
+                        if (writeSourceUv)
+                        {
+                            for (int u = 0; u < uv.Length; u++)
+                            {
+                                objWriter.Write("vt ");
+                                objWriter.Write(Float(uv[u].x));
+                                objWriter.Write(' ');
+                                objWriter.Write(Float(uv[u].y));
+                                objWriter.WriteLine();
                             }
                         }
 
-                        int[] indices = mesh.GetIndices(subMesh);
-                        int step = topology == MeshTopology.Quads ? 4 : 3;
-                        for (int index = 0; index + step - 1 < indices.Length; index += step)
+                        bool hasNormals = normals != null && normals.Length == vertices.Length;
+                        if (hasNormals)
                         {
-                            int[] atlasUvIndices = null;
-                            if (atlasContext != null)
+                            for (int n = 0; n < normals.Length; n++)
                             {
-                                atlasUvIndices = new int[step];
-                                for (int corner = 0; corner < step; corner++)
+                                Vector3 normal = normalMatrix.MultiplyVector(normals[n]).normalized;
+                                if (options.MirrorX)
                                 {
-                                    int vertexIndex = indices[index + corner];
-                                    Vector2 sourceUv = hasUv ? uv[vertexIndex] : new Vector2(0.5f, 0.5f);
-                                    Vector2 remappedUv = RemapAtlasUv(sourceUv, material, atlasContext);
-                                    objBuilder.Append("vt ")
-                                        .Append(Float(remappedUv.x)).Append(' ')
-                                        .Append(Float(remappedUv.y)).AppendLine();
-                                    atlasUvIndices[corner] = uvOffset;
-                                    uvOffset++;
+                                    normal.x = -normal.x;
+                                }
+
+                                if (options.FlipNormals)
+                                {
+                                    normal = -normal;
+                                }
+
+                                objWriter.Write("vn ");
+                                objWriter.Write(Float(normal.x));
+                                objWriter.Write(' ');
+                                objWriter.Write(Float(normal.y));
+                                objWriter.Write(' ');
+                                objWriter.Write(Float(normal.z));
+                                objWriter.WriteLine();
+                            }
+                        }
+
+                        int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
+                        for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
+                        {
+                            MeshTopology topology = mesh.GetTopology(subMesh);
+                            if (topology != MeshTopology.Triangles && topology != MeshTopology.Quads)
+                            {
+                                Debug.LogWarning($"[OBJ Export] Skipping unsupported topology '{topology}' on '{mesh.name}' submesh {subMesh}.");
+                                continue;
+                            }
+
+                            Material material = ResolveMaterial(source.Materials, subMesh);
+                            string materialName = GetMaterialNameForMode(material, materialNames, options, atlasContext);
+                            if (options.ExportMaterials)
+                            {
+                                objWriter.Write("usemtl ");
+                                objWriter.WriteLine(materialName);
+                                if (options.MaterialExportMode == FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures)
+                                {
+                                    EnsureMaterialWritten(material, materialName, mtlBuilder, directory, options, copiedTextures);
                                 }
                             }
 
-                            objBuilder.Append('f');
-                            bool reverseWinding = options.FlipNormals ^ options.MirrorX;
-                            for (int corner = 0; corner < step; corner++)
+                            int[] indices = mesh.GetIndices(subMesh);
+                            int step = topology == MeshTopology.Quads ? 4 : 3;
+                            for (int index = 0; index + step - 1 < indices.Length; index += step)
                             {
-                                int sourceCorner = reverseWinding ? step - 1 - corner : corner;
-                                int vertexIndex = indices[index + sourceCorner];
+                                int[] atlasUvIndices = null;
                                 if (atlasContext != null)
                                 {
-                                    objBuilder.Append(' ').Append(BuildFaceIndexWithUvIndex(vertexIndex, vertexOffset, atlasUvIndices[sourceCorner], normalOffset, hasNormals));
+                                    atlasUvIndices = new int[step];
+                                    for (int corner = 0; corner < step; corner++)
+                                    {
+                                        int vertexIndex = indices[index + corner];
+                                        Vector2 sourceUv = hasUv ? uv[vertexIndex] : new Vector2(0.5f, 0.5f);
+                                        Vector2 remappedUv = RemapAtlasUv(sourceUv, material, atlasContext);
+                                        objWriter.Write("vt ");
+                                        objWriter.Write(Float(remappedUv.x));
+                                        objWriter.Write(' ');
+                                        objWriter.Write(Float(remappedUv.y));
+                                        objWriter.WriteLine();
+                                        atlasUvIndices[corner] = uvOffset;
+                                        uvOffset++;
+                                    }
                                 }
-                                else
+
+                                objWriter.Write('f');
+                                bool reverseWinding = options.FlipNormals ^ options.MirrorX;
+                                for (int corner = 0; corner < step; corner++)
                                 {
-                                    objBuilder.Append(' ').Append(BuildFaceIndex(vertexIndex, vertexOffset, uvOffset, normalOffset, writeSourceUv, hasNormals));
+                                    int sourceCorner = reverseWinding ? step - 1 - corner : corner;
+                                    int vertexIndex = indices[index + sourceCorner];
+                                    objWriter.Write(' ');
+                                    if (atlasContext != null)
+                                    {
+                                        objWriter.Write(BuildFaceIndexWithUvIndex(vertexIndex, vertexOffset, atlasUvIndices[sourceCorner], normalOffset, hasNormals));
+                                    }
+                                    else
+                                    {
+                                        objWriter.Write(BuildFaceIndex(vertexIndex, vertexOffset, uvOffset, normalOffset, writeSourceUv, hasNormals));
+                                    }
                                 }
+
+                                objWriter.WriteLine();
                             }
-
-                            objBuilder.AppendLine();
                         }
+
+                        vertexOffset += vertices.Length;
+                        if (atlasContext == null)
+                        {
+                            uvOffset += writeSourceUv ? uv.Length : 0;
+                        }
+                        normalOffset += hasNormals ? normals.Length : 0;
+                        exportedMeshes++;
                     }
 
-                    vertexOffset += vertices.Length;
-                    if (atlasContext == null)
+                    if (exportedMeshes == 0)
                     {
-                        uvOffset += writeSourceUv ? uv.Length : 0;
+                        message = "No readable mesh data was exported.";
+                        return false;
                     }
-                    normalOffset += hasNormals ? normals.Length : 0;
-                    exportedMeshes++;
                 }
 
-                if (exportedMeshes == 0)
-                {
-                    message = "No readable mesh data was exported.";
-                    return false;
-                }
-
-                File.WriteAllText(objPath, objBuilder.ToString(), Encoding.UTF8);
                 if (options.ExportMaterials)
                 {
                     if (mtlBuilder.Length == 0)
@@ -416,7 +446,6 @@ namespace FuzzPhyte.Utility.Editor
 
                     File.WriteAllText(mtlPath, mtlBuilder.ToString(), Encoding.UTF8);
                 }
-
                 AssetDatabase.Refresh();
                 message = $"Exported {exportedMeshes} mesh source(s) to:\n{objPath}";
                 return true;
@@ -433,7 +462,12 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        public static List<FPMeshObjExportSource> CollectGameObjectSources(GameObject root, FPMeshObjExportOptions options, Predicate<GameObject> isValidObject = null)
+        public static List<FPMeshObjExportSource> CollectGameObjectSources(
+            GameObject root,
+            FPMeshObjExportOptions options,
+            Predicate<GameObject> isValidObject = null,
+            string groupName = null,
+            Matrix4x4? rootToLocalOverride = null)
         {
             var result = new List<FPMeshObjExportSource>();
             if (root == null)
@@ -446,7 +480,7 @@ namespace FuzzPhyte.Utility.Editor
                 options = new FPMeshObjExportOptions();
             }
 
-            Matrix4x4 rootToLocal = options.RootLocalSpace ? root.transform.worldToLocalMatrix : Matrix4x4.identity;
+            Matrix4x4 rootToLocal = rootToLocalOverride ?? (options.RootLocalSpace ? root.transform.worldToLocalMatrix : Matrix4x4.identity);
             var includedComponents = new HashSet<Component>();
 
             if (options.IncludeMeshFilters)
@@ -464,7 +498,12 @@ namespace FuzzPhyte.Utility.Editor
                     }
 
                     MeshRenderer renderer = filter.GetComponent<MeshRenderer>();
-                    result.Add(new FPMeshObjExportSource(filter.gameObject.name, filter.sharedMesh, rootToLocal * filter.transform.localToWorldMatrix, renderer == null ? null : renderer.sharedMaterials));
+                    result.Add(new FPMeshObjExportSource(
+                        filter.gameObject.name,
+                        filter.sharedMesh,
+                        rootToLocal * filter.transform.localToWorldMatrix,
+                        renderer == null ? null : renderer.sharedMaterials,
+                        groupName: groupName));
                     includedComponents.Add(filter);
                 }
             }
@@ -488,7 +527,13 @@ namespace FuzzPhyte.Utility.Editor
                         name = renderer.sharedMesh.name + "_Baked"
                     };
                     renderer.BakeMesh(bakedMesh);
-                    result.Add(new FPMeshObjExportSource(renderer.gameObject.name, bakedMesh, rootToLocal * renderer.transform.localToWorldMatrix, renderer.sharedMaterials, true));
+                    result.Add(new FPMeshObjExportSource(
+                        renderer.gameObject.name,
+                        bakedMesh,
+                        rootToLocal * renderer.transform.localToWorldMatrix,
+                        renderer.sharedMaterials,
+                        true,
+                        groupName));
                     includedComponents.Add(renderer);
                 }
             }
@@ -524,7 +569,8 @@ namespace FuzzPhyte.Utility.Editor
                         collider.gameObject.name + "_Collider",
                         collider.sharedMesh,
                         rootToLocal * collider.transform.localToWorldMatrix,
-                        meshRenderer == null ? null : meshRenderer.sharedMaterials));
+                        meshRenderer == null ? null : meshRenderer.sharedMaterials,
+                        groupName: groupName));
                     includedComponents.Add(collider);
                 }
             }
@@ -1353,7 +1399,7 @@ namespace FuzzPhyte.Utility.Editor
             for (int i = 0; i < objSources.Count; i++)
             {
                 FPMeshObjExportSource source = objSources[i];
-                publicSources.Add(new FPMeshExportSource(source.Name, source.Mesh, source.Matrix, source.Materials, null, source.DestroyMeshAfterExport));
+                publicSources.Add(new FPMeshExportSource(source.Name, source.Mesh, source.Matrix, source.Materials, null, source.DestroyMeshAfterExport, source.GroupName));
             }
 
             return publicSources;
@@ -1375,7 +1421,7 @@ namespace FuzzPhyte.Utility.Editor
                     continue;
                 }
 
-                objSources.Add(new FPMeshObjExportSource(source.Name, source.Mesh, source.Matrix, source.Materials, source.DestroyMeshAfterExport));
+                objSources.Add(new FPMeshObjExportSource(source.Name, source.Mesh, source.Matrix, source.Materials, source.DestroyMeshAfterExport, source.GroupName));
             }
 
             return objSources;

@@ -31,6 +31,10 @@ namespace FuzzPhyte.Utility.Editor
         private List<GameObject> looseSourceObjects = new List<GameObject>();
         [SerializeField]
         private int selectedLooseSourceObjectIndex = -1;
+        [SerializeField]
+        private bool showSubmeshGroups = true;
+        [SerializeField]
+        private List<SubmeshSourceGroup> submeshGroups = new List<SubmeshSourceGroup>();
 
         // General options
         [SerializeField]
@@ -70,6 +74,10 @@ namespace FuzzPhyte.Utility.Editor
         [SerializeField]
         private bool isTrigger = false;
         [SerializeField]
+        private bool autoChunkLargeCombines = true;
+        [SerializeField]
+        private int combineChunkVertexBudget = DefaultCombineChunkVertexBudget;
+        [SerializeField]
         private FPMeshObjMaterialExportMode objMaterialExportMode = FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures;
         [SerializeField]
         private int objAtlasSize = 4096;
@@ -98,7 +106,13 @@ namespace FuzzPhyte.Utility.Editor
         private const float LooseSourceObjectListControlsHeight = 142f;
         private const float RootlessOutputHelpHeight = 36f;
         private const float AtlasExportControlsHeight = 96f;
+        private const float ChunkedCombineControlsHeight = 44f;
+        private const float SubmeshGroupHeaderHeight = 34f;
+        private const float SubmeshGroupControlsHeight = 128f;
         private const float LooseSourceObjectRowScrollOffset = 210f;
+        private const int MinCombineChunkVertexBudget = 65535;
+        private const int DefaultCombineChunkVertexBudget = 250000;
+        private const int MaxCombineChunkVertexBudget = 5000000;
 
         [MenuItem("FuzzPhyte/Utility/Mesh/Combine Meshes", priority = FP_UtilityData.MENU_UTILITY_MESH + 1)]
         public static void ShowWindow()
@@ -279,10 +293,30 @@ namespace FuzzPhyte.Utility.Editor
                 viewHeight += AtlasExportControlsHeight;
             }
 
+            if (autoChunkLargeCombines)
+            {
+                viewHeight += ChunkedCombineControlsHeight;
+            }
+
             if (rootObject == null && showLooseSourceObjects)
             {
                 float rowHeight = EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
                 viewHeight += LooseSourceObjectListControlsHeight + (looseSourceObjects.Count * rowHeight);
+            }
+
+            if (showSubmeshGroups)
+            {
+                float rowHeight = EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+                viewHeight += SubmeshGroupHeaderHeight;
+                for (int i = 0; i < submeshGroups.Count; i++)
+                {
+                    SubmeshSourceGroup group = submeshGroups[i];
+                    viewHeight += rowHeight;
+                    if (group != null && group.IsExpanded)
+                    {
+                        viewHeight += SubmeshGroupControlsHeight + (group.SourceObjects.Count * rowHeight);
+                    }
+                }
             }
 
             return viewHeight;
@@ -295,6 +329,8 @@ namespace FuzzPhyte.Utility.Editor
             DrawHeader();
             FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawRootSettings();
+            FPMeshPreviewEditorUtility.DrawSectionDivider();
+            DrawSubmeshGroupSettings();
             FPMeshPreviewEditorUtility.DrawSectionDivider();
             DrawSourceSettings();
             FPMeshPreviewEditorUtility.DrawSectionDivider();
@@ -583,6 +619,180 @@ namespace FuzzPhyte.Utility.Editor
             current.Use();
         }
 
+        private void DrawSubmeshGroupSettings()
+        {
+            EditorGUILayout.BeginHorizontal();
+            showSubmeshGroups = EditorGUILayout.Foldout(showSubmeshGroups, $"Submesh Groups ({GetSubmeshGroupCount()})", true);
+            if (GUILayout.Button("Add Group", EditorStyles.miniButton, GUILayout.Width(80f)))
+            {
+                submeshGroups.Add(new SubmeshSourceGroup($"Submesh {submeshGroups.Count + 1}"));
+                showSubmeshGroups = true;
+                previewDirty = true;
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            if (!showSubmeshGroups)
+            {
+                return;
+            }
+
+            for (int groupIndex = 0; groupIndex < submeshGroups.Count; groupIndex++)
+            {
+                SubmeshSourceGroup group = EnsureSubmeshGroup(groupIndex);
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                EditorGUILayout.BeginHorizontal();
+                group.IsExpanded = EditorGUILayout.Foldout(group.IsExpanded, $"{GetGroupName(group, groupIndex)} ({GetSourceObjectCount(group.SourceObjects)})", true);
+                using (new EditorGUI.DisabledScope(group.SourceObjects.Count == 0))
+                {
+                    if (GUILayout.Button("Clean Up", EditorStyles.miniButton, GUILayout.Width(72f)))
+                    {
+                        if (RemoveDuplicateSourceObjects(group.SourceObjects) > 0)
+                        {
+                            previewDirty = true;
+                        }
+                    }
+
+                    if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(48f)))
+                    {
+                        group.SourceObjects.Clear();
+                        previewDirty = true;
+                    }
+                }
+
+                if (GUILayout.Button("-", EditorStyles.miniButton, GUILayout.Width(24f)))
+                {
+                    submeshGroups.RemoveAt(groupIndex);
+                    previewDirty = true;
+                    EditorGUILayout.EndHorizontal();
+                    EditorGUILayout.EndVertical();
+                    groupIndex--;
+                    continue;
+                }
+
+                EditorGUILayout.EndHorizontal();
+
+                if (group.IsExpanded)
+                {
+                    group.Name = EditorGUILayout.TextField("Group Name", group.Name);
+                    DrawSubmeshGroupObjectControls(group, groupIndex);
+                }
+
+                EditorGUILayout.EndVertical();
+            }
+        }
+
+        private void DrawSubmeshGroupObjectControls(SubmeshSourceGroup group, int groupIndex)
+        {
+            EditorGUILayout.BeginHorizontal();
+            group.ObjectToAdd = (GameObject)EditorGUILayout.ObjectField("Add Object", group.ObjectToAdd, typeof(GameObject), true);
+            using (new EditorGUI.DisabledScope(group.ObjectToAdd == null))
+            {
+                if (GUILayout.Button("Add", GUILayout.Width(48f)))
+                {
+                    if (AddSourceObject(group.SourceObjects, group.ObjectToAdd))
+                    {
+                        previewDirty = true;
+                    }
+
+                    group.ObjectToAdd = null;
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            DrawSubmeshGroupDropArea(group, groupIndex);
+
+            using (new EditorGUI.DisabledScope(Selection.gameObjects == null || Selection.gameObjects.Length == 0))
+            {
+                if (GUILayout.Button("Use Current Selection As Group Sources"))
+                {
+                    group.SourceObjects.Clear();
+                    if (AddSourceObjects(group.SourceObjects, Selection.gameObjects))
+                    {
+                        previewDirty = true;
+                    }
+                }
+            }
+
+            for (int i = 0; i < group.SourceObjects.Count; i++)
+            {
+                int countBeforeRow = group.SourceObjects.Count;
+                DrawSourceObjectRow(group.SourceObjects, i);
+                if (group.SourceObjects.Count < countBeforeRow)
+                {
+                    i--;
+                }
+            }
+
+            if (GUILayout.Button("Add Empty Slot"))
+            {
+                group.SourceObjects.Add(null);
+                previewDirty = true;
+            }
+        }
+
+        private void DrawSubmeshGroupDropArea(SubmeshSourceGroup group, int groupIndex)
+        {
+            Rect dropRect = GUILayoutUtility.GetRect(0f, 30f, GUILayout.ExpandWidth(true));
+            GUI.Box(dropRect, $"Drag Source Objects For {GetGroupName(group, groupIndex)}", EditorStyles.helpBox);
+
+            Event current = Event.current;
+            if (!dropRect.Contains(current.mousePosition) ||
+                (current.type != EventType.DragUpdated && current.type != EventType.DragPerform))
+            {
+                return;
+            }
+
+            bool hasGameObject = HasDraggedGameObject();
+            if (!hasGameObject)
+            {
+                return;
+            }
+
+            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+            if (current.type == EventType.DragPerform)
+            {
+                DragAndDrop.AcceptDrag();
+                if (AddSourceObjects(group.SourceObjects, DragAndDrop.objectReferences))
+                {
+                    previewDirty = true;
+                }
+            }
+
+            current.Use();
+        }
+
+        private void DrawSourceObjectRow(List<GameObject> sourceObjects, int index)
+        {
+            if (sourceObjects == null || index < 0 || index >= sourceObjects.Count)
+            {
+                return;
+            }
+
+            Rect rowRect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
+            const float labelWidth = 76f;
+            const float removeButtonWidth = 24f;
+            Rect labelRect = new Rect(rowRect.x, rowRect.y, labelWidth, rowRect.height);
+            Rect buttonRect = new Rect(rowRect.xMax - removeButtonWidth, rowRect.y, removeButtonWidth, rowRect.height);
+            Rect fieldRect = new Rect(labelRect.xMax, rowRect.y, rowRect.width - labelWidth - removeButtonWidth - 4f, rowRect.height);
+
+            EditorGUI.LabelField(labelRect, $"Source {index + 1}");
+            EditorGUI.BeginChangeCheck();
+            GameObject newValue = (GameObject)EditorGUI.ObjectField(fieldRect, sourceObjects[index], typeof(GameObject), true);
+            if (EditorGUI.EndChangeCheck())
+            {
+                sourceObjects[index] = newValue;
+                previewDirty = true;
+            }
+
+            if (GUI.Button(buttonRect, "-"))
+            {
+                sourceObjects.RemoveAt(index);
+                previewDirty = true;
+            }
+        }
+
         private void DrawSourceSettings()
         {
             EditorGUILayout.LabelField("Source Mesh Settings", EditorStyles.boldLabel);
@@ -619,6 +829,15 @@ namespace FuzzPhyte.Utility.Editor
 
             combinedMeshName = EditorGUILayout.TextField("Combined Mesh Name", combinedMeshName);
             flipOutputNormals = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Flip Output Normals", flipOutputNormals);
+            autoChunkLargeCombines = FPMeshPreviewEditorUtility.DrawRightAlignedToggle("Auto Chunk Large Combines", autoChunkLargeCombines);
+            if (autoChunkLargeCombines)
+            {
+                combineChunkVertexBudget = EditorGUILayout.IntSlider(
+                    "Chunk Vertex Budget",
+                    Mathf.Clamp(combineChunkVertexBudget, MinCombineChunkVertexBudget, MaxCombineChunkVertexBudget),
+                    MinCombineChunkVertexBudget,
+                    MaxCombineChunkVertexBudget);
+            }
 
             EditorGUILayout.Space();
             using (new EditorGUI.DisabledScope(rootObject == null))
@@ -658,7 +877,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             EditorGUILayout.Space();
 
-            bool canCombine = PreviewMeshCount() > 0;
+            bool canCombine = GetSourceMeshes().Count > 0;
 
             using (new EditorGUI.DisabledScope(!canCombine))
             {
@@ -686,7 +905,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 EditorGUILayout.HelpBox(
                     rootObject == null
-                        ? "Assign a root object or add source objects with valid MeshFilters, SkinnedMeshRenderers, and/or MeshColliders."
+                        ? "Add root source objects with valid MeshFilters, SkinnedMeshRenderers, and/or MeshColliders before adding submesh groups."
                         : "Ensure there are MeshFilters, SkinnedMeshRenderers, and/or MeshColliders under the root object.",
                     MessageType.Warning);
             }
@@ -772,6 +991,32 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
+        private struct NamedMeshSourceGroup
+        {
+            public string Name;
+            public List<MeshSource> Sources;
+
+            public NamedMeshSourceGroup(string name, List<MeshSource> sources)
+            {
+                Name = name;
+                Sources = sources;
+            }
+        }
+
+        [System.Serializable]
+        private sealed class SubmeshSourceGroup
+        {
+            public string Name;
+            public bool IsExpanded = true;
+            public GameObject ObjectToAdd;
+            public List<GameObject> SourceObjects = new List<GameObject>();
+
+            public SubmeshSourceGroup(string name)
+            {
+                Name = name;
+            }
+        }
+
         private int GetLooseSourceObjectCount()
         {
             int count = 0;
@@ -784,6 +1029,136 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return count;
+        }
+
+        private int GetSubmeshGroupCount()
+        {
+            int count = 0;
+            for (int i = 0; i < submeshGroups.Count; i++)
+            {
+                SubmeshSourceGroup group = EnsureSubmeshGroup(i);
+                if (GetSourceObjectCount(group.SourceObjects) > 0)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private SubmeshSourceGroup EnsureSubmeshGroup(int index)
+        {
+            while (submeshGroups.Count <= index)
+            {
+                submeshGroups.Add(new SubmeshSourceGroup($"Submesh {submeshGroups.Count + 1}"));
+            }
+
+            if (submeshGroups[index] == null)
+            {
+                submeshGroups[index] = new SubmeshSourceGroup($"Submesh {index + 1}");
+            }
+
+            if (submeshGroups[index].SourceObjects == null)
+            {
+                submeshGroups[index].SourceObjects = new List<GameObject>();
+            }
+
+            return submeshGroups[index];
+        }
+
+        private static string GetGroupName(SubmeshSourceGroup group, int index)
+        {
+            return group == null || string.IsNullOrWhiteSpace(group.Name)
+                ? $"Submesh {index + 1}"
+                : group.Name;
+        }
+
+        private static int GetSourceObjectCount(List<GameObject> sourceObjects)
+        {
+            if (sourceObjects == null)
+            {
+                return 0;
+            }
+
+            int count = 0;
+            for (int i = 0; i < sourceObjects.Count; i++)
+            {
+                if (sourceObjects[i] != null)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static bool AddSourceObject(List<GameObject> sourceObjects, GameObject sourceObject)
+        {
+            if (sourceObjects == null || sourceObject == null || sourceObjects.Contains(sourceObject))
+            {
+                return false;
+            }
+
+            sourceObjects.Add(sourceObject);
+            return true;
+        }
+
+        private static bool AddSourceObjects(List<GameObject> sourceObjects, Object[] objects)
+        {
+            if (sourceObjects == null || objects == null)
+            {
+                return false;
+            }
+
+            bool addedAny = false;
+            for (int i = 0; i < objects.Length; i++)
+            {
+                if (objects[i] is GameObject go)
+                {
+                    addedAny |= AddSourceObject(sourceObjects, go);
+                }
+            }
+
+            return addedAny;
+        }
+
+        private static int RemoveDuplicateSourceObjects(List<GameObject> sourceObjects)
+        {
+            if (sourceObjects == null || sourceObjects.Count <= 1)
+            {
+                return 0;
+            }
+
+            int removedCount = 0;
+            var seenObjects = new HashSet<GameObject>();
+            for (int i = 0; i < sourceObjects.Count; i++)
+            {
+                GameObject sourceObject = sourceObjects[i];
+                if (sourceObject == null || seenObjects.Add(sourceObject))
+                {
+                    continue;
+                }
+
+                sourceObjects.RemoveAt(i);
+                removedCount++;
+                i--;
+            }
+
+            return removedCount;
+        }
+
+        private static bool HasDraggedGameObject()
+        {
+            Object[] objectReferences = DragAndDrop.objectReferences;
+            for (int i = 0; i < objectReferences.Length; i++)
+            {
+                if (objectReferences[i] is GameObject)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool AddLooseSourceObjects(Object[] objects)
@@ -831,7 +1206,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private int PreviewMeshCount()
         {
-            var sources = GetSourceMeshes();
+            var sources = GetPreviewSourceMeshes();
             return sources.Count;
         }
 
@@ -843,10 +1218,38 @@ namespace FuzzPhyte.Utility.Editor
             if (!includeMeshFilters && !includeSkinnedMeshRenderers && !includeMeshColliders)
                 return result;
 
+            CollectPrimarySourceMeshes(result, sourceComponents);
+            return result;
+        }
+
+        private List<MeshSource> GetPreviewSourceMeshes()
+        {
+            var result = new List<MeshSource>();
+            var sourceComponents = new HashSet<Component>();
+
+            if (!includeMeshFilters && !includeSkinnedMeshRenderers && !includeMeshColliders)
+                return result;
+
+            CollectPrimarySourceMeshes(result, sourceComponents);
+
+            List<NamedMeshSourceGroup> groups = GetSubmeshGroupSourceMeshes();
+            for (int i = 0; i < groups.Count; i++)
+            {
+                if (groups[i].Sources != null)
+                {
+                    result.AddRange(groups[i].Sources);
+                }
+            }
+
+            return result;
+        }
+
+        private void CollectPrimarySourceMeshes(List<MeshSource> result, HashSet<Component> sourceComponents)
+        {
             if (rootObject != null)
             {
                 CollectSourceMeshes(rootObject, result, sourceComponents);
-                return result;
+                return;
             }
 
             for (int i = 0; i < looseSourceObjects.Count; i++)
@@ -859,8 +1262,6 @@ namespace FuzzPhyte.Utility.Editor
 
                 CollectSourceMeshes(sourceObject, result, sourceComponents);
             }
-
-            return result;
         }
 
         private void CollectSourceMeshes(GameObject sourceRoot, List<MeshSource> result, HashSet<Component> sourceComponents)
@@ -937,6 +1338,43 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
+        private List<NamedMeshSourceGroup> GetSubmeshGroupSourceMeshes()
+        {
+            var groups = new List<NamedMeshSourceGroup>();
+
+            if (!includeMeshFilters && !includeSkinnedMeshRenderers && !includeMeshColliders)
+                return groups;
+
+            for (int i = 0; i < submeshGroups.Count; i++)
+            {
+                SubmeshSourceGroup group = EnsureSubmeshGroup(i);
+                if (GetSourceObjectCount(group.SourceObjects) == 0)
+                {
+                    continue;
+                }
+
+                var sources = new List<MeshSource>();
+                var sourceComponents = new HashSet<Component>();
+                for (int sourceIndex = 0; sourceIndex < group.SourceObjects.Count; sourceIndex++)
+                {
+                    GameObject sourceObject = group.SourceObjects[sourceIndex];
+                    if (sourceObject == null)
+                    {
+                        continue;
+                    }
+
+                    CollectSourceMeshes(sourceObject, sources, sourceComponents);
+                }
+
+                if (sources.Count > 0)
+                {
+                    groups.Add(new NamedMeshSourceGroup(GetGroupName(group, i), sources));
+                }
+            }
+
+            return groups;
+        }
+
         private void RebuildPreview()
         {
             previewDirty = false;
@@ -948,17 +1386,147 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            previewMesh = BuildCombinedMesh(sources, "FP_CombinedPreview");
+            List<NamedMeshSourceGroup> submeshSourceGroups = GetSubmeshGroupSourceMeshes();
+            previewMesh = submeshSourceGroups.Count > 0
+                ? BuildGroupedCombinedMesh(sources, submeshSourceGroups, "FP_CombinedPreview")
+                : BuildCombinedMesh(sources, "FP_CombinedPreview");
             if (previewMesh != null)
             {
                 previewMesh.hideFlags = HideFlags.HideAndDontSave;
             }
         }
 
-        private Mesh BuildCombinedMesh(List<MeshSource> sources, string meshName)
+        private Mesh BuildCombinedMesh(List<MeshSource> sources, string meshName, bool showProgress = false)
         {
             var combineInstances = BuildCombineInstances(sources);
             if (combineInstances.Count == 0)
+            {
+                return null;
+            }
+
+            if (ShouldUseChunkedCombine(combineInstances))
+            {
+                return BuildChunkedCombinedMesh(combineInstances, meshName, showProgress);
+            }
+
+            return CreateCombinedMeshFromInstances(combineInstances, meshName, mergeSubMeshes: false, applyFlipNormals: true);
+        }
+
+        private Mesh BuildGroupedCombinedMesh(
+            List<MeshSource> rootSources,
+            List<NamedMeshSourceGroup> submeshSourceGroups,
+            string meshName,
+            bool showProgress = false)
+        {
+            var temporaryMeshes = new List<Mesh>();
+            try
+            {
+                var finalInstances = new List<CombineInstance>();
+                Mesh rootMesh = BuildMergedGroupMesh(rootSources, $"{meshName}_Root", temporaryMeshes, showProgress);
+                if (rootMesh != null)
+                {
+                    finalInstances.Add(new CombineInstance
+                    {
+                        mesh = rootMesh,
+                        subMeshIndex = 0,
+                        transform = Matrix4x4.identity
+                    });
+                }
+
+                for (int i = 0; i < submeshSourceGroups.Count; i++)
+                {
+                    NamedMeshSourceGroup group = submeshSourceGroups[i];
+                    if (group.Sources == null || group.Sources.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    if (showProgress)
+                    {
+                        float progress = submeshSourceGroups.Count == 0 ? 1f : (float)i / submeshSourceGroups.Count;
+                        EditorUtility.DisplayProgressBar("Combine Meshes", $"Combining submesh group {i + 1}", progress);
+                    }
+
+                    Mesh groupMesh = BuildMergedGroupMesh(group.Sources, $"{meshName}_{group.Name}", temporaryMeshes, showProgress);
+                    if (groupMesh == null)
+                    {
+                        continue;
+                    }
+
+                    finalInstances.Add(new CombineInstance
+                    {
+                        mesh = groupMesh,
+                        subMeshIndex = 0,
+                        transform = Matrix4x4.identity
+                    });
+                }
+
+                if (finalInstances.Count == 0)
+                {
+                    return null;
+                }
+
+                if (showProgress)
+                {
+                    EditorUtility.DisplayProgressBar("Combine Meshes", "Combining final grouped mesh", 1f);
+                }
+
+                return CreateCombinedMeshFromInstances(finalInstances, meshName, mergeSubMeshes: false, applyFlipNormals: true);
+            }
+            finally
+            {
+                if (showProgress)
+                {
+                    EditorUtility.ClearProgressBar();
+                }
+
+                for (int i = 0; i < temporaryMeshes.Count; i++)
+                {
+                    if (temporaryMeshes[i] != null)
+                    {
+                        DestroyImmediate(temporaryMeshes[i]);
+                    }
+                }
+            }
+        }
+
+        private Mesh BuildMergedGroupMesh(
+            List<MeshSource> sources,
+            string meshName,
+            List<Mesh> temporaryMeshes,
+            bool showProgress)
+        {
+            var combineInstances = BuildCombineInstances(sources);
+            if (combineInstances.Count == 0)
+            {
+                return null;
+            }
+
+            Mesh groupMesh = ShouldUseChunkedCombine(combineInstances)
+                ? BuildChunkedCombinedMesh(
+                    combineInstances,
+                    meshName,
+                    showProgress,
+                    finalMergeSubMeshes: true,
+                    applyFlipNormals: false)
+                : CreateCombinedMeshFromInstances(combineInstances, meshName, mergeSubMeshes: true, applyFlipNormals: false);
+
+            if (groupMesh != null)
+            {
+                groupMesh.hideFlags = HideFlags.HideAndDontSave;
+                temporaryMeshes.Add(groupMesh);
+            }
+
+            return groupMesh;
+        }
+
+        private Mesh CreateCombinedMeshFromInstances(
+            IList<CombineInstance> combineInstances,
+            string meshName,
+            bool mergeSubMeshes,
+            bool applyFlipNormals)
+        {
+            if (combineInstances == null || combineInstances.Count == 0)
             {
                 return null;
             }
@@ -968,24 +1536,152 @@ namespace FuzzPhyte.Utility.Editor
                 name = string.IsNullOrEmpty(meshName) ? "FP_CombinedCollider" : meshName
             };
 
-            int estimatedVertexCount = EstimateVertexCount(combineInstances);
+            long estimatedVertexCount = EstimateVertexCount(combineInstances);
             if (estimatedVertexCount > 65535)
             {
                 combinedMesh.indexFormat = IndexFormat.UInt32;
             }
 
+            var combineArray = new CombineInstance[combineInstances.Count];
+            for (int i = 0; i < combineInstances.Count; i++)
+            {
+                combineArray[i] = combineInstances[i];
+            }
+
             combinedMesh.CombineMeshes(
-                combineInstances.ToArray(),
-                mergeSubMeshes: false,
+                combineArray,
+                mergeSubMeshes: mergeSubMeshes,
                 useMatrices: true);
 
-            if (flipOutputNormals)
+            if (applyFlipNormals && flipOutputNormals)
             {
                 FlipMeshNormals(combinedMesh);
             }
 
             combinedMesh.RecalculateBounds();
             return combinedMesh;
+        }
+
+        private bool ShouldUseChunkedCombine(IList<CombineInstance> combineInstances)
+        {
+            return autoChunkLargeCombines &&
+                   combineInstances != null &&
+                   combineInstances.Count > 1 &&
+                   EstimateVertexCount(combineInstances) > Mathf.Max(MinCombineChunkVertexBudget, combineChunkVertexBudget);
+        }
+
+        private Mesh BuildChunkedCombinedMesh(
+            List<CombineInstance> combineInstances,
+            string meshName,
+            bool showProgress,
+            bool finalMergeSubMeshes = false,
+            bool applyFlipNormals = true)
+        {
+            int vertexBudget = Mathf.Clamp(combineChunkVertexBudget, MinCombineChunkVertexBudget, MaxCombineChunkVertexBudget);
+            var temporaryMeshes = new List<Mesh>();
+            var currentInstances = combineInstances;
+            int pass = 0;
+
+            try
+            {
+                while (currentInstances.Count > 1 && EstimateVertexCount(currentInstances) > vertexBudget)
+                {
+                    List<List<CombineInstance>> groups = BuildCombineGroupsByVertexBudget(currentInstances, vertexBudget);
+                    if (groups.Count >= currentInstances.Count)
+                    {
+                        Debug.LogWarning("[Combine Meshes] Automatic chunking found at least one source mesh over the chunk vertex budget. Combining remaining meshes in a final pass.");
+                        break;
+                    }
+
+                    var nextInstances = new List<CombineInstance>(groups.Count);
+                    for (int i = 0; i < groups.Count; i++)
+                    {
+                        if (showProgress)
+                        {
+                            float progress = groups.Count == 0 ? 0f : (float)i / groups.Count;
+                            EditorUtility.DisplayProgressBar("Combine Meshes", $"Combining chunk pass {pass + 1}", progress);
+                        }
+
+                        Mesh chunkMesh = CreateCombinedMeshFromInstances(
+                            groups[i],
+                            $"{meshName}_Chunk_{pass + 1}_{i + 1}",
+                            mergeSubMeshes: true,
+                            applyFlipNormals: false);
+                        if (chunkMesh == null)
+                        {
+                            continue;
+                        }
+
+                        chunkMesh.hideFlags = HideFlags.HideAndDontSave;
+                        temporaryMeshes.Add(chunkMesh);
+                        nextInstances.Add(new CombineInstance
+                        {
+                            mesh = chunkMesh,
+                            subMeshIndex = 0,
+                            transform = Matrix4x4.identity
+                        });
+                    }
+
+                    if (nextInstances.Count == 0)
+                    {
+                        return null;
+                    }
+
+                    currentInstances = nextInstances;
+                    pass++;
+                }
+
+                if (showProgress)
+                {
+                    EditorUtility.DisplayProgressBar("Combine Meshes", "Combining final chunks", 1f);
+                }
+
+                return CreateCombinedMeshFromInstances(currentInstances, meshName, mergeSubMeshes: finalMergeSubMeshes, applyFlipNormals: applyFlipNormals);
+            }
+            finally
+            {
+                if (showProgress)
+                {
+                    EditorUtility.ClearProgressBar();
+                }
+
+                for (int i = 0; i < temporaryMeshes.Count; i++)
+                {
+                    if (temporaryMeshes[i] != null)
+                    {
+                        DestroyImmediate(temporaryMeshes[i]);
+                    }
+                }
+            }
+        }
+
+        private static List<List<CombineInstance>> BuildCombineGroupsByVertexBudget(List<CombineInstance> combineInstances, int vertexBudget)
+        {
+            var groups = new List<List<CombineInstance>>();
+            var currentGroup = new List<CombineInstance>();
+            long currentVertexCount = 0;
+
+            for (int i = 0; i < combineInstances.Count; i++)
+            {
+                CombineInstance combineInstance = combineInstances[i];
+                int instanceVertexCount = combineInstance.mesh == null ? 0 : combineInstance.mesh.vertexCount;
+                if (currentGroup.Count > 0 && currentVertexCount + instanceVertexCount > vertexBudget)
+                {
+                    groups.Add(currentGroup);
+                    currentGroup = new List<CombineInstance>();
+                    currentVertexCount = 0;
+                }
+
+                currentGroup.Add(combineInstance);
+                currentVertexCount += instanceVertexCount;
+            }
+
+            if (currentGroup.Count > 0)
+            {
+                groups.Add(currentGroup);
+            }
+
+            return groups;
         }
 
         private static void FlipMeshNormals(Mesh mesh)
@@ -1068,9 +1764,9 @@ namespace FuzzPhyte.Utility.Editor
                 : rootObject.transform.worldToLocalMatrix;
         }
 
-        private static int EstimateVertexCount(List<CombineInstance> combineInstances)
+        private static long EstimateVertexCount(IList<CombineInstance> combineInstances)
         {
-            int estimatedVertexCount = 0;
+            long estimatedVertexCount = 0;
             foreach (var ci in combineInstances)
             {
                 if (ci.mesh != null)
@@ -1165,40 +1861,65 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            if (showSourceMesh)
+            var rootSources = GetSourceMeshes();
+            DrawMeshSourceOverlayGroup(rootSources, rect, GetOverlayColorForGroup(0));
+
+            List<NamedMeshSourceGroup> submeshSourceGroups = GetSubmeshGroupSourceMeshes();
+            for (int i = 0; i < submeshSourceGroups.Count; i++)
             {
-                var sources = GetSourceMeshes();
-                var rootToLocal = GetBakeRootToLocalMatrix();
-                for (int i = 0; i < sources.Count; i++)
+                DrawMeshSourceOverlayGroup(submeshSourceGroups[i].Sources, rect, GetOverlayColorForGroup(i + 1));
+            }
+
+            if (rootSources.Count == 0 && submeshSourceGroups.Count == 0)
+            {
+                if (showEdges)
                 {
-                    MeshSource source = sources[i];
-                    if (source.Mesh == null || source.Transform == null)
-                    {
-                        continue;
-                    }
+                    FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.EdgeOverlayColor, 1.5f);
+                }
 
-                    Matrix4x4 matrix = rootToLocal * source.Transform.localToWorldMatrix;
-                    if (showEdges)
-                    {
-                        FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, source.Mesh, matrix, FPMeshPreviewEditorUtility.VertexOverlayColor, 1.25f);
-                    }
-
-                    if (showVertices)
-                    {
-                        FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, source.Mesh, matrix, FPMeshPreviewEditorUtility.VertexOverlayColor, 2f);
-                    }
+                if (showVertices)
+                {
+                    FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.VertexOverlayColor, 2.5f);
                 }
             }
+        }
 
-            if (showEdges)
+        private void DrawMeshSourceOverlayGroup(List<MeshSource> sources, Rect rect, Color color)
+        {
+            if (sources == null || sources.Count == 0)
             {
-                FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.EdgeOverlayColor, 1.5f);
+                return;
             }
 
-            if (showVertices)
+            var rootToLocal = GetBakeRootToLocalMatrix();
+            for (int i = 0; i < sources.Count; i++)
             {
-                FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, previewMesh, Matrix4x4.identity, FPMeshPreviewEditorUtility.VertexOverlayColor, 2.5f);
+                MeshSource source = sources[i];
+                if (source.Mesh == null || source.Transform == null)
+                {
+                    continue;
+                }
+
+                Matrix4x4 matrix = rootToLocal * source.Transform.localToWorldMatrix;
+                if (showEdges)
+                {
+                    FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, source.Mesh, matrix, color, 1.25f);
+                }
+
+                if (showVertices)
+                {
+                    FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, source.Mesh, matrix, color, 2f);
+                }
             }
+        }
+
+        private static Color GetOverlayColorForGroup(int groupIndex)
+        {
+            const float goldenRatioConjugate = 0.61803398875f;
+            float hue = Mathf.Repeat(0.56f + (groupIndex * goldenRatioConjugate), 1f);
+            Color color = Color.HSVToRGB(hue, 0.78f, 1f);
+            color.a = 0.95f;
+            return color;
         }
 
         private void DrawPreviewOverlay(Rect rect)
@@ -1637,7 +2358,11 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            var combinedMesh = BuildCombinedMesh(sources, string.IsNullOrEmpty(combinedMeshName) ? "FP_CombinedCollider" : combinedMeshName);
+            List<NamedMeshSourceGroup> submeshSourceGroups = GetSubmeshGroupSourceMeshes();
+            string outputMeshName = string.IsNullOrEmpty(combinedMeshName) ? "FP_CombinedCollider" : combinedMeshName;
+            var combinedMesh = submeshSourceGroups.Count > 0
+                ? BuildGroupedCombinedMesh(sources, submeshSourceGroups, outputMeshName, showProgress: true)
+                : BuildCombinedMesh(sources, outputMeshName, showProgress: true);
 
             if (combinedMesh == null)
             {
@@ -1722,21 +2447,62 @@ namespace FuzzPhyte.Utility.Editor
 
         private List<FPMeshObjExportSource> CollectObjExportSources(FPMeshObjExportOptions options)
         {
+            var sources = new List<FPMeshObjExportSource>();
+            Matrix4x4 rootToLocal = GetBakeRootToLocalMatrix();
+            const string rootGroupName = "Root";
+
             if (rootObject != null)
             {
-                return FPMeshObjExportUtility.CollectGameObjectSources(rootObject, options, IsValidSourceObject);
+                sources.AddRange(FPMeshObjExportUtility.CollectGameObjectSources(
+                    rootObject,
+                    options,
+                    IsValidSourceObject,
+                    rootGroupName,
+                    rootToLocal));
+            }
+            else
+            {
+                for (int i = 0; i < looseSourceObjects.Count; i++)
+                {
+                    GameObject sourceObject = looseSourceObjects[i];
+                    if (sourceObject == null)
+                    {
+                        continue;
+                    }
+
+                    sources.AddRange(FPMeshObjExportUtility.CollectGameObjectSources(
+                        sourceObject,
+                        options,
+                        IsValidSourceObject,
+                        rootGroupName,
+                        rootToLocal));
+                }
             }
 
-            var sources = new List<FPMeshObjExportSource>();
-            for (int i = 0; i < looseSourceObjects.Count; i++)
+            for (int groupIndex = 0; groupIndex < submeshGroups.Count; groupIndex++)
             {
-                GameObject sourceObject = looseSourceObjects[i];
-                if (sourceObject == null)
+                SubmeshSourceGroup group = EnsureSubmeshGroup(groupIndex);
+                if (GetSourceObjectCount(group.SourceObjects) == 0)
                 {
                     continue;
                 }
 
-                sources.AddRange(FPMeshObjExportUtility.CollectGameObjectSources(sourceObject, options, IsValidSourceObject));
+                string groupName = GetGroupName(group, groupIndex);
+                for (int sourceIndex = 0; sourceIndex < group.SourceObjects.Count; sourceIndex++)
+                {
+                    GameObject sourceObject = group.SourceObjects[sourceIndex];
+                    if (sourceObject == null)
+                    {
+                        continue;
+                    }
+
+                    sources.AddRange(FPMeshObjExportUtility.CollectGameObjectSources(
+                        sourceObject,
+                        options,
+                        IsValidSourceObject,
+                        groupName,
+                        rootToLocal));
+                }
             }
 
             return sources;
