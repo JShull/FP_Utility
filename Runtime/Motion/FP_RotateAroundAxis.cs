@@ -102,6 +102,14 @@ namespace FuzzPhyte.Utility
         {
             _direction = forward ? 1 : -1;
         }
+        public void SetDegreesPerSecond(float speed)
+        {
+            degreesPerSecond = Mathf.Max(0f, speed);
+        }
+        public void SetContinuousSpeedMode(bool active)
+        {
+            continuousSpeedMode = active;
+        }
         public void ToggleDirection()
         {
             _direction *= -1;
