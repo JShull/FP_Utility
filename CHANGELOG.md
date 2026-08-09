@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [1.0.1]-2026-08-09
+
+### 1.0.1 Added
 
 - [@JShull](https://github.com/jshull)
   - Mesh OBJ export
@@ -16,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mesh Combine Tool
     - Added public editor APIs for opening the Combine Meshes window with preloaded loose source objects and configurable OBJ atlas export defaults.
     - Updated the preloaded loose source workflow to clear existing loose source objects before applying the new source set.
+
+### 1.0.1 Modified
+
+- [@JShull](https://github.com/jshull)
+  - FP_HHeader.cs tweaks
+    - Works better with external tools like vHierarchy now
+    - Setup to function better for later updates to Unity
 
 ## [1.0.0] - 2026-07-01
 
