@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mesh Combine Tool
     - Added public editor APIs for opening the Combine Meshes window with preloaded loose source objects and configurable OBJ atlas export defaults.
     - Updated the preloaded loose source workflow to clear existing loose source objects before applying the new source set.
+  - Invert Mesh Tool
+    - Added `FuzzPhyte/Utility/Mesh/Invert Mesh` for creating and saving an inside-out copy of a Mesh asset or a mesh referenced by a scene or prefab object.
+    - Added a Project-window asset action at `Assets/FuzzPhyte/Invert Mesh and Save...`.
+    - Centralized winding, normal, tangent-handedness, and blend-shape normal inversion so Combine Meshes uses the same implementation.
 
 ## [1.0.0] - 2026-07-01
 

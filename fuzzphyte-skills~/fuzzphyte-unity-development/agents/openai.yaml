@@ -1,0 +1,3 @@
+interface:
+  display_name: "FuzzPhyte Unity Development"
+  short_description: "Build consistent, reusable FuzzPhyte Unity libraries"

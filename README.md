@@ -75,6 +75,20 @@ public class CharacterOrderDebug : MonoBehaviour
 
 ## Internal Utility Tools
 
+### Invert Mesh
+
+Invert Mesh is an editor-only authoring tool for creating an inside-out copy of an existing mesh while leaving the source unchanged. It reverses triangle and quad winding, flips vertex normals, corrects tangent handedness, and preserves submeshes, vertex channels, skinning, and blend shapes.
+
+Open the tool from `FuzzPhyte/Utility/Mesh/Invert Mesh`. You can also select a readable Mesh asset in the Project window and use `Assets/FuzzPhyte/Invert Mesh and Save...`.
+
+#### Invert Mesh - How To Use It
+
+1. Select or assign a `Mesh`, `MeshFilter`, `SkinnedMeshRenderer`, component, prefab, or GameObject in the `Object / Mesh` field.
+2. Review or change the suggested `{SourceName}_Inverted` output name.
+3. Click `Invert and Save Mesh Asset`, then choose an asset location in the project.
+
+The source mesh must be readable. For imported model meshes with Read/Write disabled, enable `Read/Write` in the model importer before using this tool. The saved result is a separate mesh asset; the tool does not replace the source mesh reference on scene or prefab objects.
+
 ### Convex Generator
 
 Convex Generator is an editor-only mesh collider helper for creating a simplified convex `MeshCollider` asset from an existing mesh or scene object. It is intended for cases where a visual mesh is too detailed for collision, but a box or capsule collider is too rough.
@@ -179,6 +193,8 @@ The generated mesh is baked into the local space of the chosen root object. This
 * `Replace Existing Collider` controls whether an existing root `MeshCollider` is reused. If disabled and a root collider already exists, the tool creates a child object for the new collider.
 * `Collider Convex` sets the resulting `MeshCollider.convex` flag.
 * `Collider Is Trigger` sets the resulting `MeshCollider.isTrigger` flag.
+* `Export Combined OBJ` writes portable OBJ/MTL output. `Preserve Materials And Textures` keeps source material colors and texture files, `Generic White Material` writes geometry with one untextured material, and `Single Albedo Atlas` writes one atlas-backed material for every group.
+* `Root Atlas + Group Colors` writes one albedo atlas for the `Root` group while exporting the remaining submesh groups as untextured MTL materials using their source base colors. This is useful for textured terrain with colored canopy, water, or classification groups.
 
 #### Combine Meshes - Source Notes
 

@@ -331,7 +331,7 @@ namespace FuzzPhyte.Utility.Editor
                 viewHeight += RootlessOutputHelpHeight;
             }
 
-            if (objMaterialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas)
+            if (UsesObjAlbedoAtlas())
             {
                 viewHeight += AtlasExportControlsHeight;
             }
@@ -903,7 +903,7 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("OBJ Export Settings", EditorStyles.boldLabel);
             objMaterialExportMode = (FPMeshObjMaterialExportMode)EditorGUILayout.EnumPopup("Material Export Mode", objMaterialExportMode);
-            if (objMaterialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas)
+            if (UsesObjAlbedoAtlas())
             {
                 objAtlasSize = EditorGUILayout.IntPopup(
                     "Atlas Size",
@@ -915,6 +915,12 @@ namespace FuzzPhyte.Utility.Editor
                 objAtlasAlbedoPropertyFallbacks = EditorGUILayout.TextField("Albedo Fallback Properties", objAtlasAlbedoPropertyFallbacks);
                 objAtlasUvTransform = (FPMeshObjAtlasUvTransform)EditorGUILayout.EnumPopup("Atlas UV Transform", objAtlasUvTransform);
             }
+        }
+
+        private bool UsesObjAlbedoAtlas()
+        {
+            return objMaterialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas ||
+                   objMaterialExportMode == FPMeshObjMaterialExportMode.RootAlbedoAtlasWithColoredSubmeshes;
         }
 
         private void DrawActionButtons()
@@ -1730,44 +1736,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private static void FlipMeshNormals(Mesh mesh)
         {
-            if (mesh == null)
-            {
-                return;
-            }
-
-            int subMeshCount = mesh.subMeshCount;
-            for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
-            {
-                MeshTopology topology = mesh.GetTopology(subMesh);
-                int step = topology == MeshTopology.Quads ? 4 : topology == MeshTopology.Triangles ? 3 : 0;
-                if (step == 0)
-                {
-                    continue;
-                }
-
-                int[] indices = mesh.GetIndices(subMesh);
-                for (int i = 0; i + step - 1 < indices.Length; i += step)
-                {
-                    System.Array.Reverse(indices, i, step);
-                }
-
-                mesh.SetIndices(indices, topology, subMesh, false);
-            }
-
-            Vector3[] normals = mesh.normals;
-            if (normals != null && normals.Length == mesh.vertexCount)
-            {
-                for (int i = 0; i < normals.Length; i++)
-                {
-                    normals[i] = -normals[i];
-                }
-
-                mesh.normals = normals;
-            }
-            else
-            {
-                mesh.RecalculateNormals();
-            }
+            FPMeshInversionUtility.Invert(mesh);
         }
 
         private List<CombineInstance> BuildCombineInstances(List<MeshSource> sources)

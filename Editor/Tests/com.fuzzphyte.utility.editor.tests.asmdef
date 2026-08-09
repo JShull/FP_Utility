@@ -1,0 +1,21 @@
+{
+    "name": "com.fuzzphyte.utility.editor.tests",
+    "rootNamespace": "FuzzPhyte.Utility.Editor.Tests",
+    "references": [
+        "com.fuzzphyte.utility.editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

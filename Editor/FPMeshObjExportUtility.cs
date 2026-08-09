@@ -13,7 +13,9 @@ namespace FuzzPhyte.Utility.Editor
     {
         PreserveMaterialsAndTextures,
         GenericWhiteMaterial,
-        SingleAlbedoAtlas
+        SingleAlbedoAtlas,
+        [InspectorName("Root Atlas + Group Colors")]
+        RootAlbedoAtlasWithColoredSubmeshes
     }
 
     public enum FPMeshObjAtlasUvTransform
@@ -64,6 +66,7 @@ namespace FuzzPhyte.Utility.Editor
         public int AtlasEdgeBleed = 4;
         public string AtlasAlbedoPropertyFallbacks = "overlayTexture_0";
         public FPMeshObjAtlasUvTransform AtlasUvTransform = FPMeshObjAtlasUvTransform.Rotate180;
+        public string AtlasRootGroupName = "Root";
     }
 
     internal sealed class FPMeshObjExportSource
@@ -104,6 +107,7 @@ namespace FuzzPhyte.Utility.Editor
         public int AtlasEdgeBleed = 4;
         public string AtlasAlbedoPropertyFallbacks = "overlayTexture_0";
         public FPMeshObjAtlasUvTransform AtlasUvTransform = FPMeshObjAtlasUvTransform.Rotate180;
+        public string AtlasRootGroupName = "Root";
     }
 
     internal static class FPMeshObjExportUtility
@@ -231,7 +235,7 @@ namespace FuzzPhyte.Utility.Editor
                 var materialNames = new Dictionary<Material, string>();
                 var copiedTextures = new Dictionary<Texture, string>();
                 FPMeshObjTextureAtlasContext atlasContext = null;
-                if (options.ExportMaterials && options.MaterialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas)
+                if (options.ExportMaterials && UsesAlbedoAtlas(options.MaterialExportMode))
                 {
                     atlasContext = BuildAlbedoAtlasContext(sources, directory, SanitizeFileName(objFileName), options);
                 }
@@ -282,9 +286,10 @@ namespace FuzzPhyte.Utility.Editor
 
                         Vector2[] uv = mesh.uv;
                         bool hasUv = uv != null && uv.Length == vertices.Length;
-                        bool writeSourceUv = atlasContext == null &&
+                        bool sourceUsesAtlas = atlasContext != null && IsAtlasSource(source, options);
+                        bool writeSourceUv = !sourceUsesAtlas &&
                                              hasUv &&
-                                             options.MaterialExportMode != FPMeshObjMaterialExportMode.GenericWhiteMaterial;
+                                             options.MaterialExportMode == FPMeshObjMaterialExportMode.PreserveMaterialsAndTextures;
                         Vector3[] normals = mesh.normals;
                         Matrix4x4 normalMatrix = source.Matrix.inverse.transpose;
                         string objectName = SanitizeObjName(source.Name);
@@ -368,7 +373,7 @@ namespace FuzzPhyte.Utility.Editor
                             }
 
                             Material material = ResolveMaterial(source.Materials, subMesh);
-                            string materialName = GetMaterialNameForMode(material, materialNames, options, atlasContext);
+                            string materialName = GetMaterialNameForMode(material, materialNames, options, atlasContext, sourceUsesAtlas);
                             if (options.ExportMaterials)
                             {
                                 objWriter.Write("usemtl ");
@@ -377,6 +382,11 @@ namespace FuzzPhyte.Utility.Editor
                                 {
                                     EnsureMaterialWritten(material, materialName, mtlBuilder, directory, options, copiedTextures);
                                 }
+                                else if (options.MaterialExportMode == FPMeshObjMaterialExportMode.RootAlbedoAtlasWithColoredSubmeshes &&
+                                         !sourceUsesAtlas)
+                                {
+                                    EnsureColorMaterialWritten(material, materialName, mtlBuilder);
+                                }
                             }
 
                             int[] indices = mesh.GetIndices(subMesh);
@@ -384,7 +394,7 @@ namespace FuzzPhyte.Utility.Editor
                             for (int index = 0; index + step - 1 < indices.Length; index += step)
                             {
                                 int[] atlasUvIndices = null;
-                                if (atlasContext != null)
+                                if (sourceUsesAtlas)
                                 {
                                     atlasUvIndices = new int[step];
                                     for (int corner = 0; corner < step; corner++)
@@ -409,7 +419,7 @@ namespace FuzzPhyte.Utility.Editor
                                     int sourceCorner = reverseWinding ? step - 1 - corner : corner;
                                     int vertexIndex = indices[index + sourceCorner];
                                     objWriter.Write(' ');
-                                    if (atlasContext != null)
+                                    if (sourceUsesAtlas)
                                     {
                                         objWriter.Write(BuildFaceIndexWithUvIndex(vertexIndex, vertexOffset, atlasUvIndices[sourceCorner], normalOffset, hasNormals));
                                     }
@@ -424,7 +434,7 @@ namespace FuzzPhyte.Utility.Editor
                         }
 
                         vertexOffset += vertices.Length;
-                        if (atlasContext == null)
+                        if (!sourceUsesAtlas)
                         {
                             uvOffset += writeSourceUv ? uv.Length : 0;
                         }
@@ -632,7 +642,12 @@ namespace FuzzPhyte.Utility.Editor
             return materialName;
         }
 
-        private static string GetMaterialNameForMode(Material material, Dictionary<Material, string> materialNames, FPMeshObjExportOptions options, FPMeshObjTextureAtlasContext atlasContext)
+        private static string GetMaterialNameForMode(
+            Material material,
+            Dictionary<Material, string> materialNames,
+            FPMeshObjExportOptions options,
+            FPMeshObjTextureAtlasContext atlasContext,
+            bool sourceUsesAtlas)
         {
             if (!options.ExportMaterials)
             {
@@ -645,9 +660,33 @@ namespace FuzzPhyte.Utility.Editor
                     return GenericWhiteMaterialName;
                 case FPMeshObjMaterialExportMode.SingleAlbedoAtlas:
                     return atlasContext == null ? GenericWhiteMaterialName : AtlasMaterialName;
+                case FPMeshObjMaterialExportMode.RootAlbedoAtlasWithColoredSubmeshes:
+                    return sourceUsesAtlas ? AtlasMaterialName : GetMaterialName(material, materialNames);
                 default:
                     return GetMaterialName(material, materialNames);
             }
+        }
+
+        private static bool UsesAlbedoAtlas(FPMeshObjMaterialExportMode materialExportMode)
+        {
+            return materialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas ||
+                   materialExportMode == FPMeshObjMaterialExportMode.RootAlbedoAtlasWithColoredSubmeshes;
+        }
+
+        private static bool IsAtlasSource(FPMeshObjExportSource source, FPMeshObjExportOptions options)
+        {
+            if (source == null)
+            {
+                return false;
+            }
+
+            if (options.MaterialExportMode == FPMeshObjMaterialExportMode.SingleAlbedoAtlas)
+            {
+                return true;
+            }
+
+            return options.MaterialExportMode == FPMeshObjMaterialExportMode.RootAlbedoAtlasWithColoredSubmeshes &&
+                   string.Equals(source.GroupName, options.AtlasRootGroupName, StringComparison.OrdinalIgnoreCase);
         }
 
         private sealed class FPMeshObjTextureAtlasContext
@@ -683,7 +722,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private static FPMeshObjTextureAtlasContext BuildAlbedoAtlasContext(IList<FPMeshObjExportSource> sources, string outputDirectory, string objFileName, FPMeshObjExportOptions options)
         {
-            List<Material> materials = CollectAtlasMaterials(sources);
+            List<Material> materials = CollectAtlasMaterials(sources, options);
             var inputs = new List<FPMeshObjTextureAtlasInput>(materials.Count);
 
             for (int i = 0; i < materials.Count; i++)
@@ -693,7 +732,7 @@ namespace FuzzPhyte.Utility.Editor
 
             if (inputs.Count == 0)
             {
-                inputs.Add(BuildAtlasInput(null, options));
+                return null;
             }
 
             Texture2D atlas = null;
@@ -760,25 +799,26 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        private static List<Material> CollectAtlasMaterials(IList<FPMeshObjExportSource> sources)
+        private static List<Material> CollectAtlasMaterials(IList<FPMeshObjExportSource> sources, FPMeshObjExportOptions options)
         {
             var materials = new List<Material>();
             var materialKeys = new HashSet<int>();
 
             if (sources == null)
             {
-                AddAtlasMaterial(null, materials, materialKeys);
                 return materials;
             }
 
+            bool hasAtlasSource = false;
             for (int i = 0; i < sources.Count; i++)
             {
                 FPMeshObjExportSource source = sources[i];
-                if (source == null || source.Mesh == null)
+                if (source == null || source.Mesh == null || !IsAtlasSource(source, options))
                 {
                     continue;
                 }
 
+                hasAtlasSource = true;
                 int subMeshCount = Mathf.Max(1, source.Mesh.subMeshCount);
                 for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
                 {
@@ -786,7 +826,10 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
 
-            AddAtlasMaterial(null, materials, materialKeys);
+            if (hasAtlasSource)
+            {
+                AddAtlasMaterial(null, materials, materialKeys);
+            }
 
             return materials;
         }
@@ -1013,6 +1056,26 @@ namespace FuzzPhyte.Utility.Editor
                 builder.Append("map_Kd ").AppendLine(relativeTexturePath.Replace("\\", "/"));
             }
 
+            builder.AppendLine();
+        }
+
+        private static void EnsureColorMaterialWritten(Material material, string materialName, StringBuilder builder)
+        {
+            string token = "newmtl " + materialName;
+            if (builder.ToString().Contains(token))
+            {
+                return;
+            }
+
+            Color color = ResolveMaterialColor(material);
+            builder.Append("newmtl ").AppendLine(materialName);
+            builder.AppendLine("Ka 0.200000 0.200000 0.200000");
+            builder.Append("Kd ")
+                .Append(Float(color.r)).Append(' ')
+                .Append(Float(color.g)).Append(' ')
+                .Append(Float(color.b)).AppendLine();
+            builder.Append("d ").AppendLine(Float(color.a));
+            builder.AppendLine("illum 2");
             builder.AppendLine();
         }
 
@@ -1518,7 +1581,8 @@ namespace FuzzPhyte.Utility.Editor
                 AtlasPadding = options.AtlasPadding,
                 AtlasEdgeBleed = options.AtlasEdgeBleed,
                 AtlasAlbedoPropertyFallbacks = options.AtlasAlbedoPropertyFallbacks,
-                AtlasUvTransform = options.AtlasUvTransform
+                AtlasUvTransform = options.AtlasUvTransform,
+                AtlasRootGroupName = options.AtlasRootGroupName
             };
         }
     }
