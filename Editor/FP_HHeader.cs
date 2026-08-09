@@ -40,6 +40,8 @@ namespace FuzzPhyte.Utility.Editor
         private static string selectedObjectName;
         private static bool pendingSceneRefresh;
         private static bool pendingCollapsedStateRestore;
+        private const int HierarchyCallbackDeferredRebindCount = 3;
+        private static int hierarchyCallbackDeferredRebindsRemaining;
         public static bool IsEnabled => EditorPrefs.GetBool(FP_UtilityData.FP_HHeader_ENABLED_KEY+ "_" + SceneManager.GetActiveScene().name, true);
         private static bool IsDebugLoggingEnabled => EditorPrefs.GetBool(FP_UtilityData.FP_HHeader_DEBUG_LOGGING_KEY, false);
 
@@ -69,14 +71,45 @@ namespace FuzzPhyte.Utility.Editor
             LoadFoldoutStatesFromPrefs(); // Load saved foldout states on editor initialization
             LoadHeaderStyleFromFile();
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
-#pragma warning disable CS0618
-            EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
-#pragma warning restore CS0618
+            RegisterHierarchyWindowItemCallback();
+            ScheduleDeferredHierarchyCallbackRebind();
             EditorApplication.update += OnEditorUpdate; // Monitor changes in the editor
             Selection.selectionChanged += OnSelectionChanged; // Hook into the selection changed event
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged; //restores the settings I saved right when we come back from play mode
             EditorSceneManager.sceneOpened += OnUnitySceneOpened;
             EditorApplication.delayCall += RefreshActiveSceneState;
+        }
+
+        private static void RegisterHierarchyWindowItemCallback()
+        {
+#if UNITY_6000_4_OR_NEWER
+            EditorApplication.hierarchyWindowItemByEntityIdOnGUI -= OnHierarchyWindowItemByEntityIdOnGUI;
+            EditorApplication.hierarchyWindowItemByEntityIdOnGUI += OnHierarchyWindowItemByEntityIdOnGUI;
+#else
+#pragma warning disable CS0618
+            EditorApplication.hierarchyWindowItemOnGUI -= OnHierarchyWindowItemOnGUI;
+            EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
+#pragma warning restore CS0618
+#endif
+        }
+
+        private static void ScheduleDeferredHierarchyCallbackRebind()
+        {
+            hierarchyCallbackDeferredRebindsRemaining = HierarchyCallbackDeferredRebindCount;
+            EditorApplication.delayCall -= RebindHierarchyWindowItemCallbackOnDelay;
+            EditorApplication.delayCall += RebindHierarchyWindowItemCallbackOnDelay;
+        }
+
+        private static void RebindHierarchyWindowItemCallbackOnDelay()
+        {
+            RegisterHierarchyWindowItemCallback();
+            EditorApplication.RepaintHierarchyWindow();
+
+            hierarchyCallbackDeferredRebindsRemaining--;
+            if (hierarchyCallbackDeferredRebindsRemaining > 0)
+            {
+                EditorApplication.delayCall += RebindHierarchyWindowItemCallbackOnDelay;
+            }
         }
         
         private static void OnEditorUpdate()
@@ -430,15 +463,25 @@ namespace FuzzPhyte.Utility.Editor
             }
             */
         }
+#if UNITY_6000_4_OR_NEWER
+        private static void OnHierarchyWindowItemByEntityIdOnGUI(UnityEngine.EntityId entityID, Rect selectionRect)
+        {
+            GameObject obj = EditorUtility.EntityIdToObject(entityID) as GameObject;
+            OnHierarchyWindowItemOnGUI(obj, selectionRect);
+        }
+#else
         private static void OnHierarchyWindowItemOnGUI(int instanceID, Rect selectionRect)
         {
-            if (!IsEnabled) return;
-            // Get the GameObject associated with this hierarchy item
-
 #pragma warning disable CS0618
             GameObject obj = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
 #pragma warning restore CS0618
-            //get position in the inspector
+            OnHierarchyWindowItemOnGUI(obj, selectionRect);
+        }
+#endif
+
+        private static void OnHierarchyWindowItemOnGUI(GameObject obj, Rect selectionRect)
+        {
+            if (!IsEnabled) return;
             if (obj == null)
             {
                 return;
@@ -578,6 +621,11 @@ namespace FuzzPhyte.Utility.Editor
         }
         private static void DrawHierarchyVisuals(GameObject obj, Rect selectionRect)
         {
+            if (Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
             if (obj.name != obj.name.ToUpper() || obj.activeInHierarchy || obj.transform.childCount != 0)
             {
                 return; // Only apply visuals to headers

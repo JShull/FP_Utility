@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [1.0.1]-2026-08-09
+
+### 1.0.1 Added
 
 - [@JShull](https://github.com/jshull)
   - Mesh OBJ export
@@ -20,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added `FuzzPhyte/Utility/Mesh/Invert Mesh` for creating and saving an inside-out copy of a Mesh asset or a mesh referenced by a scene or prefab object.
     - Added a Project-window asset action at `Assets/FuzzPhyte/Invert Mesh and Save...`.
     - Centralized winding, normal, tangent-handedness, and blend-shape normal inversion so Combine Meshes uses the same implementation.
+
+### 1.0.1 Modified
+
+- [@JShull](https://github.com/jshull)
+  - FP_HHeader.cs tweaks
+    - Works better with external tools like vHierarchy now
+    - Setup to function better for later updates to Unity
 
 ## [1.0.0] - 2026-07-01
 
