@@ -75,6 +75,51 @@ public class CharacterOrderDebug : MonoBehaviour
 
 ## Internal Utility Tools
 
+### ElevenLabs Text to Speech
+
+ElevenLabs Text to Speech is an editor-only translation and audio generation window. It treats every job as one shared request list, whether that list contains one item or fifty. It loads the voices available to an ElevenLabs account, uses the OpenAI Responses API to translate between English, Spanish, and French, and saves the original and translated speech as Unity AudioClip assets. It uses Unity's built-in HTTP APIs and does not require either provider's SDK.
+
+Open the tool from `FuzzPhyte/Utility/Audio/ElevenLabs Text to Speech`.
+
+#### ElevenLabs Text to Speech - How To Use It
+
+1. Open `FuzzPhyte/Utility/Editor/Testing/Keys Manager`. Save the ElevenLabs API key plus the OpenAI API key, organization ID, and project ID.
+2. Open the ElevenLabs Text to Speech window. The tool requests all voices available to the ElevenLabs account; use `Refresh Voices` whenever the account's voice list changes.
+3. Select a voice and confirm the ElevenLabs model ID. The default is `eleven_v3`.
+4. Choose the original and target languages and confirm the OpenAI model ID. The default translation model is `gpt-4o-mini`.
+5. Add requests manually or click `Load Markdown`. Markdown imports append to existing rows, apply the file's Person as Voice Name, apply its Translation Model language pair, and create one row for every bullet under `Language` and optional `Color` headings.
+6. Click `Translate All Requests` and review each returned translation. The tool fills every Base File Name from the English form: English source text is used directly, an English target uses the returned translation, and a language pair without English makes an additional English translation request for naming. Changing a row's original text or the shared language pair invalidates its translation.
+7. Confirm the editable Voice Name suffix and choose an existing folder inside the project's `Assets` folder.
+8. Optionally enable `Generate FP_Vocab`. The additional `Level Introduced`, `CEFR Level`, and `Vocab Category` controls appear only while this option is enabled. This optional integration requires FP_Utility EDU to be installed.
+9. Click `Generate All Audio Pairs`. Each valid row makes two ElevenLabs requests with the same selected voice and model. Normal assets use `{English Base File Name}_{Original or Translation}_{Language}_{Voice Name}.mp3`; Color items use `Color_{English Base File Name}_{Original or Translation}_{Language}_{Voice Name}.mp3`.
+10. Use each row's `Clear` or `Remove` control, or use the confirmed `Clear All` action. `Save Markdown` writes the current Person, Translation Model, Language items, and optional Color items back to the supported format.
+
+When `Generate FP_Vocab` is enabled, the tool creates one source-language and one target-language FP_Vocab asset beside each generated audio pair. It fills Word, Language, Level Introduced, CEFR Level, Vocab Category, and Word Audio. Each UniqueID is the exact imported MP3 filename, and each asset's Translations list references its counterpart. IPA, definitions, semantic maps, and modifier fields remain empty because the request workflow does not provide authoritative values for them.
+
+The markdown loader accepts this structure (the `Color` section is optional):
+
+```markdown
+# Eleven Labs
+
+## Person
+
+* Alex
+
+## Translation Model
+
+* Spanish to English
+
+## Language
+
+* La maleta
+
+## Color
+
+* azul
+```
+
+The provider credentials remain in local Unity `EditorPrefs`; they are not written into an asset or included in a build. `EditorPrefs` is not encrypted, so use restricted API keys with only the required permissions and appropriate usage quotas.
+
 ### Invert Mesh
 
 Invert Mesh is an editor-only authoring tool for creating an inside-out copy of an existing mesh while leaving the source unchanged. It reverses triangle and quad winding, flips vertex normals, corrects tangent handedness, and preserves submeshes, vertex channels, skinning, and blend shapes.

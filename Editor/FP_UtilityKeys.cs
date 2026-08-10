@@ -16,12 +16,20 @@ namespace FuzzPhyte.Utility.Editor
     public class FP_UtilityKeys : EditorWindow
     {
         #region ChatGPT Parameters
+        internal const string ChatGptApiKeyPreference = "ChatGptApiKey";
+        internal const string ChatGptOrganizationIdPreference = "ChatGptOrganizationID";
+        internal const string ChatGptProjectIdPreference = "ChatGptProjectID";
         private string chatGptApiKey;
         private string chatGptOrganizationID;
         private string chatGptProjectID;
         private bool showChatGptKey;
         private bool showChatGptOrgID;
         private bool showChatGptProjectID;
+        #endregion
+        #region ElevenLabs Parameters
+        internal const string ElevenLabsApiKeyPreference = "ElevenLabsApiKey";
+        private string elevenLabsApiKey;
+        private bool showElevenLabsKey;
         #endregion
         #region Merriam-Webster Parameters
         private bool showMWKey;
@@ -45,9 +53,11 @@ namespace FuzzPhyte.Utility.Editor
         {
             LoadMerriamWebster();
             // Load keys from EditorPrefs
-            chatGptApiKey = EditorPrefs.GetString("ChatGptApiKey", "");
-            chatGptOrganizationID = EditorPrefs.GetString("ChatGptOrganizationID", "");
-            chatGptProjectID = EditorPrefs.GetString("ChatGptProjectID", "");
+            chatGptApiKey = EditorPrefs.GetString(ChatGptApiKeyPreference, "");
+            chatGptOrganizationID = EditorPrefs.GetString(ChatGptOrganizationIdPreference, "");
+            chatGptProjectID = EditorPrefs.GetString(ChatGptProjectIdPreference, "");
+            // ElevenLabs
+            elevenLabsApiKey = EditorPrefs.GetString(ElevenLabsApiKeyPreference, "");
             //polygon
             polygonApiKey = EditorPrefs.GetString("PolygonApiKey", "");
         }
@@ -72,6 +82,9 @@ namespace FuzzPhyte.Utility.Editor
             GUILayout.Label("Manage API Keys", EditorStyles.boldLabel);
             // ChatGPT API Key
             ChatGPTKeys();
+            SpaceBetweenKeys();
+            // ElevenLabs API Key
+            ElevenLabsKeys();
             SpaceBetweenKeys();
             // Merriam-Webster API Keys
             MerriamWebsterKeys();
@@ -148,7 +161,7 @@ namespace FuzzPhyte.Utility.Editor
 
             if (GUILayout.Button("Save ChatGPT Key"))
             {
-                EditorPrefs.SetString("ChatGptApiKey", chatGptApiKey);
+                EditorPrefs.SetString(ChatGptApiKeyPreference, chatGptApiKey);
                 Debug.Log("ChatGPT API Key saved");
             }
 
@@ -165,7 +178,7 @@ namespace FuzzPhyte.Utility.Editor
 
             if (GUILayout.Button("Save ChatGPT Organization ID"))
             {
-                EditorPrefs.SetString("ChatGptOrganizationID", chatGptOrganizationID);
+                EditorPrefs.SetString(ChatGptOrganizationIdPreference, chatGptOrganizationID);
                 Debug.Log("ChatGPT Organization ID saved");
             }
 
@@ -182,8 +195,29 @@ namespace FuzzPhyte.Utility.Editor
 
             if (GUILayout.Button("Save ChatGPT Project ID"))
             {
-                EditorPrefs.SetString("ChatGptProjectID", chatGptProjectID);
+                EditorPrefs.SetString(ChatGptProjectIdPreference, chatGptProjectID);
                 Debug.Log("ChatGPT Project ID saved");
+            }
+        }
+
+        private void ElevenLabsKeys()
+        {
+            GUILayout.Label("ElevenLabs API Key", EditorStyles.boldLabel);
+
+            showElevenLabsKey = EditorGUILayout.Toggle("Show ElevenLabs Key", showElevenLabsKey);
+            if (showElevenLabsKey)
+            {
+                elevenLabsApiKey = EditorGUILayout.TextField("ElevenLabs API Key", elevenLabsApiKey);
+            }
+            else
+            {
+                elevenLabsApiKey = EditorGUILayout.PasswordField("ElevenLabs API Key", elevenLabsApiKey);
+            }
+
+            if (GUILayout.Button("Save ElevenLabs Key"))
+            {
+                EditorPrefs.SetString(ElevenLabsApiKeyPreference, elevenLabsApiKey);
+                Debug.Log("ElevenLabs API Key saved");
             }
         }
 

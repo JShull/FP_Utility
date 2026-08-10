@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added an ElevenLabs Text to Speech editor window that loads account voices, translates text between English, Spanish, and French through the OpenAI Responses API, and imports paired original/translated MP3 assets into a selected Unity Assets folder.
+- Added ElevenLabs API key controls to the FP Keys Manager using local Unity `EditorPrefs` storage.
+- Reused the FP Keys Manager OpenAI API key, organization ID, and project ID for editor translation requests, with `gpt-4o-mini` as the editable default translation model.
+- Changed the default ElevenLabs text-to-speech model to `eleven_v3` while preserving an editable model field.
+- Unified single and batch operation into one collapsible request list, where the same controls handle one or many original/translated ElevenLabs audio pairs.
+- Added append-style markdown import and markdown export for Person, Translation Model, Language, and optional Color sections.
+- Added per-item Clear and Remove controls plus a confirmed Clear All action.
+- Changed Base File Name derivation to always use the English form and added a `Color_` prefix for items imported from or marked as Color.
+- Added an editable Voice Name filename suffix so generated assets use `{English Base File Name}_{Variant}_{Language}_{Voice Name}.mp3`.
+- Added optional FP_Vocab pair generation through FP_Utility EDU, including shared level/CEFR/category settings, MP3 filename UniqueIDs, Word Audio references, language values, and reciprocal Translations links.
+
 ## [1.0.1]-2026-08-09
 
 ### 1.0.1 Added
