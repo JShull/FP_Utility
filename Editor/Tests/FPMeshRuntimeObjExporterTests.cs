@@ -93,6 +93,47 @@ namespace FuzzPhyte.Utility.Editor.Tests
             }
         }
 
+        [Test]
+        public void TrySaveOrDownload_RegisteredHandler_ControlsDeliveryLocation()
+        {
+            FPFileExportHandler previousHandler =
+                FPFileExportUtility.PlatformSaveHandler;
+            bool handlerInvoked = false;
+            try
+            {
+                FPFileExportUtility.SetPlatformSaveHandler(
+                    delegate(
+                        byte[] data,
+                        string fileName,
+                        string mimeType,
+                        out string deliveredLocation,
+                        out string message)
+                    {
+                        handlerInvoked = true;
+                        deliveredLocation = "C:/Exports/Test_OBJ.zip";
+                        message = "Saved with a prompt.";
+                        return data.Length == 3 &&
+                               fileName == "Test_OBJ.zip" &&
+                               mimeType == "application/zip";
+                    });
+
+                bool success = FPFileExportUtility.TrySaveOrDownload(
+                    new byte[] { 1, 2, 3 },
+                    "Test_OBJ.zip",
+                    "application/zip",
+                    out string deliveredLocation,
+                    out string message);
+
+                Assert.That(success, Is.True, message);
+                Assert.That(handlerInvoked, Is.True);
+                Assert.That(deliveredLocation, Is.EqualTo("C:/Exports/Test_OBJ.zip"));
+            }
+            finally
+            {
+                FPFileExportUtility.SetPlatformSaveHandler(previousHandler);
+            }
+        }
+
         private static Mesh CreateTwoSubmeshQuad()
         {
             var mesh = new Mesh { name = "Two Submesh Quad" };

@@ -167,7 +167,7 @@ MonoBehaviour:
   m_DepthAttachmentFormat: 0
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
-  m_IntermediateTextureMode: 1
+  m_IntermediateTextureMode: 0
 --- !u!114 &3058576825800252361
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -200,7 +200,7 @@ MonoBehaviour:
   settings:
     passEvent: 300
     drawInSceneView: 0
-    gridMaterial: {fileID: 2100000, guid: 8bb52ad0320cf2d4b82fd037c9e20f1b, type: 2}
+    gridMaterial: {fileID: 2100000, guid: bfef56d1315a03645aeb6df7dd57c470, type: 2}
 --- !u!114 &7281017869013199389
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -11,10 +11,10 @@ namespace FuzzPhyte.Utility
     using System;
     using System.IO;
     using UnityEngine;
-#if (UNITY_WEBGL || UNITY_IOS || UNITY_STANDALONE_WIN) && !UNITY_EDITOR
+#if ((UNITY_WEBGL || UNITY_IOS) && !UNITY_EDITOR) || UNITY_STANDALONE_WIN
     using System.Runtime.InteropServices;
 #endif
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+#if UNITY_STANDALONE_WIN
     using System.Text;
 #endif
 
@@ -45,7 +45,7 @@ namespace FuzzPhyte.Utility
             string mimeType);
 #endif
 
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+#if UNITY_STANDALONE_WIN
         private const int OfnOverwritePrompt = 0x00000002;
         private const int OfnNoChangeDirectory = 0x00000008;
         private const int OfnPathMustExist = 0x00000800;
@@ -168,7 +168,7 @@ namespace FuzzPhyte.Utility
             }
         }
 
-#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+#if UNITY_STANDALONE_WIN
         private static bool TrySaveWithWindowsPrompt(
             byte[] data,
             string fileName,

@@ -22,6 +22,7 @@ namespace FuzzPhyte.Utility.Editor
             out string deliveredLocation,
             out string message)
         {
+            _ = mimeType;
             string extension = Path.GetExtension(fileName).TrimStart('.');
             string defaultName = Path.GetFileNameWithoutExtension(fileName);
             string initialDirectory = Environment.GetFolderPath(
