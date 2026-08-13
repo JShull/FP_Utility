@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a runtime-safe hierarchy OBJ package generator based on the Combine Meshes source rules, with root-local transforms, submesh preservation, skinned-mesh baking, optional collider geometry, MTL colors, optional PNG textures, and configurable vertex/texture limits.
+- Added cross-platform binary-file delivery with Blob-backed WebGL downloads, the iOS Files export picker, and unique `Application.persistentDataPath` output on other platforms.
+- Added focused Edit Mode coverage for multi-submesh runtime OBJ ZIP generation and vertex-limit rejection.
 - Added an ElevenLabs Text to Speech editor window that loads account voices, translates text between English, Spanish, and French through the OpenAI Responses API, and imports paired original/translated MP3 assets into a selected Unity Assets folder.
 - Added ElevenLabs API key controls to the FP Keys Manager using local Unity `EditorPrefs` storage.
 - Reused the FP Keys Manager OpenAI API key, organization ID, and project ID for editor translation requests, with `gpt-4o-mini` as the editable default translation model.

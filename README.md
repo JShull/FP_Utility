@@ -249,6 +249,37 @@ The generated mesh is baked into the local space of the chosen root object. This
 * Large combined meshes automatically use 32-bit indices when the estimated vertex count is greater than 65,535.
 * The output keeps source submeshes separate, which can be useful for inspection or later processing.
 
+### Runtime OBJ Export
+
+`FPMeshRuntimeObjExporter` provides the player-safe counterpart to the Combine Meshes OBJ workflow. It collects `MeshFilter` hierarchies, optionally bakes `SkinnedMeshRenderer` components, optionally includes non-duplicate `MeshCollider` sources, applies child transforms in root-local space, and keeps supported triangle and quad submeshes separate. No `UnityEditor` API or scene placement is required.
+
+`TryBuildPackage` returns an in-memory ZIP containing the OBJ, an optional MTL, and optional PNG copies of each material's main texture. Materials retain their base color. Texture export uses a GPU readback so non-readable textures can be included, but it consumes additional memory; use `MaximumTextureSize` and leave `ExportTextures` disabled for lightweight WebGL downloads. Imported meshes must still have **Read/Write** enabled because runtime vertex and index access cannot bypass Unity's mesh readability setting. `MaximumVertexCount` can reject oversized exports before the OBJ text and ZIP are allocated.
+
+Pass the result to `FPFileExportUtility.TrySaveOrDownload`. WebGL uses a Blob-backed browser download, iOS presents the system Files export picker, and other platforms write a uniquely named file beneath `Application.persistentDataPath/FP_Exports`. The runtime export contains mesh, submesh, transform, UV, normal, material-color, and optional albedo-texture data; it intentionally does not serialize prefab scripts, audio, animation controllers, colliders as Unity components, or other GameObject behavior.
+
+```csharp
+var options = new FPMeshRuntimeObjExportOptions
+{
+    ExportMaterials = true,
+    ExportTextures = false,
+    MaximumVertexCount = 500000
+};
+
+if (FPMeshRuntimeObjExporter.TryBuildPackage(
+        modelRoot,
+        options,
+        out FPMeshRuntimeObjExportResult package,
+        out string buildMessage))
+{
+    FPFileExportUtility.TrySaveOrDownload(
+        package.Data,
+        package.FileName,
+        package.MimeType,
+        out string deliveredLocation,
+        out string deliveryMessage);
+}
+```
+
 ### Mesh Generator and FP Heightmap Editor
 
 Mesh Generator is an editor-only tool for building rectangular grid meshes on the XZ plane. The grid can be saved as a mesh asset, created directly in the scene, or connected to an `FPMeshGridData` asset so it can be regenerated later. The related FP Heightmap Editor can inspect, paint, and save heightmap textures that deform those generated grids.

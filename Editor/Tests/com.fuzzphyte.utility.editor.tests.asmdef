@@ -2,7 +2,8 @@
     "name": "com.fuzzphyte.utility.editor.tests",
     "rootNamespace": "FuzzPhyte.Utility.Editor.Tests",
     "references": [
-        "com.fuzzphyte.utility.editor"
+        "com.fuzzphyte.utility.editor",
+        "com.fuzzphyte.utility"
     ],
     "includePlatforms": [
         "Editor"
