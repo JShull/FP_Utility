@@ -8,6 +8,7 @@
 
 namespace FuzzPhyte.Utility.Editor
 {
+    using System;
     using UnityEditor;
     using UnityEngine;
 
@@ -96,10 +97,7 @@ namespace FuzzPhyte.Utility.Editor
         // This method sets the expansion state of a GameObject in the Hierarchy
         private static void SetExpanded(GameObject go, bool expand)
         {
-            // Use the instance ID of the GameObject
-#pragma warning disable CS0618
-            int instanceID = go.GetInstanceID();
-#pragma warning restore CS0618
+            EntityId entityId = go.GetEntityId();
 
             // Access the internal SceneHierarchyWindow and set the expanded state
             var hierarchyWindow = GetHierarchyWindow();
@@ -107,8 +105,20 @@ namespace FuzzPhyte.Utility.Editor
             if (hierarchyWindow != null)
             {
                 var sceneHierarchyType = typeof(EditorWindow).Assembly.GetType("UnityEditor.SceneHierarchyWindow");
-                var setExpandedMethod = sceneHierarchyType.GetMethod("SetExpanded", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                setExpandedMethod.Invoke(hierarchyWindow, new object[] { instanceID, expand });
+#if UNITY_6000_4_OR_NEWER
+                Type identifierType = typeof(EntityId);
+                object identifier = entityId;
+#else
+                Type identifierType = typeof(int);
+                object identifier = (int)entityId;
+#endif
+                var setExpandedMethod = sceneHierarchyType.GetMethod(
+                    "SetExpanded",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
+                    null,
+                    new[] { identifierType, typeof(bool) },
+                    null);
+                setExpandedMethod?.Invoke(hierarchyWindow, new[] { identifier, (object)expand });
             }
         }
 

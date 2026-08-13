@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `FuzzPhyte/Utility/Editor/Remove CS`, an Undo-aware scene hierarchy cleanup window that removes attached programming scripts while preserving visual and animation components, with separate keep/remove controls for `AudioSource` and UI/Text components.
 - Added a runtime-safe hierarchy OBJ package generator based on the Combine Meshes source rules, with root-local transforms, submesh preservation, skinned-mesh baking, optional collider geometry, MTL colors, optional PNG textures, and configurable vertex/texture limits.
 - Added cross-platform binary-file delivery with Blob-backed WebGL downloads, the iOS Files export picker, and unique `Application.persistentDataPath` output on other platforms.
 - Added Save File prompts in the Unity Editor and Windows standalone players, including clean cancellation and a reusable platform-save handler for host integrations.
@@ -23,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed Base File Name derivation to always use the English form and added a `Color_` prefix for items imported from or marked as Color.
 - Added an editable Voice Name filename suffix so generated assets use `{English Base File Name}_{Variant}_{Language}_{Voice Name}.mp3`.
 - Added optional FP_Vocab pair generation through FP_Utility EDU, including shared level/CEFR/category settings, MP3 filename UniqueIDs, Word Audio references, language values, and reciprocal Translations links.
+
+### Changed
+
+- Made the Remove CS target list collapsible and added a non-destructive scene-copy workflow with an editable new-scene name, explicit project folder and full path preview, new/existing scene destinations, complete prefab unpacking, scene-only source filtering, and open-or-highlight completion behavior.
+- Migrated the remaining FP_Utility `GetInstanceID()` identity paths to `EntityId`, including Remove CS hierarchy deduplication, OBJ atlas material mappings, hierarchy expansion, and GUID conversion helpers. Legacy integer GUID helpers and Unity 6.3's integer-only hierarchy callback remain as narrow compatibility wrappers.
 
 ## [1.0.1]-2026-08-09
 

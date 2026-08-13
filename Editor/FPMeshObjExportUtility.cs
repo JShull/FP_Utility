@@ -691,7 +691,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private sealed class FPMeshObjTextureAtlasContext
         {
-            public readonly Dictionary<int, FPMeshObjTextureAtlasMapping> Mappings = new Dictionary<int, FPMeshObjTextureAtlasMapping>();
+            public readonly Dictionary<EntityId, FPMeshObjTextureAtlasMapping> Mappings = new Dictionary<EntityId, FPMeshObjTextureAtlasMapping>();
             public string RelativeTexturePath;
             public FPMeshObjAtlasUvTransform UvTransform;
         }
@@ -712,7 +712,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private sealed class FPMeshObjTextureAtlasInput
         {
-            public int MaterialKey;
+            public EntityId MaterialKey;
             public Texture2D Texture;
             public Vector2 Scale = Vector2.one;
             public Vector2 Offset = Vector2.zero;
@@ -802,7 +802,7 @@ namespace FuzzPhyte.Utility.Editor
         private static List<Material> CollectAtlasMaterials(IList<FPMeshObjExportSource> sources, FPMeshObjExportOptions options)
         {
             var materials = new List<Material>();
-            var materialKeys = new HashSet<int>();
+            var materialKeys = new HashSet<EntityId>();
 
             if (sources == null)
             {
@@ -834,9 +834,9 @@ namespace FuzzPhyte.Utility.Editor
             return materials;
         }
 
-        private static void AddAtlasMaterial(Material material, List<Material> materials, HashSet<int> materialKeys)
+        private static void AddAtlasMaterial(Material material, List<Material> materials, HashSet<EntityId> materialKeys)
         {
-            int key = GetMaterialKey(material);
+            EntityId key = GetMaterialKey(material);
             if (materialKeys.Add(key))
             {
                 materials.Add(material);
@@ -1002,7 +1002,7 @@ namespace FuzzPhyte.Utility.Editor
                 return sourceUv;
             }
 
-            int key = GetMaterialKey(material);
+            EntityId key = GetMaterialKey(material);
             if (!atlasContext.Mappings.TryGetValue(key, out FPMeshObjTextureAtlasMapping mapping) &&
                 !atlasContext.Mappings.TryGetValue(GetMaterialKey(null), out mapping))
             {
@@ -1288,9 +1288,9 @@ namespace FuzzPhyte.Utility.Editor
             return material.GetTextureOffset(textureProperty);
         }
 
-        private static int GetMaterialKey(Material material)
+        private static EntityId GetMaterialKey(Material material)
         {
-            return material == null ? 0 : material.GetInstanceID();
+            return material == null ? EntityId.None : material.GetEntityId();
         }
 
         private static bool TryCopyTexture(Texture texture, string outputDirectory, Dictionary<Texture, string> copiedTextures, out string relativePath)

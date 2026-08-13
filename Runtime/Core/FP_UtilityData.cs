@@ -27,6 +27,7 @@ namespace FuzzPhyte.Utility
     {
         //ScriptableObject Setup for other Utility Classes
         public const string MENU_COMPANY ="FuzzPhyte/";
+        public const string MENU_UTILITY_EDITOR_PATH = MENU_COMPANY + "Utility/Editor/";
         // Variable name for editor variables
         public const string LAST_SCENEPATH_VAR = "FP_LastActiveScenePath";
         public const string FP_FOLDOUTSTATES_KEY = "FP_FoldoutStates_Keys";

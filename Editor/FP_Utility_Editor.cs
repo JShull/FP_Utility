@@ -549,7 +549,10 @@ namespace FuzzPhyte.Utility.Editor
             // Return the search results.
             return request.Result;
         }
-        public static int GetInstanceIDFromGUID(GUID guid)
+        /// <summary>
+        /// Loads the asset represented by a GUID and returns its current Unity entity identifier.
+        /// </summary>
+        public static EntityId GetEntityIdFromGUID(GUID guid)
         {
             // Get the path of the asset from the GUID
             string assetPath = AssetDatabase.GUIDToAssetPath(guid);
@@ -561,20 +564,29 @@ namespace FuzzPhyte.Utility.Editor
 
                 if (obj != null)
                 {
-#pragma warning disable CS0618
-                    return obj.GetInstanceID(); // Get the instance ID of the loaded asset
-#pragma warning restore CS0618
+                    return obj.GetEntityId();
                 }
             }
 
-            // If the asset couldn't be found, return -1 or handle the error accordingly
-            return -1;
-        }        
-        public static GUID ReturnGUIDFromInstance(int instanceID, out bool success)
+            return EntityId.None;
+        }
+
+        /// <summary>
+        /// Compatibility wrapper for callers that still require an integer identifier.
+        /// </summary>
+        [Obsolete("Use GetEntityIdFromGUID instead.")]
+        public static int GetInstanceIDFromGUID(GUID guid)
         {
-#pragma warning disable CS0618
-            UnityEngine.Object obj = EditorUtility.InstanceIDToObject(instanceID);
-#pragma warning restore CS0618
+            EntityId entityId = GetEntityIdFromGUID(guid);
+            return entityId.IsValid() ? (int)entityId : -1;
+        }
+
+        /// <summary>
+        /// Returns the asset GUID associated with a Unity entity identifier.
+        /// </summary>
+        public static GUID ReturnGUIDFromEntityId(EntityId entityId, out bool success)
+        {
+            UnityEngine.Object obj = EditorUtility.EntityIdToObject(entityId);
             if (obj == null)
             {
                 success = false;
@@ -591,6 +603,15 @@ namespace FuzzPhyte.Utility.Editor
                 success = true;
             }
             return getGlobalID;
+        }
+
+        /// <summary>
+        /// Compatibility wrapper for callers that still supply an integer identifier.
+        /// </summary>
+        [Obsolete("Use ReturnGUIDFromEntityId instead.")]
+        public static GUID ReturnGUIDFromInstance(int instanceID, out bool success)
+        {
+            return ReturnGUIDFromEntityId(instanceID, out success);
         }
         /// <summary>
         /// will return null if it doesn't exist

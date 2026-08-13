@@ -4,6 +4,8 @@
 
 FP_Utility is designed and built to be a simple set of base classes to be used in almost all future FuzzPhyte packages. There is an element of Scriptable Object and an element of just simple input/output functions as well as some core scripts timed to timers etc. There are a lot of static functions to help with file management and Unity Editor management. Please see the FP_UtilityData class as well as the FP_Utility_Editor class for a lot of these functions/enums/structs etc.
 
+Unity editor object identity uses `EntityId` on Unity 6.3 and newer. `FP_Utility_Editor.GetEntityIdFromGUID` and `ReturnGUIDFromEntityId` provide GUID conversion without deprecated instance-ID APIs; the previous integer helpers remain as obsolete compatibility wrappers.
+
 ## Runtime Debug Tools
 
 ### Runtime Debug Draw
@@ -206,6 +208,21 @@ Open the tool from `FuzzPhyte/Utility/Mesh/Mesh Slicer`.
 * `Keep Pieces` defaults to `Keep Positive`.
 * `Auto Update Preview` is enabled by default, but the preview rebuilds only when inputs change or the tool needs a repaint.
 * Undo is supported for source changes, camera settings, object adjustment, plane movement, plane rotation, and slice options.
+
+### Remove CS
+
+Remove CS is an editor-only scene cleanup tool that removes attached `MonoBehaviour` scripts while preserving each object's hierarchy, transform, visual components, colliders, lights, cameras, and animation components.
+
+Open the tool from `FuzzPhyte/Utility/Editor/Remove CS`.
+
+1. Add scene objects with the object field, current selection, empty list slots, or drag and drop.
+2. Leave `Include Children` enabled to clean each complete hierarchy; inactive children can be included separately.
+3. Choose whether to keep `AudioSource` and UI/Text components. Both are kept by default.
+4. Review the live removal counts, then click `Clean Listed Objects` and confirm.
+
+UI/Text includes Canvas components, legacy `TextMesh`, Unity UI, and TextMesh Pro. `RectTransform` components always remain so UI layout and orientation are preserved. Missing script entries are also removed. The cleanup is registered as one Unity Undo operation. Project-window prefab assets are skipped; open a prefab in Prefab Mode when its asset hierarchy needs cleanup.
+
+The Target Objects list can be collapsed when working with large batches. Enable `Clean Copies In Another Scene` for a non-destructive workflow: the tool copies only listed objects belonging to the active scene, removes duplicate child selections beneath listed parents, preserves world placement, fully unpacks prefab connections, and cleans only the complete destination hierarchies, including inactive children. The destination can be a newly saved scene with an editable `New Scene Name` and project folder, or an existing scene asset. The complete new-scene asset path is shown before the operation runs. After saving, the tool can either leave the destination open additively and make it active, or close it and highlight the saved scene in the Project window.
 
 ### Combine Meshes
 

@@ -1343,9 +1343,6 @@ namespace FuzzPhyte.Utility.Editor
                     obj.hideFlags &= ~HideFlags.HideInHierarchy;
                 }
 
-                // Get the instance ID of the object
-                //var InstanceID = obj.GetInstanceID();
-                //bool confirmGUID = true;
                 var ID = obj.name;
                
 
@@ -1370,10 +1367,7 @@ namespace FuzzPhyte.Utility.Editor
             foreach (string key in keysToCollapse)
             {
                 foldoutStates[key] = false; // Set the foldout state to collapsed
-                //var guidKey = new GUID(key);
-                //var instID = FP_Utility_Editor.GetInstanceIDFromGUID(guidKey);
                 GameObject obj = GameObject.Find(key);
-                //GameObject obj = EditorUtility.InstanceIDToObject(instID) as GameObject;
                 // Collapse the associated objects
                 if (obj != null)
                 {
