@@ -175,8 +175,8 @@ For commercial licensing, proprietary use, institutional use, grant-funded produ
 
 John B. Shull
 FuzzPhyte / FuzzPhyte LLC
-Email: [INSERT CONTACT EMAIL]
-Website: [INSERT WEBSITE OR GITHUB PROFILE]
+[mailto:jshull@fuzzphyte.com](Email)
+[https://github.com/jshull](GitHub)
 
 ---
 

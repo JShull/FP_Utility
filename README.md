@@ -626,6 +626,8 @@ FP_Utility has a core data class for ScriptableObjects called FP_Data. This is h
 
 ### Ways to Extend
 
+Please see the [contributing](./CONTRIBUTING.md) file for more information.
+
 ## Dependencies
 
 Please see the [package.json](./package.json) file for more information.
