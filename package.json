@@ -1,6 +1,6 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "6000.3",
@@ -53,7 +53,7 @@
       },
       {
         "displayName":"Audio Samples",
-        "description": "All audio samples were created by John Shull at home using various equipment and microphones",
+        "description": "All audio samples were created by John Shull using various equipment and microphones like 360 stereo & directional microphones",
         "path": "Samples~/FPAudio"
       }
     ],

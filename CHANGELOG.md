@@ -7,25 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [1.0.2]-2026-08-16
 
-- Added `FuzzPhyte/Utility/Editor/Remove CS`, an Undo-aware scene hierarchy cleanup window that removes attached programming scripts while preserving visual and animation components, with separate keep/remove controls for `AudioSource` and UI/Text components.
-- Added a runtime-safe hierarchy OBJ package generator based on the Combine Meshes source rules, with root-local transforms, submesh preservation, skinned-mesh baking, optional collider geometry, MTL colors, optional PNG textures, and configurable vertex/texture limits.
-- Added cross-platform binary-file delivery with Blob-backed WebGL downloads, the iOS Files export picker, and unique `Application.persistentDataPath` output on other platforms.
-- Added Save File prompts in the Unity Editor and Windows standalone players, including clean cancellation and a reusable platform-save handler for host integrations.
-- Added focused Edit Mode coverage for multi-submesh runtime OBJ ZIP generation and vertex-limit rejection.
-- Added an ElevenLabs Text to Speech editor window that loads account voices, translates text between English, Spanish, and French through the OpenAI Responses API, and imports paired original/translated MP3 assets into a selected Unity Assets folder.
-- Added ElevenLabs API key controls to the FP Keys Manager using local Unity `EditorPrefs` storage.
-- Reused the FP Keys Manager OpenAI API key, organization ID, and project ID for editor translation requests, with `gpt-4o-mini` as the editable default translation model.
-- Changed the default ElevenLabs text-to-speech model to `eleven_v3` while preserving an editable model field.
-- Unified single and batch operation into one collapsible request list, where the same controls handle one or many original/translated ElevenLabs audio pairs.
-- Added append-style markdown import and markdown export for Person, Translation Model, Language, and optional Color sections.
-- Added per-item Clear and Remove controls plus a confirmed Clear All action.
-- Changed Base File Name derivation to always use the English form and added a `Color_` prefix for items imported from or marked as Color.
-- Added an editable Voice Name filename suffix so generated assets use `{English Base File Name}_{Variant}_{Language}_{Voice Name}.mp3`.
-- Added optional FP_Vocab pair generation through FP_Utility EDU, including shared level/CEFR/category settings, MP3 filename UniqueIDs, Word Audio references, language values, and reciprocal Translations links.
+### [1.0.2] Added
 
-### Changed
+- [@JShull](https://github.com/jshull)
+  - Samples updated with Audio recorded over the last two years at home by John Shull
+  - Added `FuzzPhyte/Utility/Editor/Remove CS`, an Undo-aware scene hierarchy cleanup window that removes attached programming scripts while preserving   visual and animation components, with separate keep/remove controls for `AudioSource` and UI/Text components.
+  - Added a runtime-safe hierarchy OBJ package generator based on the Combine Meshes source rules, with root-local transforms, submesh preservation,   skinned-mesh baking, optional collider geometry, MTL colors, optional PNG textures, and configurable vertex/texture limits.
+  - Added cross-platform binary-file delivery with Blob-backed WebGL downloads, the iOS Files export picker, and unique `Application.persistentDataPath`   output on other platforms.
+  - Added Save File prompts in the Unity Editor and Windows standalone players, including clean cancellation and a reusable platform-save handler for host   integrations.
+  - Added focused Edit Mode coverage for multi-submesh runtime OBJ ZIP generation and vertex-limit rejection.
+  - Added an ElevenLabs Text to Speech editor window that loads account voices, translates text between English, Spanish, and French through the OpenAI   Responses API, and imports paired original/translated MP3 assets into a selected Unity Assets folder.
+  - Added ElevenLabs API key controls to the FP Keys Manager using local Unity `EditorPrefs` storage.
+  - Reused the FP Keys Manager OpenAI API key, organization ID, and project ID for editor translation requests, with `gpt-4o-mini` as the editable default   translation model.
+  - Changed the default ElevenLabs text-to-speech model to `eleven_v3` while preserving an editable model field.
+  - Unified single and batch operation into one collapsible request list, where the same controls handle one or many original/translated ElevenLabs audio   pairs.
+  - Added append-style markdown import and markdown export for Person, Translation Model, Language, and optional Color sections.
+  - Added per-item Clear and Remove controls plus a confirmed Clear All action.
+  - Changed Base File Name derivation to always use the English form and added a `Color_` prefix for items imported from or marked as Color.
+  - Added an editable Voice Name filename suffix so generated assets use `{English Base File Name}_{Variant}_{Language}_{Voice Name}.mp3`.
+  - Added optional FP_Vocab pair generation through FP_Utility EDU, including shared level/CEFR/category settings, MP3 filename UniqueIDs, Word Audio references, language values, and reciprocal Translations links.
+
+### [1.0.2] Changed
 
 - Made the Remove CS target list collapsible and added a non-destructive scene-copy workflow with an editable new-scene name, explicit project folder and full path preview, new/existing scene destinations, complete prefab unpacking, scene-only source filtering, and open-or-highlight completion behavior.
 - Migrated the remaining FP_Utility `GetInstanceID()` identity paths to `EntityId`, including Remove CS hierarchy deduplication, OBJ atlas material mappings, hierarchy expansion, and GUID conversion helpers. Legacy integer GUID helpers and Unity 6.3's integer-only hierarchy callback remain as narrow compatibility wrappers.
