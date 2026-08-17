@@ -75,6 +75,160 @@ public class CharacterOrderDebug : MonoBehaviour
 3. Use the camera-relative vertex and normal settings to keep debug marks readable as the camera moves or switches between perspective and orthographic modes.
 4. Toggle `Depth Test` depending on whether the debug overlay should sit inside the scene depth or draw over it.
 
+### Runtime URP Mesh View Render Features
+
+The render features under `Runtime/Design/FP_MeshView/URP` are the build-capable URP path for cutaway rendering, mesh inspection, measurement marks, and world grids. They are separate from the editor-only Runtime Debug Draw system above. The current implementations use URP Render Graph APIs and are intended for the Unity and URP versions declared by this package.
+
+Each effect has up to three cooperating parts:
+
+* A `ScriptableRendererFeature` on the URP Renderer Data asset decides when and where to draw.
+* A scene component supplies the active runtime state.
+* A matching material supplies the shader used by the scene renderer or custom pass.
+
+#### One-Time URP Renderer and Camera Setup
+
+1. In a project that uses URP, select the Universal Renderer Data asset referenced by the active URP Pipeline Asset. This is the Renderer asset, not the Pipeline Asset itself.
+2. Use `Add Renderer Feature` to add only the features the application needs. The source renderer features are in `Runtime/Design/FP_MeshView/URP`.
+3. Use these default pass events unless the project has a deliberate custom render order:
+
+| Renderer feature | Default pass event | Runtime provider |
+| --- | --- | --- |
+| `FPRuntimeCutawayGeometryFeature` | `BeforeRenderingOpaques` | `FPRuntimeCutawayVolume` |
+| `FPRuntimeCutawayRevealFeature` | `AfterRenderingTransparents` | `FPRuntimeCutawayVolume` |
+| `FPRuntimeMeshViewerFeature` | `AfterRenderingOpaques` | `FPRuntimeMeshViewer` |
+| `FPRuntimeGridFeature` | `AfterRenderingOpaques` | One or more `FPRuntimeGridPlane` components |
+| `FPRuntimeMeasurementFeature` | `AfterRenderingTransparents` | `FPRuntimeMeasurementOverlay` |
+
+4. Confirm that the runtime Camera uses that Renderer Data. Either make its Pipeline Asset renderer the default, or select the matching renderer under the Camera's URP `Rendering > Renderer` setting.
+5. For layer-filtered cutaway passes, include the selected target layers in the Camera `Culling Mask` as well as in the renderer feature's layer mask.
+6. `FPRuntimeMeshViewerFeature`, `FPRuntimeGridFeature`, and `FPRuntimeMeasurementFeature` expose `Draw In Scene View`. Leave it disabled for Game-camera-only output or enable it for authoring previews. The cutaway features currently run for every camera that uses their Renderer Data and has a matching active volume.
+
+No special projection, field of view, or post-processing setting is required; perspective and orthographic Game cameras use the same feature setup. These features use the active camera depth attachment for normal depth testing but do not sample the URP Opaque Texture or Depth Texture, so those Pipeline Asset copies do not need to be enabled solely for these effects. With camera stacking, add the features only to the renderer or renderers that should draw the effect; using the same configured renderer on multiple cameras can draw it more than once.
+
+Do not edit a Renderer Data asset or material inside an immutable UPM `PackageCache`. Create project-owned Renderer Data and materials under `Assets`, or import one of the package samples through Package Manager and edit the imported copies. The `URP Profiles` sample contains example mesh-viewer, grid, and measurement feature configuration, but material and scene-component assignment is still required.
+
+#### Runtime Cutaway Geometry
+
+`FPRuntimeCutawayGeometryFeature` does not replace an object's material. It sets the global cutaway values and redraws opaque renderers on `Target Layers` using their existing `UniversalForward` or `SRPDefaultUnlit` pass. A target material must therefore read `_VolumeCenter`, `_SphereRadius`, `_BoxExtents`, and `_UseSphere`; an ordinary URP Lit material will be redrawn but will not cut away.
+
+Setup:
+
+1. Create a dedicated layer for the geometry to be clipped, assign the target renderers to it, and select that layer in the feature's `Target Layers` field. Also include it in the Camera `Culling Mask`.
+2. Create or copy a material that uses one of the cutaway shaders under `Runtime/Design/FP_MeshView`, then assign it to each target renderer:
+   * `CutawayWall_SG_URP.shadergraph` is the full surface option. Enable its `Cutaway Enabled` material property and configure the base texture/color, edge color/thickness, cross-fill color/thickness, smoothness, and related surface properties. Its volume properties are declared globally and are driven by `FPRuntimeCutawayVolume`.
+   * `FuzzPhyte/CutawayWallURP` is a minimal textured, unlit cutaway using `Texture` and `Color`.
+   * `FuzzPhyte/VolumetricCutawayClipURP` is a minimal flat-color clip shader using `Base Color`.
+3. Add one enabled `FPRuntimeCutawayVolume` to the scene. Its Transform position is the world-space cutaway center.
+4. For a spherical cutaway, enable `Use Sphere` and set `Sphere Radius`. For a box, disable `Use Sphere` and set `Box Extents`; these are half-extents, so `(1, 2, 3)` produces a box that is `2 x 4 x 6` world units.
+5. Move the volume or change its public fields at runtime to animate the cutaway. `Use Gizmo` affects only the editor gizmo.
+
+The current box calculation is world-axis-aligned: the volume Transform's rotation and scale are not read. Change `Box Extents` to resize it. The system also has one static `FPRuntimeCutawayVolume.Active`, so keep only one enabled cutaway volume at a time; the most recently enabled instance becomes active.
+
+`FuzzPhyte/VolumetricCutawayDepthURP` and `CutawayDepthBufURP.mat` are depth-only cutaway assets. The geometry feature does not select or inject that material, so they are not required for the standard setup and only take effect when a project deliberately assigns or draws them in an additional depth workflow.
+
+#### Optional Cutaway Reveal Pass
+
+`FPRuntimeCutawayRevealFeature` redraws every renderer on `Reveal Layer` with one override material, but keeps only the fragments inside the active cutaway volume. This is useful for tinting internal geometry or objects exposed by the hole.
+
+1. Add `FPRuntimeCutawayRevealFeature` to the same Renderer Data.
+2. Create a project-owned material using `FuzzPhyte/VolumetricCutawayReveal`, or copy `ClipReveal.mat`, and assign it as `Reveal Material`.
+3. Put the geometry to reveal on a dedicated layer and select it as `Reveal Layer`. Include that layer in the Camera `Culling Mask`.
+4. Set `Reveal Color` on the material. The pass writes only fragments inside the active sphere or box.
+
+The reveal shader currently uses `ZTest Always`, `Cull Off`, and `ZWrite Off`. It does not declare standard alpha blending, so the `Reveal Color` alpha should not be treated as conventional transparency. The feature is optional and the packaged `FP_Inventory_Utility_URP_Renderer` currently stores its reveal entry inactive; enable and reassign it in a project-owned Renderer Data asset before relying on it.
+
+#### Runtime Mesh Viewer
+
+`FPRuntimeMeshViewerFeature` overlays selected renderers without replacing their normal surface materials.
+
+1. Add the feature to the Renderer Data, normally at `AfterRenderingOpaques`.
+2. Create project-owned materials with these package shaders:
+   * Wireframe: `FuzzPhyte/WireframeBarycentricURP`
+   * Vertices: `FuzzPhyte/VertexDotsURP`
+   * Normals: `FuzzPhyte/NormalLineURP`
+3. Add one enabled `FPRuntimeMeshViewer` to a scene controller and assign the materials to `Wireframe Mat`, `Vertex Mat`, and `Normals Mat`.
+4. Assign initial `Target Renderers` in the Inspector or call `SetMeshModeType` with a renderer collection at runtime. Targets can be `MeshRenderer` components with a `MeshFilter` or `SkinnedMeshRenderer` components.
+5. Select `Vertices`, `Wireframe`, `Wireframe And Vertices`, or `Normals`. Use `Default` to stop the overlay and release its generated caches.
+
+Example runtime selection:
+
+```csharp
+using FuzzPhyte.Utility;
+using UnityEngine;
+
+public sealed class MeshInspectionExample : MonoBehaviour
+{
+    [SerializeField] private FPRuntimeMeshViewer viewer;
+    [SerializeField] private Renderer[] selection;
+
+    public void ShowWireframeAndVertices()
+    {
+        viewer.SetMeshModeType(MeshViewMode.WireframeAndVertices, selection);
+        viewer.UpdateVertexSizing(0.01f);
+    }
+
+    public void ClearOverlay()
+    {
+        viewer.SetMeshModeType(MeshViewMode.Default);
+    }
+}
+```
+
+`Max Triangle Cap` limits the expanded barycentric wireframe mesh; when a source exceeds the cap, its wireframe is skipped and an error is logged. Vertex and normal buffers are built from the source mesh. A `SkinnedMeshRenderer` uses `sharedMesh`, not a per-frame baked deformed pose. The three surface modes (`Surface World Normals`, `Surface UV0`, and `Surface Vertex Color`) all draw pass 0 of the same assigned `Surface Debug Mat`; the feature does not currently change a keyword or property to distinguish those modes, so use a material already configured for the visualization you want. The normals draw also currently selects shader pass 0, so the `Always On Top` material toggle does not switch it to the shader's second pass.
+
+Only one enabled `FPRuntimeMeshViewer` is supported because the feature reads `FPRuntimeMeshViewer.Active`.
+
+#### Runtime World Grid
+
+1. Add `FPRuntimeGridFeature` to the Renderer Data.
+2. Create a material using `FuzzPhyte/GridPlaneURP` and assign it to the feature's `Grid Material` field.
+3. Add `FPRuntimeGridPlane` to each scene Transform that should host a grid. Position and rotate the Transform to place the plane; `Extents World.x` and `.y` control the generated quad's local X and Z size.
+4. Set minor/major colors, opacity, line thickness, units, and spacing. Enable `Use Major Spacing` to specify the major interval directly; otherwise every tenth minor line is major.
+5. Toggle `Is Enabled` without disabling the component when a grid should remain registered but temporarily hidden.
+
+The component converts the selected unit to meters for the shader. If code changes `Units`, `Spacing In Units`, `Major Spacing In Units`, `Use Major Spacing`, or `Custom Meters Per Unit` after `Awake`, call `RecalculateWorldSpacing()` afterward. Multiple enabled grid planes are supported. Their appearance fields override the shared grid material immediately before each draw, so use the component fields as the per-grid source of truth.
+
+The grid shader is transparent, writes no depth, and uses `ZTest LEqual`; it is hidden by nearer scene geometry. Change the feature to `AfterRenderingTransparents` only when the desired composition requires the grid to be submitted after other transparent objects.
+
+#### Runtime Measurement Overlay
+
+1. Add `FPRuntimeMeasurementFeature` to the Renderer Data, normally at `AfterRenderingTransparents`.
+2. Create one material using `FuzzPhyte/MeasurementDotsURP` and another using `FuzzPhyte/MeasurementLineURP`.
+3. Add one enabled `FPRuntimeMeasurementOverlay` to a scene controller and assign those materials as `Point Mat` and `Line Mat`.
+4. Set point size/color/opacity and line world width/color/opacity on the component.
+5. Call `SetMeasurement` with two world-space points to show the overlay, and call `ClearMeasurement` to hide it.
+
+```csharp
+using FuzzPhyte.Utility;
+using UnityEngine;
+
+public sealed class MeasurementExample : MonoBehaviour
+{
+    [SerializeField] private FPRuntimeMeasurementOverlay overlay;
+
+    public void Show(Vector3 start, Vector3 end)
+    {
+        overlay.SetMeasurement(start, end, true, UnitOfMeasure.Meter);
+    }
+
+    public void Clear()
+    {
+        overlay.ClearMeasurement();
+    }
+}
+```
+
+The measurement shaders use `ZTest Always`, so the points and line remain visible through scene geometry. `Units` is stored as measurement metadata only; this renderer does not convert the endpoints or draw a numeric label. Only one enabled measurement overlay is supported because the feature reads `FPRuntimeMeasurementOverlay.Active`.
+
+#### Runtime URP Troubleshooting
+
+* Nothing draws: confirm the active Camera is using the Renderer Data that contains the feature, the feature is enabled, and its matching scene component is enabled.
+* Cutaway volume moves but the wall remains whole: the wall must use a cutaway-aware material; the geometry feature does not override an ordinary Lit material.
+* A layer-filtered pass is empty: the object's layer must be selected by both the renderer feature and the Camera `Culling Mask`.
+* Mesh-view mode is active but one overlay is missing: confirm the matching material field is assigned and that the target exposes a readable runtime mesh through `MeshFilter.sharedMesh` or `SkinnedMeshRenderer.sharedMesh`.
+* Game view works but Scene view does not: enable `Draw In Scene View` for the mesh viewer, grid, or measurement feature. Cutaway features do not expose that filter.
+* An effect appears twice: check camera stacking and ensure it is not configured on multiple Renderer Data assets used during the same frame.
+
 ## Internal Utility Tools
 
 ### ElevenLabs Text to Speech
