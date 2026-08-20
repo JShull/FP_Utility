@@ -168,12 +168,21 @@ namespace FuzzPhyte.Utility.Editor.Tests
         [Test]
         public void CollectTopLevelRootsInScene_FiltersOtherScenesDuplicatesAndNestedTargets()
         {
-            Scene previousActiveScene = SceneManager.GetActiveScene();
-            Scene sourceScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-            Scene otherScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            string sourceScenePath =
+                $"Assets/FPRemoveCSUtilityTests_Source_{System.Guid.NewGuid():N}.unity";
+            string otherScenePath =
+                $"Assets/FPRemoveCSUtilityTests_Other_{System.Guid.NewGuid():N}.unity";
+            Scene sourceScene = default;
+            Scene otherScene = default;
 
             try
             {
+                OpenSavedScenePair(
+                    sourceScenePath,
+                    otherScenePath,
+                    out sourceScene,
+                    out otherScene);
+
                 var root = new GameObject("Root");
                 var child = new GameObject("Child");
                 var otherRoot = new GameObject("Other Root");
@@ -190,9 +199,17 @@ namespace FuzzPhyte.Utility.Editor.Tests
             }
             finally
             {
-                RestoreActiveScene(previousActiveScene);
-                EditorSceneManager.CloseScene(otherScene, true);
-                EditorSceneManager.CloseScene(sourceScene, true);
+                if (otherScene.IsValid() && otherScene.isLoaded)
+                {
+                    EditorSceneManager.CloseScene(otherScene, true);
+                }
+                if (sourceScene.IsValid() && sourceScene.isLoaded)
+                {
+                    EditorSceneManager.SaveScene(sourceScene);
+                }
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                AssetDatabase.DeleteAsset(sourceScenePath);
+                AssetDatabase.DeleteAsset(otherScenePath);
             }
         }
 
@@ -200,26 +217,39 @@ namespace FuzzPhyte.Utility.Editor.Tests
         public void CopyAndCleanToScene_PreservesSourceAndUnpacksDestinationPrefabCopy()
         {
             string prefabPath = $"Assets/FPRemoveCSUtilityTests_{System.Guid.NewGuid():N}.prefab";
-            Scene previousActiveScene = SceneManager.GetActiveScene();
-            Scene sourceScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-            Scene destinationScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            string sourceScenePath =
+                $"Assets/FPRemoveCSUtilityTests_Source_{System.Guid.NewGuid():N}.unity";
+            string destinationScenePath =
+                $"Assets/FPRemoveCSUtilityTests_Destination_{System.Guid.NewGuid():N}.unity";
+            Scene sourceScene = default;
+            Scene destinationScene = default;
 
             try
             {
+                OpenSavedScenePair(
+                    sourceScenePath,
+                    destinationScenePath,
+                    out sourceScene,
+                    out destinationScene);
+
                 var prefabSource = new GameObject("Visual Prefab");
-                prefabSource.AddComponent<FPRemoveCSTestProgrammingComponent>();
+                prefabSource.AddComponent<FP_EditorOnly>();
                 prefabSource.AddComponent<MeshRenderer>();
                 prefabSource.AddComponent<AudioSource>();
                 var inactiveChild = new GameObject("Inactive Child");
                 inactiveChild.transform.SetParent(prefabSource.transform);
                 inactiveChild.SetActive(false);
-                inactiveChild.AddComponent<FPRemoveCSTestProgrammingComponent>();
+                inactiveChild.AddComponent<FP_EditorOnly>();
                 GameObject prefabAsset = PrefabUtility.SaveAsPrefabAsset(prefabSource, prefabPath);
                 Object.DestroyImmediate(prefabSource);
 
                 var sourceInstance = (GameObject)PrefabUtility.InstantiatePrefab(prefabAsset, sourceScene);
                 sourceInstance.transform.SetPositionAndRotation(new Vector3(4f, 2f, -3f), Quaternion.Euler(10f, 25f, 5f));
                 SceneManager.SetActiveScene(sourceScene);
+                Assert.That(
+                    sourceInstance.GetComponent<FP_EditorOnly>(),
+                    Is.Not.Null,
+                    "The source prefab instance must contain the removable test component before copying.");
 
                 FPRemoveCSSceneCopyResult result = FPRemoveCSUtility.CopyAndCleanToScene(
                     new List<GameObject> { sourceInstance },
@@ -233,21 +263,29 @@ namespace FuzzPhyte.Utility.Editor.Tests
                 Assert.That(copy.scene, Is.EqualTo(destinationScene));
                 Assert.That(copy.transform.position, Is.EqualTo(sourceInstance.transform.position));
                 Assert.That(copy.transform.rotation, Is.EqualTo(sourceInstance.transform.rotation));
-                Assert.That(copy.GetComponent<FPRemoveCSTestProgrammingComponent>(), Is.Null);
+                Assert.That(copy.GetComponent<FP_EditorOnly>(), Is.Null);
                 Assert.That(copy.GetComponent<MeshRenderer>(), Is.Not.Null);
                 Assert.That(copy.GetComponent<AudioSource>(), Is.Not.Null);
-                Assert.That(copy.transform.GetChild(0).GetComponent<FPRemoveCSTestProgrammingComponent>(), Is.Null);
+                Assert.That(copy.transform.GetChild(0).GetComponent<FP_EditorOnly>(), Is.Null);
                 Assert.That(PrefabUtility.IsPartOfPrefabInstance(copy), Is.False);
 
-                Assert.That(sourceInstance.GetComponent<FPRemoveCSTestProgrammingComponent>(), Is.Not.Null);
+                Assert.That(sourceInstance.GetComponent<FP_EditorOnly>(), Is.Not.Null);
                 Assert.That(PrefabUtility.IsPartOfPrefabInstance(sourceInstance), Is.True);
                 Assert.That(result.CleanupResult.RemovedComponentCount, Is.EqualTo(2));
             }
             finally
             {
-                RestoreActiveScene(previousActiveScene);
-                EditorSceneManager.CloseScene(destinationScene, true);
-                EditorSceneManager.CloseScene(sourceScene, true);
+                if (destinationScene.IsValid() && destinationScene.isLoaded)
+                {
+                    EditorSceneManager.CloseScene(destinationScene, true);
+                }
+                if (sourceScene.IsValid() && sourceScene.isLoaded)
+                {
+                    EditorSceneManager.SaveScene(sourceScene);
+                }
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                AssetDatabase.DeleteAsset(sourceScenePath);
+                AssetDatabase.DeleteAsset(destinationScenePath);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
         }
@@ -273,12 +311,26 @@ namespace FuzzPhyte.Utility.Editor.Tests
             };
         }
 
-        private static void RestoreActiveScene(Scene scene)
+        private static void OpenSavedScenePair(
+            string sourceScenePath,
+            string destinationScenePath,
+            out Scene sourceScene,
+            out Scene destinationScene)
         {
-            if (scene.IsValid() && scene.isLoaded)
-            {
-                SceneManager.SetActiveScene(scene);
-            }
+            Scene scene = EditorSceneManager.NewScene(
+                NewSceneSetup.EmptyScene,
+                NewSceneMode.Single);
+            Assert.That(EditorSceneManager.SaveScene(scene, sourceScenePath), Is.True);
+
+            scene = EditorSceneManager.NewScene(
+                NewSceneSetup.EmptyScene,
+                NewSceneMode.Single);
+            Assert.That(EditorSceneManager.SaveScene(scene, destinationScenePath), Is.True);
+
+            sourceScene = EditorSceneManager.OpenScene(sourceScenePath, OpenSceneMode.Single);
+            destinationScene = EditorSceneManager.OpenScene(
+                destinationScenePath,
+                OpenSceneMode.Additive);
         }
     }
 }

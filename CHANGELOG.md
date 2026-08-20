@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `FP_ArticulationGrabMotion`, an `FP_MotionBase`-derived bridge that
+  follows a tracked pose with a kinematic Rigidbody anchor and connects it to
+  an `ArticulationBody` through a runtime `ConfigurableJoint`.
+- Added public grab, release, retarget, reconfigure, and joint-rebuild endpoints,
+  plus C# and UnityEvent notifications for grab lifecycle, joint breaks,
+  tracking errors, configuration failures, and state changes.
+- Added focused Play Mode coverage for joint creation, tracked-anchor following,
+  release cleanup, and invalid configuration handling.
+- Added an optional startup-only articulation snap that aligns the physical grab
+  point to the follow target before creating the physics constraint.
+
 ## [1.0.2]-2026-08-16
 
 ### [1.0.2] Added

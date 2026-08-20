@@ -6,6 +6,38 @@ FP_Utility is designed and built to be a simple set of base classes to be used i
 
 Unity editor object identity uses `EntityId` on Unity 6.3 and newer. `FP_Utility_Editor.GetEntityIdFromGUID` and `ReturnGUIDFromEntityId` provide GUID conversion without deprecated instance-ID APIs; the previous integer helpers remain as obsolete compatibility wrappers.
 
+### Runtime Articulation Grab Motion
+
+`FP_ArticulationGrabMotion` connects a tracked world-space pose to an
+`ArticulationBody` through a temporary `ConfigurableJoint` on a kinematic
+Rigidbody anchor. It does not parent or directly move the articulated link.
+
+Typical luggage hierarchy:
+
+```text
+SuitcaseRoot (movable ArticulationBody)
+└── TelescopeSlider (Prismatic ArticulationBody)
+    └── HandleGrip
+        └── GrabPoint
+```
+
+Assign the telescope link as `Connected Body`, the physical point under the
+handle as `Grab Point`, and the tracked hand or controller attach pose as
+`Follow Target`. Enable inherited `Play On Start` for a persistent attachment,
+or call `BeginGrab(Transform)` and `ReleaseGrab()` from an XR-specific binder.
+
+Enable `Snap Grab Point To Follow Target On Start` to teleport the articulation
+root once, aligning the physical grip to the tracked pose before the joint is
+created. This removes the initial gap without pulling the suitcase across it;
+normal physics-driven following resumes immediately after connection.
+
+The component exposes C# actions and Inspector events for connection, release,
+joint break, maximum tracking error, configuration failure, and state changes.
+Use `Locked` constraint mode for an exact prototype grip. Use `Compliant` mode
+to tune position/rotation spring, damping, and maximum force for a safer physical
+VR grip. Do not place a `Rigidbody` or a transform-following grab component on
+the visual handle.
+
 ## Runtime Debug Tools
 
 ### Runtime Debug Draw

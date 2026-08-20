@@ -1,0 +1,19 @@
+{
+    "name": "com.fuzzphyte.utility.tests.playmode",
+    "rootNamespace": "FuzzPhyte.Utility.Tests",
+    "references": [
+        "com.fuzzphyte.utility"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
