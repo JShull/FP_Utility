@@ -638,6 +638,95 @@ The sphere path is backed by `FPVideoSphereBuilder`, which builds a UV sphere wi
 * When `GenerateInsideOut` is enabled, normals are flipped inward and triangle winding is reversed for interior viewing.
 * Meshes with more than 65,535 vertices automatically use 32-bit indices.
 
+### FP Video Cache Playback Wiring
+
+FP Video uses a download-and-cache workflow rather than playing directly from
+Azure. The manifest and video file can be hosted by Azure Blob Storage, but the
+`VideoPlayer` receives a validated absolute path under
+`Application.persistentDataPath`.
+
+#### Cache Sync Flow
+
+1. `FPVideoCacheBootstrap` creates `FPVideoCacheManager` from its assigned
+   `FPVideoRuntimeConfig` and fetches the JSON at `Manifest Url`.
+2. `RequestVideoAsync(videoId)` resolves the matching manifest entry. Each entry
+   uses `id`, `version`, `fileName`, `downloadUrl`, `sha256`, and
+   `contentLength`.
+3. The manager checks
+   `<persistentDataPath>/<Cache Root Folder Name>/<Videos Folder Name>` plus the
+   per-ID JSON stored under `<Metadata Folder Name>`. A cache hit requires a
+   matching version and any enabled size/hash checks. With hash validation
+   enabled, `Strict` validation also hashes the cached video file.
+4. A cache miss downloads to `<fileName>.downloading`, validates the completed
+   size and SHA-256 when configured, moves it into the video cache, and writes
+   the local metadata only after validation succeeds.
+5. If the manifest or download is unavailable, an existing local copy can still
+   be returned when its metadata and configured offline checks pass.
+6. Every completed request flows from `FPVideoCacheBootstrap` through
+   `FPVideoSimpleEventBridge`. `On Resolved Local Path` is the playback handoff.
+
+Use `FuzzPhyte/Utility/Video/Hash Generator` to calculate the file hash and
+length and to generate a manifest entry or wrapped `videos` collection. Changing
+the manifest `version`, or changing the expected length or SHA-256 while its
+validation option is enabled, makes the online cache check miss and triggers a
+fresh download when a download URL is available.
+
+#### Scene Wiring
+
+1. Create a runtime config from
+   `Create/FuzzPhyte/Utility/Video/Runtime Config`. Assign the Azure manifest
+   URL, cache folder names, and desired validation settings.
+2. Add `FPVideoCacheBootstrap`, assign the runtime config, and choose one owner
+   for initialization. The normal runtime setup uses `Initialize On Awake`.
+   Disable equivalent initialization on `FPVideoCacheTester` when both
+   components are present.
+3. Add `FPVideoSimpleEventBridge` and assign the bootstrap. Connect only
+   `On Resolved Local Path` to
+   `FPVideoPlayerPathReceiver.SetVideoPath(string)` for playback.
+4. Add `FPVideoPlayerPathReceiver`, assign the target `VideoPlayer`, and use:
+   `Prepare On Set = true`, `Play On Prepared = true`,
+   `Stop Before Assigning = true`, and `Allow Frame Skipping = false`.
+5. On the target `VideoPlayer`, use `Play On Awake = false`,
+   `Skip On Drop = false`, and `Wait For First Frame = true`. Leave its clip and
+   URL empty because the receiver switches it to URL mode and assigns the local
+   path at runtime.
+6. Configure the `VideoPlayer` render output separately. For Render Texture
+   mode, assign a target texture and use that same texture on the material or UI
+   that displays the video.
+7. Request one video by its manifest ID, for example through
+   `FPVideoCacheBootstrap.RequestVideoAsync` or the context actions on
+   `FPVideoCacheTester`.
+
+`On Request Success`, `On Source Was Cache`, and
+`On Download Was Performed` are status outputs. Do not connect them to extra
+`Prepare` or `Play` calls. `Preload All Videos On Initialize` also publishes a
+completed request for every manifest entry; when a bridge feeds one
+`VideoPlayer`, each resolved path will replace the previous one. Keep preload
+disabled when one explicitly selected video should play.
+
+#### Playback and Diagnostics
+
+`FPVideoPlayerPathReceiver` stops the previous source, assigns the raw absolute
+local path, prepares asynchronously, applies the frame-skipping policy, and
+plays from `prepareCompleted`. `On Started Playing` is raised only from Unity's
+actual `VideoPlayer.started` callback. Preparation and decoder errors are sent
+to `On Path Assignment Failed`, and the receiver checks after
+`Playback Progress Check Delay` that the frame number or presentation time has
+advanced.
+
+The receiver context menu provides `Prepare Current Video`,
+`Play Current Video`, `Stop Current Video`, `Log Current Video State`, and
+`Clear Assigned Path`. `Play Current Video` stops and prepares again when a
+non-looping video is already at its end. If playback appears stalled, use
+`Log Current Video State` and confirm that `prepared`, `playing`, frame/time,
+`skipOnDrop`, render mode, and target texture match the intended setup.
+
+`FPVideoPlayerPathReceiverTests` provides asset-independent Play Mode coverage
+for path assignment, empty-path failure reporting, start-event timing, and
+completed-video detection. It intentionally does not search for or decode an
+arbitrary video file; real codec and render-output verification remains a scene
+test with known media.
+
 ### FP Audio Segment Tool
 
 FP Audio Segment Tool is an editor-only AudioClip trimming and cleanup helper. It lets you preview a source clip waveform, choose an in/out segment, add independent mute or cut regions, and export the processed result as a WAV asset.

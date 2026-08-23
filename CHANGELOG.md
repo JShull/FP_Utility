@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   release cleanup, and invalid configuration handling.
 - Added an optional startup-only articulation snap that aligns the physical grab
   point to the follow target before creating the physics constraint.
+- Added focused Play Mode coverage for cached-video path assignment, empty-path
+  failure handling, and Unity playback lifecycle callbacks.
+
+### Changed
+
+- Updated `FPVideoPlayerPathReceiver` to pass raw local paths to `VideoPlayer`,
+  emit started playback only from Unity's `started` callback, and surface native
+  playback errors through the existing failure event. Playback requests now
+  restart completed non-looping videos, disable frame skipping by default, and
+  report a one-shot frame/time progression check after playback starts.
 
 ## [1.0.2]-2026-08-16
 
