@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Made shared mesh-preview framing scale to the mesh's actual bounds instead of
+  imposing a `0.1`-unit minimum, and added common multiplicative zoom limits
+  for both very small and ordinary meshes.
 - Updated `FPVideoPlayerPathReceiver` to pass raw local paths to `VideoPlayer`,
   emit started playback only from Unity's `started` callback, and surface native
   playback errors through the existing failure event. Playback requests now

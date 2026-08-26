@@ -25,6 +25,10 @@ namespace FuzzPhyte.Utility.Editor
     {
         public const float DefaultFieldOfView = 30f;
         public const float DefaultOrbitSensitivity = 0.4f;
+        public const float DefaultPreviewZoom = 1.4f;
+        public const float MinimumPreviewZoom = 0.05f;
+        public const float MaximumPreviewZoom = 40f;
+        private const float MinimumBoundsExtent = 0.000001f;
         public static Color PreviewMeshColor => new Color(0.62f, 0.83f, 1f, 1f);
         public static Color VertexOverlayColor => FP_Utility_Editor.WarningColor;
         public static Color EdgeOverlayColor => Color.white;
@@ -57,7 +61,7 @@ namespace FuzzPhyte.Utility.Editor
 
         public static float CalculateFitDistance(Bounds bounds, Rect previewRect, float fieldOfView = DefaultFieldOfView)
         {
-            float radius = Mathf.Max(0.1f, bounds.extents.magnitude);
+            float radius = CalculateBoundsRadius(bounds);
             float verticalFov = fieldOfView * Mathf.Deg2Rad;
             float aspect = Mathf.Max(0.1f, previewRect.width / Mathf.Max(1f, previewRect.height));
             float horizontalFov = 2f * Mathf.Atan(Mathf.Tan(verticalFov * 0.5f) * aspect);
@@ -84,8 +88,8 @@ namespace FuzzPhyte.Utility.Editor
                 new Vector3(max.x, max.y, max.z)
             };
 
-            float horizontalExtent = 0.1f;
-            float verticalExtent = 0.1f;
+            float horizontalExtent = MinimumBoundsExtent;
+            float verticalExtent = MinimumBoundsExtent;
             for (int i = 0; i < corners.Length; i++)
             {
                 Vector3 cameraLocal = worldToCamera * (corners[i] - center);
@@ -94,6 +98,21 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             return Mathf.Max(verticalExtent, horizontalExtent / aspect);
+        }
+
+        public static float CalculateBoundsRadius(Bounds bounds)
+        {
+            return Mathf.Max(MinimumBoundsExtent, bounds.extents.magnitude);
+        }
+
+        public static float ClampPreviewZoom(float zoom)
+        {
+            return Mathf.Clamp(zoom, MinimumPreviewZoom, MaximumPreviewZoom);
+        }
+
+        public static float ApplyScrollZoom(float currentZoom, float scrollDelta, float sensitivity = 0.08f)
+        {
+            return ClampPreviewZoom(currentZoom * Mathf.Exp(scrollDelta * sensitivity));
         }
 
         public static FPMeshPreviewProjection DrawProjectionPopup(FPMeshPreviewProjection projection)
