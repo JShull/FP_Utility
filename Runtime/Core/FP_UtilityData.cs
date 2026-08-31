@@ -705,7 +705,172 @@ namespace FuzzPhyte.Utility
             Debug.DrawRay(position, normal, Color.blue, drawTime);
         }
         #endregion
+        #region UV Coordinate Space to World Position
+        /// <summary>
+        /// Try to get a UV assuming that the gameobject has a mesh renderer on it
+        /// </summary>
+        /// <param name="gameObject"></param>
+        /// <param name="uv"></param>
+        /// <param name="worldPosition"></param>
+        /// <returns></returns>
+        public static bool TryUVToWorldPosition(GameObject gameObject,Vector2 uv,out Vector3 worldPosition)
+        {
+            worldPosition = default;
 
+            if (gameObject == null)
+            {
+                Debug.LogError($"Gameobject passed was null!");
+                return false;
+            }
+
+            
+            MeshRenderer renderer = gameObject.GetComponent<MeshRenderer>();
+
+            if (renderer == null)
+            {
+                Debug.LogWarning($"Mesh Renderer not on {gameObject.name}, looking at children...");
+                renderer = gameObject.GetComponentInChildren<MeshRenderer>();
+                if (renderer == null) {
+                    Debug.LogError($"Didn't find a mesh renderer on a child of the gameobject, {gameObject.name}");
+                    return false;
+                }
+            }
+
+            return TryUVToWorldPosition(renderer, uv, out worldPosition);
+        }
+        /// <summary>
+        /// Tries to convert a UV coordinate on a mesh into a world-space position
+        /// </summary>
+        /// <param name="meshRenderer">World Object Reference with the MeshRenderer</param>
+        /// <param name="uv">Relative Texture Location 0-1 space</param>
+        /// <param name="worldPosition">world location return</param>
+        /// <returns></returns>
+        public static bool TryUVToWorldPosition(MeshRenderer meshRenderer,Vector2 uv,out Vector3 worldPosition)
+        {
+            worldPosition = default;
+            if (meshRenderer == null)
+            {
+                Debug.LogError($"Mesh Renderer = null");
+                return false;
+            }
+
+            MeshFilter meshFilter = meshRenderer.GetComponent<MeshFilter>();
+            if (meshFilter == null || meshFilter.sharedMesh == null)
+            {
+                Debug.LogError($"Didn't find a Mesh Filter on the {meshRenderer.gameObject.name} passed in");
+                return false;
+            }
+            Mesh mesh = meshFilter.sharedMesh;
+
+            Vector3[] vertices = mesh.vertices;
+            Vector2[] uvs = mesh.uv;
+            int[] triangles = mesh.triangles;
+
+            if (uvs == null || uvs.Length == 0)
+            {
+                Debug.LogError("Missing/no UVS?");
+                return false;
+            }
+            if (uvs.Length != vertices.Length)
+            {
+                Debug.LogError("UVS length and vertices length didn't match!");
+                return false;
+            }
+            for (int i = 0; i < triangles.Length; i += 3)
+            {
+                int index0 = triangles[i];
+                int index1 = triangles[i + 1];
+                int index2 = triangles[i + 2];
+
+                Vector2 uv0 = uvs[index0];
+                Vector2 uv1 = uvs[index1];
+                Vector2 uv2 = uvs[index2];
+
+                if (!TryGetBarycentricCoordinates(
+                        uv,
+                        uv0,
+                        uv1,
+                        uv2,
+                        out Vector3 barycentric))
+                {
+                    continue;
+                }
+
+                Vector3 localPosition =
+                    vertices[index0] * barycentric.x +
+                    vertices[index1] * barycentric.y +
+                    vertices[index2] * barycentric.z;
+
+                worldPosition =
+                    meshRenderer.transform.TransformPoint(localPosition);
+
+                return true;
+            }
+            Debug.LogWarning($"Never found a bary centric coordinate!");
+            return false;
+
+        }
+        /// <summary>
+        /// Attempts to get the Barycentric value given UV triangle pt data
+        /// </summary>
+        /// <param name="point"></param>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <param name="c"></param>
+        /// <param name="barycentric"></param>
+        /// <returns></returns>
+        private static bool TryGetBarycentricCoordinates(
+        Vector2 point,
+        Vector2 a,
+        Vector2 b,
+        Vector2 c,
+        out Vector3 barycentric)
+        {
+            barycentric = default;
+
+            Vector2 v0 = b - a;
+            Vector2 v1 = c - a;
+            Vector2 v2 = point - a;
+
+            float denominator =
+                v0.x * v1.y -
+                v1.x * v0.y;
+
+            if (Mathf.Abs(denominator) < Mathf.Epsilon)
+            {
+                Debug.LogError($"Denominator < Epsilon");
+                return false;
+            }
+                
+
+            float invDenominator = 1f / denominator;
+
+            float v =
+                (v2.x * v1.y -
+                 v1.x * v2.y) *
+                invDenominator;
+
+            float w =
+                (v0.x * v2.y -
+                 v2.x * v0.y) *
+                invDenominator;
+
+            float u = 1f - v - w;
+
+            const float tolerance = 0.0001f;
+
+            if (
+                u < -tolerance ||
+                v < -tolerance ||
+                w < -tolerance)
+            {
+                return false;
+            }
+
+            barycentric = new Vector3(u, v, w);
+            return true;
+        }
+        #endregion
         public static FP_BoundingBoxInfo? CreateBoundingBox(Vector3 worldPosition, Quaternion worldRotation, Renderer objectRenderer)
         {
             

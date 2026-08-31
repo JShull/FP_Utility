@@ -1,5 +1,19 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-6990227946095276774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e32e72b6a3f58a24c9033e2b9275eea0, type: 3}
+  m_Name: ScreenSpaceShadows
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.ScreenSpaceShadows
+  m_Active: 1
+  m_Shader: {fileID: 4800000, guid: 0f854b35a0cf61a429bd5dcfea30eddd, type: 3}
 --- !u!114 &-5324482889956476206
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -139,7 +153,8 @@ MonoBehaviour:
   - {fileID: -2446556444777686079}
   - {fileID: -1817281641349079765}
   - {fileID: -5324482889956476206}
-  m_RendererFeatureMap: 6e8958e3b7d8056f03a53e7719c4f03ec9db10046b3f722a1daacde52c5f0b6528af727e7ef43bf9c15b153ae0150cde2b9d8cbef9b7c7e6d2ba7f9b05a31bb6
+  - {fileID: -6990227946095276774}
+  m_RendererFeatureMap: 6e8958e3b7d8056f03a53e7719c4f03ec9db10046b3f722a1daacde52c5f0b6528af727e7ef43bf9c15b153ae0150cde2b9d8cbef9b7c7e6d2ba7f9b05a31bb61a8dfb05b8b8fd9e
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
