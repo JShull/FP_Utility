@@ -39,6 +39,7 @@ namespace FuzzPhyte.Utility
         public const string FP_HHeader_ENABLED_KEY = "FP_HHeader_Enabled";
         public const string FP_HHeader_MESHPICKER_ENABLED_KEY = "FP_HHeader_MeshPicker_Enabled";
         public const string FP_HHeader_DEBUG_LOGGING_KEY = "FP_HHeader_DebugLogging";
+        public const string FP_HIERARCHY_ICON_PALETTE_KEY = "FP_HierarchyIconPalette";
         public const string FP_GIZMOS_DEFAULT = "FP";
         // azure parameters
         public const string AZURE_STORAGE_ROOT_KEY = "FP_AzureStorageRoot";

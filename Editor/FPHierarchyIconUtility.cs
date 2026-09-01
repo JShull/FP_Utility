@@ -8,6 +8,7 @@
 
 namespace FuzzPhyte.Utility.Editor
 {
+    using System;
     using System.Collections.Generic;
     using UnityEditor;
     using UnityEditor.SceneManagement;
@@ -15,6 +16,12 @@ namespace FuzzPhyte.Utility.Editor
 
     internal static class FPHierarchyIconUtility
     {
+        [Serializable]
+        private sealed class IconPaletteData
+        {
+            public List<string> Guids = new();
+        }
+
         internal static List<GameObject> CollectSelectionTargets(
             bool includeChildren,
             out int skippedHeaderCount,
@@ -91,6 +98,104 @@ namespace FuzzPhyte.Utility.Editor
             return target == null ? null : EditorGUIUtility.GetIconForObject(target);
         }
 
+        internal static bool IsEligibleTarget(GameObject target)
+        {
+            return target != null &&
+                   !EditorUtility.IsPersistent(target) &&
+                   target.scene.IsValid() &&
+                   target.scene.isLoaded &&
+                   !FP_HHeader.IsHeaderObject(target);
+        }
+
+        internal static List<Texture2D> GetPaletteIcons()
+        {
+            IconPaletteData data = LoadPaletteData();
+            var icons = new List<Texture2D>(data.Guids.Count);
+            for (int i = 0; i < data.Guids.Count; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(data.Guids[i]);
+                Texture2D icon = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                if (icon != null)
+                {
+                    icons.Add(icon);
+                }
+            }
+
+            return icons;
+        }
+
+        internal static bool PaletteContains(Texture2D icon)
+        {
+            string guid = GetAssetGuid(icon);
+            return !string.IsNullOrWhiteSpace(guid) && LoadPaletteData().Guids.Contains(guid);
+        }
+
+        internal static bool AddPaletteIcon(Texture2D icon)
+        {
+            string guid = GetAssetGuid(icon);
+            if (string.IsNullOrWhiteSpace(guid))
+            {
+                return false;
+            }
+
+            IconPaletteData data = LoadPaletteData();
+            if (data.Guids.Contains(guid))
+            {
+                return false;
+            }
+
+            data.Guids.Add(guid);
+            SavePaletteData(data);
+            return true;
+        }
+
+        internal static bool RemovePaletteIcon(Texture2D icon)
+        {
+            string guid = GetAssetGuid(icon);
+            if (string.IsNullOrWhiteSpace(guid))
+            {
+                return false;
+            }
+
+            IconPaletteData data = LoadPaletteData();
+            if (!data.Guids.Remove(guid))
+            {
+                return false;
+            }
+
+            SavePaletteData(data);
+            return true;
+        }
+
+        internal static bool SetPaletteIcons(IReadOnlyList<Texture2D> icons)
+        {
+            var orderedGuids = new List<string>();
+            var uniqueGuids = new HashSet<string>();
+            if (icons != null)
+            {
+                for (int i = 0; i < icons.Count; i++)
+                {
+                    string guid = GetAssetGuid(icons[i]);
+                    if (!string.IsNullOrWhiteSpace(guid) && uniqueGuids.Add(guid))
+                    {
+                        orderedGuids.Add(guid);
+                    }
+                }
+            }
+
+            IconPaletteData currentData = LoadPaletteData();
+            if (ListsMatch(currentData.Guids, orderedGuids))
+            {
+                return false;
+            }
+
+            currentData.Guids = orderedGuids;
+            SavePaletteData(currentData);
+            return true;
+        }
+
+        internal static string PaletteEditorPrefsKey => GetPaletteKey();
+
         private static void TryAddTarget(
             GameObject candidate,
             List<GameObject> targets,
@@ -133,11 +238,7 @@ namespace FuzzPhyte.Utility.Editor
             for (int i = 0; i < targets.Count; i++)
             {
                 GameObject target = targets[i];
-                if (target != null &&
-                    !EditorUtility.IsPersistent(target) &&
-                    target.scene.IsValid() &&
-                    target.scene.isLoaded &&
-                    !FP_HHeader.IsHeaderObject(target) &&
+                if (IsEligibleTarget(target) &&
                     EditorGUIUtility.GetIconForObject(target) != icon)
                 {
                     changedTargets.Add(target);
@@ -149,7 +250,7 @@ namespace FuzzPhyte.Utility.Editor
                 return 0;
             }
 
-            var undoTargets = new Object[changedTargets.Count];
+            var undoTargets = new UnityEngine.Object[changedTargets.Count];
             for (int i = 0; i < changedTargets.Count; i++)
             {
                 undoTargets[i] = changedTargets[i];
@@ -171,6 +272,74 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.RepaintHierarchyWindow();
             SceneView.RepaintAll();
             return changedTargets.Count;
+        }
+
+        private static IconPaletteData LoadPaletteData()
+        {
+            string json = EditorPrefs.GetString(GetPaletteKey(), string.Empty);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new IconPaletteData();
+            }
+
+            IconPaletteData data = JsonUtility.FromJson<IconPaletteData>(json);
+            if (data == null || data.Guids == null)
+            {
+                return new IconPaletteData();
+            }
+
+            var uniqueGuids = new HashSet<string>();
+            var normalizedGuids = new List<string>(data.Guids.Count);
+            for (int i = 0; i < data.Guids.Count; i++)
+            {
+                string guid = data.Guids[i];
+                if (!string.IsNullOrWhiteSpace(guid) && uniqueGuids.Add(guid))
+                {
+                    normalizedGuids.Add(guid);
+                }
+            }
+
+            data.Guids = normalizedGuids;
+            return data;
+        }
+
+        private static void SavePaletteData(IconPaletteData data)
+        {
+            EditorPrefs.SetString(GetPaletteKey(), JsonUtility.ToJson(data));
+        }
+
+        private static bool ListsMatch(IReadOnlyList<string> left, IReadOnlyList<string> right)
+        {
+            if (left == null || right == null || left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < left.Count; i++)
+            {
+                if (!string.Equals(left[i], right[i], StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static string GetPaletteKey()
+        {
+            return $"{FP_UtilityData.FP_HIERARCHY_ICON_PALETTE_KEY}_{Hash128.Compute(Application.dataPath)}";
+        }
+
+        private static string GetAssetGuid(Texture2D icon)
+        {
+            if (icon == null)
+            {
+                return string.Empty;
+            }
+
+            string path = AssetDatabase.GetAssetPath(icon);
+            return string.IsNullOrWhiteSpace(path) ? string.Empty : AssetDatabase.AssetPathToGUID(path);
         }
     }
 }

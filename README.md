@@ -816,18 +816,28 @@ You can also use the `Header Options` window to apply the visual style from an `
 * `GameObject/FuzzPhyte/Header/Collapse Z Sections`
   * Collapses all detected headers in the current scene.
 
+#### Hierarchy Compatibility
+
+FP Header supports both Unity's classic Hierarchy and the Unity 6000.6 New Hierarchy. The classic window continues to use Unity's IMGUI hierarchy callback, while Unity 6000.6 and newer use the public UI Toolkit `HierarchyWindow.BindViewItem` API. Both paths use the same header detection, colors, foldout state, section visibility, and select-section behavior. In the New Hierarchy, the FP foldout and select-section controls are placed immediately before the header name.
+
 #### Hierarchy Icon Overrides
 
 The Header Options window also provides a native Hierarchy Icon Override workflow for ordinary scene GameObjects. This uses Unity's per-GameObject custom icon data rather than drawing an additional FP overlay in the Hierarchy Name column. FP Header objects are always excluded, so their existing foldout, selection, and styling behavior remains unchanged.
 
 1. Open `FuzzPhyte/Header/Header Options` and select one or more ordinary scene GameObjects.
 2. Assign an imported `Texture2D` to `Icon Override`, or use `Import Icon...` to copy an image into a project-owned location under `Assets`.
-3. Leave `Include Children (Recursive)` disabled to affect only the explicitly selected GameObjects. Enable it when inactive and active descendants should also receive the icon.
-4. Click `Apply To Selected`. Use `Clear Selected Icons` to restore Unity's automatic component or type icon.
+3. Click `Add Icon Override To Palette` to make an existing project texture available from the Hierarchy. Icons imported with `Import Icon...` are added to the palette automatically.
+4. Expand or collapse `Alt-Click Palette` as needed. Drag palette rows to control the icon order used by the popup, click an icon to make it the current override, or use `Remove` to take it out of the palette.
+5. Leave `Include Children (Recursive)` disabled to affect only the explicitly selected GameObjects. Enable it when inactive and active descendants should also receive the icon.
+6. Click `Apply To Selected`. Use `Clear Selected Icons` to restore Unity's automatic component or type icon.
 
-Apply and clear operations support Unity Undo and mark each affected scene dirty. Project assets and valid FP Header objects are skipped. Custom GameObject icons are serialized with the scene; imported icon textures must remain available in the project.
+For the quick workflow, hold `Alt` and left-click an ordinary GameObject in either the classic or New Hierarchy. The popup displays the icons in the Header Options `Alt-Click Palette`; choose one to apply it or use `Clear Icon`. Alt-click always affects only the clicked GameObject, never its children, and valid FP Header objects do not open the palette.
 
-References: [Unity 6.5 New Hierarchy window](https://docs.unity3d.com/6000.5/Documentation/Manual/new-hierarchy.html) and [Unity 6.6 `EditorGUIUtility.SetIconForObject`](https://docs.unity3d.com/6000.6/Documentation/ScriptReference/EditorGUIUtility.SetIconForObject.html).
+Apply and clear operations support Unity Undo and mark each affected scene dirty. Project assets and valid FP Header objects are skipped. Custom GameObject icons are serialized with the scene; imported icon textures must remain available in the project. Palette membership and ordering are stored locally per project in `EditorPrefs` using asset GUIDs, so they survive editor reloads but are not shared through source control.
+
+When FP Utility is installed through Unity Package Manager, use `FuzzPhyte/Utility/Editor/Gizmos/Move Icon Assets` to copy the package's texture assets from both `Editor/Gizmos` and `Editor/Icons` into `Assets/Gizmos/FP`. Existing project assets with the same filename are preserved. The command is disabled for an `Assets/FP_Utility` source checkout because the package-only copy is not needed there.
+
+References: [Unity 6.5 New Hierarchy window](https://docs.unity3d.com/6000.5/Documentation/Manual/new-hierarchy.html), [Unity 6.6 `HierarchyWindow.BindViewItem`](https://docs.unity3d.com/6000.6/Documentation/ScriptReference/Unity.Hierarchy.Editor.HierarchyWindow.BindViewItem.html), and [Unity 6.6 `EditorGUIUtility.SetIconForObject`](https://docs.unity3d.com/6000.6/Documentation/ScriptReference/EditorGUIUtility.SetIconForObject.html).
 
 ### FP Scene Asset Tool
 

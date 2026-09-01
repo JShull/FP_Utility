@@ -21,6 +21,9 @@ namespace FuzzPhyte.Utility.Editor.Tests
         private GameObject root;
         private GameObject child;
         private Texture2D icon;
+        private string paletteEditorPrefsKey;
+        private string previousPaletteJson;
+        private bool hadPreviousPalette;
 
         [SetUp]
         public void SetUp()
@@ -32,6 +35,10 @@ namespace FuzzPhyte.Utility.Editor.Tests
             SceneManager.MoveGameObjectToScene(child, previewScene);
             child.transform.SetParent(root.transform);
             icon = new Texture2D(16, 16);
+            paletteEditorPrefsKey = FPHierarchyIconUtility.PaletteEditorPrefsKey;
+            hadPreviousPalette = EditorPrefs.HasKey(paletteEditorPrefsKey);
+            previousPaletteJson = EditorPrefs.GetString(paletteEditorPrefsKey, string.Empty);
+            EditorPrefs.DeleteKey(paletteEditorPrefsKey);
         }
 
         [TearDown]
@@ -55,6 +62,15 @@ namespace FuzzPhyte.Utility.Editor.Tests
             if (icon != null)
             {
                 Object.DestroyImmediate(icon);
+            }
+
+            if (hadPreviousPalette)
+            {
+                EditorPrefs.SetString(paletteEditorPrefsKey, previousPaletteJson);
+            }
+            else
+            {
+                EditorPrefs.DeleteKey(paletteEditorPrefsKey);
             }
         }
 
@@ -153,6 +169,49 @@ namespace FuzzPhyte.Utility.Editor.Tests
 
             Assert.That(appliedCount, Is.Zero);
             Assert.That(FPHierarchyIconUtility.GetIcon(header), Is.Null);
+        }
+
+        [Test]
+        public void Palette_AddPreventsDuplicatesAndRemoveClearsEntry()
+        {
+            Texture2D assetIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/FP_Utility/Editor/Icons/HH_Open.png");
+
+            Assert.That(assetIcon, Is.Not.Null);
+            Assert.That(FPHierarchyIconUtility.AddPaletteIcon(assetIcon), Is.True);
+            Assert.That(FPHierarchyIconUtility.AddPaletteIcon(assetIcon), Is.False);
+            Assert.That(FPHierarchyIconUtility.PaletteContains(assetIcon), Is.True);
+            Assert.That(FPHierarchyIconUtility.GetPaletteIcons(), Is.EqualTo(new[] { assetIcon }));
+            Assert.That(FPHierarchyIconUtility.RemovePaletteIcon(assetIcon), Is.True);
+            Assert.That(FPHierarchyIconUtility.GetPaletteIcons(), Is.Empty);
+        }
+
+        [Test]
+        public void Palette_SetOrderPersistsAndRemovesDuplicates()
+        {
+            Texture2D openIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/FP_Utility/Editor/Icons/HH_Open.png");
+            Texture2D closeIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/FP_Utility/Editor/Icons/HH_Close.png");
+
+            Assert.That(openIcon, Is.Not.Null);
+            Assert.That(closeIcon, Is.Not.Null);
+            Assert.That(
+                FPHierarchyIconUtility.SetPaletteIcons(new[] { openIcon, closeIcon }),
+                Is.True);
+            Assert.That(
+                FPHierarchyIconUtility.GetPaletteIcons(),
+                Is.EqualTo(new[] { openIcon, closeIcon }));
+
+            Assert.That(
+                FPHierarchyIconUtility.SetPaletteIcons(new[] { closeIcon, openIcon, closeIcon, null }),
+                Is.True);
+            Assert.That(
+                FPHierarchyIconUtility.GetPaletteIcons(),
+                Is.EqualTo(new[] { closeIcon, openIcon }));
+            Assert.That(
+                FPHierarchyIconUtility.SetPaletteIcons(new[] { closeIcon, openIcon }),
+                Is.False);
         }
     }
 }

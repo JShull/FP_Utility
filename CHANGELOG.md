@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added a native Hierarchy Icon Override panel to FP Header Options for applying or clearing project-owned custom icons on selected ordinary scene GameObjects, with Undo, multi-selection, and optional recursive child processing that defaults off.
 - Added external image import for hierarchy icons through a user-selected project-owned `Assets` location. Valid FP Header objects remain excluded so existing header behavior is unchanged.
+- Added Unity 6000.6 New Hierarchy rendering through the public UI Toolkit hierarchy binding API while retaining the classic IMGUI Hierarchy path. Header colors, foldout state, section visibility, and selection behavior are shared across both modes.
+- Added a project-scoped Alt-click icon palette to Header Options. Hold Alt and left-click an ordinary GameObject in either Hierarchy to apply or clear a palette icon without recursively changing children; FP Header objects remain excluded.
+- Added a collapsible, drag-reorderable Alt-click palette whose persisted order is shared by the Hierarchy popup.
+- Completed the package-only `Move Icon Assets` command so it copies texture assets from both `Editor/Gizmos` and `Editor/Icons` into `Assets/Gizmos/FP` through Unity's asset database while preserving existing same-named project assets.
 
 ## [1.0.3]-2026-09-01
 

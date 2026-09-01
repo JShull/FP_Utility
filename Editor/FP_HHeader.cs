@@ -20,7 +20,7 @@ namespace FuzzPhyte.Utility.Editor
     using System;
 
     [InitializeOnLoad]
-    public static class FP_HHeader
+    public static partial class FP_HHeader
     {
         private static Dictionary<string, bool> foldoutStates = new Dictionary<string, bool>();
         private static Dictionary<string, string> previousNames = new Dictionary<string, string>();
@@ -91,6 +91,9 @@ namespace FuzzPhyte.Utility.Editor
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
 #pragma warning restore CS0618
 #endif
+#if UNITY_6000_6_OR_NEWER
+            RegisterNewHierarchyCallbacks();
+#endif
         }
 
         private static void ScheduleDeferredHierarchyCallbackRebind()
@@ -103,7 +106,7 @@ namespace FuzzPhyte.Utility.Editor
         private static void RebindHierarchyWindowItemCallbackOnDelay()
         {
             RegisterHierarchyWindowItemCallback();
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
 
             hierarchyCallbackDeferredRebindsRemaining--;
             if (hierarchyCallbackDeferredRebindsRemaining > 0)
@@ -185,7 +188,7 @@ namespace FuzzPhyte.Utility.Editor
                 SaveFoldoutStatesToPrefs();
                 FP_HHeaderMeshPickerCache.RequestCacheRefresh();
                 EditorApplication.DirtyHierarchyWindowSorting();
-                EditorApplication.RepaintHierarchyWindow();
+                RepaintHierarchyWindows();
             }
         }
         private static (bool,int) PreviousNameCheck(string key, GameObject obj, int loopNum=0)
@@ -290,7 +293,7 @@ namespace FuzzPhyte.Utility.Editor
                 SaveFoldoutStatesToPrefs();
                 FP_HHeaderMeshPickerCache.RequestCacheRefresh();
                 EditorApplication.DirtyHierarchyWindowSorting();
-                EditorApplication.RepaintHierarchyWindow();
+                RepaintHierarchyWindows();
             }
         }
         private static void OnUnitySceneOpened(Scene scene, OpenSceneMode mode)
@@ -385,7 +388,7 @@ namespace FuzzPhyte.Utility.Editor
             LoadHeaderStyleFromFile();
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
             EditorApplication.DirtyHierarchyWindowSorting();
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
 
             if (expandAllHeadersOnOpen)
             {
@@ -410,7 +413,7 @@ namespace FuzzPhyte.Utility.Editor
             SyncHeadersForScene(activeScene, false);
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
             EditorApplication.DirtyHierarchyWindowSorting();
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
         }
         private static void OnSceneOpened(Scene scene)
         {
@@ -446,13 +449,13 @@ namespace FuzzPhyte.Utility.Editor
                 
                 //expand everything
                 ExpandAllHeaders();
-                EditorApplication.RepaintHierarchyWindow();
+                RepaintHierarchyWindows();
             }
             else if(state==PlayModeStateChange.EnteredEditMode)
             {
                 foldoutStates = new Dictionary<string, bool>(editRuntimeFoldoutStates);
                 RestoreHiddenPrefabs();
-                EditorApplication.RepaintHierarchyWindow();
+                RepaintHierarchyWindows();
             }
             /*
             //OLD
@@ -481,11 +484,15 @@ namespace FuzzPhyte.Utility.Editor
 
         private static void OnHierarchyWindowItemOnGUI(GameObject obj, Rect selectionRect)
         {
-            if (!IsEnabled) return;
             if (obj == null)
             {
                 return;
             }
+            if (TryHandleHierarchyIconPaletteClick(obj, selectionRect))
+            {
+                return;
+            }
+            if (!IsEnabled) return;
             DrawHierarchyVisuals(obj, selectionRect);
             if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
@@ -547,24 +554,8 @@ namespace FuzzPhyte.Utility.Editor
                     // Toggle the foldout state on click
                     if (Event.current.type == EventType.MouseDown && foldoutRect.Contains(Event.current.mousePosition))
                     {
-                        foldoutStates[ID] = !isExpanded;
+                        ToggleHeaderSection(obj);
                         Event.current.Use();
-
-                        if (foldoutStates[ID])
-                        {
-                            // If expanding, make sure to show previously hidden objects
-                            ShowSubsequentObjects(obj);
-                        }
-                        else
-                        {
-                            // If collapsing, hide subsequent objects
-                            HideSubsequentObjects(obj);
-                        }
-                        //Debug.LogWarning($"Mouse Down Change Foldout State");
-                        EditorApplication.RepaintHierarchyWindow();
-                        FP_HHeaderMeshPickerCache.RequestCacheRefresh();
-                        Event.current.Use();
-                        dirtyState = true;
                     }
 
                     // Draw the custom select all icon
@@ -582,7 +573,7 @@ namespace FuzzPhyte.Utility.Editor
                     if (Event.current.type == EventType.MouseDown && selectAllRect.Contains(Event.current.mousePosition))
                     {
                         SelectAllSubsequentObjects(obj);
-                        EditorApplication.RepaintHierarchyWindow();
+                        RepaintHierarchyWindows();
                         //Event.current.Use();
                         dragSelectionActive = true;
                         //initialMousePosition = Event.current.mousePosition;
@@ -607,7 +598,7 @@ namespace FuzzPhyte.Utility.Editor
                         foldoutStates.Remove(ID);
                         previousNames.Remove(ID);
                         //Debug.LogWarning($"Some sort of change, removing the foldout state for {obj.name}!");
-                        EditorApplication.RepaintHierarchyWindow();
+                        RepaintHierarchyWindows();
                         dirtyState = true;
                     }
                 }
@@ -615,7 +606,7 @@ namespace FuzzPhyte.Utility.Editor
                 {
                     //Debug.LogWarning($"Dirty state!");
                     SaveFoldoutStatesToPrefs();
-                    EditorApplication.RepaintHierarchyWindow();
+                    RepaintHierarchyWindows();
                 }
             }
         }
@@ -822,6 +813,61 @@ namespace FuzzPhyte.Utility.Editor
                    !obj.activeInHierarchy &&
                    obj.transform.childCount == 0;
         }
+        private static bool TryHandleHierarchyIconPaletteClick(GameObject obj, Rect selectionRect)
+        {
+            Event currentEvent = Event.current;
+            if (currentEvent == null ||
+                currentEvent.type != EventType.MouseDown ||
+                currentEvent.button != 0 ||
+                !currentEvent.alt ||
+                !selectionRect.Contains(currentEvent.mousePosition) ||
+                !FPHierarchyIconUtility.IsEligibleTarget(obj))
+            {
+                return false;
+            }
+
+            if (!FPHierarchyIconPalettePopup.Show(obj, currentEvent.mousePosition))
+            {
+                return false;
+            }
+
+            currentEvent.Use();
+            return true;
+        }
+        private static bool IsHeaderExpanded(GameObject headerObj)
+        {
+            return headerObj != null &&
+                   (!foldoutStates.TryGetValue(headerObj.name, out bool isExpanded) || isExpanded);
+        }
+        private static void ToggleHeaderSection(GameObject headerObj)
+        {
+            if (!IsHeaderObject(headerObj))
+            {
+                return;
+            }
+
+            bool isExpanded = !IsHeaderExpanded(headerObj);
+            foldoutStates[headerObj.name] = isExpanded;
+            if (isExpanded)
+            {
+                ShowSubsequentObjects(headerObj);
+            }
+            else
+            {
+                HideSubsequentObjects(headerObj);
+            }
+
+            SaveFoldoutStatesToPrefs();
+            FP_HHeaderMeshPickerCache.RequestCacheRefresh();
+            RepaintHierarchyWindows();
+        }
+        private static void RepaintHierarchyWindows()
+        {
+            EditorApplication.RepaintHierarchyWindow();
+#if UNITY_6000_6_OR_NEWER
+            RefreshNewHierarchyWindows();
+#endif
+        }
         private static void ExpandHeaderForSelection(GameObject selectedObj)
         {
             if (selectedObj == null || !HasUsableScene(selectedObj.scene))
@@ -846,7 +892,7 @@ namespace FuzzPhyte.Utility.Editor
             SaveFoldoutStatesToPrefs();
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
             EditorApplication.DirtyHierarchyWindowSorting();
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
             EditorGUIUtility.PingObject(selectedObj);
         }
         private static GameObject FindOwningHeader(GameObject selectedObj)
@@ -1089,7 +1135,7 @@ namespace FuzzPhyte.Utility.Editor
                     ShowSubsequentObjects(obj);
                 }
             }
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
         }
         #region Save and Load Foldout States
         private static void SaveFoldoutStatesToPrefs()
@@ -1322,7 +1368,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 ResetSceneData();
             }
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
         }
         private static void ValidateHeaderMenu(string path)
         {
@@ -1353,7 +1399,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
             // Refresh the hierarchy to ensure the changes are visible
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
             SaveFoldoutStatesToPrefs();
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
         }
@@ -1375,7 +1421,7 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
             // Repaint the hierarchy to make sure all objects are updated
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
             SaveFoldoutStatesToPrefs();
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
         }
@@ -1392,7 +1438,7 @@ namespace FuzzPhyte.Utility.Editor
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
             LogWarning($"FP_HHeader: Editor forced data reset, refreshing FuzzPhyte Header!");
             // Force a repaint of the Hierarchy window to ensure OnHierarchyWindowItemOnGUI runs
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
         }
         internal static bool ApplyHeaderDataAsset(FP_HHeaderData headerData, bool createHeaders)
         {
@@ -1444,7 +1490,7 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
-            EditorApplication.RepaintHierarchyWindow();
+            RepaintHierarchyWindows();
 
             if (createHeaders)
             {

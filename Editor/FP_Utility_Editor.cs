@@ -12,6 +12,7 @@ using System;
 using System.Threading.Tasks;
 using UnityEditor.PackageManager;
 using System.IO;
+using System.Collections.Generic;
 
 namespace FuzzPhyte.Utility.Editor
 {
@@ -674,47 +675,159 @@ namespace FuzzPhyte.Utility.Editor
         [MenuItem("FuzzPhyte/Utility/Editor/Gizmos/Move Icon Assets", priority = FP_UtilityData.MENU_UTILITY_EDITOR + 40)]
         public static void MoveAssetsFromPackagesToGizmos()
         {
-            // 1. Identify your source folders in Packages.
-            //    For example, let's say we want to copy from "Packages/com.mycompany.myawesomepackage/Gizmos" 
-            //    or maybe we have multiple packages with gizmo folders.
-            //    You could set up an array of sourcePaths if you have multiple packages:
-            //
-            //    string[] sourcePaths = new []
-            //    {
-            //        "../Packages/com.mycompany.myawesomepackage/Gizmos",
-            //        "../Packages/com.otherpackage.gizmosdemo/Gizmos"
-            //    };
-            //
-            // For demonstration, let's just do one:
+            UnityEditor.PackageManager.PackageInfo packageInfo =
+                UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(FP_Utility_Editor).Assembly);
+            if (packageInfo == null ||
+                !string.Equals(packageInfo.name, "com.fuzzphyte.utility", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(packageInfo.assetPath) ||
+                !packageInfo.assetPath.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
+            {
+                EditorUtility.DisplayDialog(
+                    "FP Utility Package Required",
+                    "Move Icon Assets is available when FP Utility is installed through Unity Package Manager.",
+                    "OK");
+                return;
+            }
 
-            //string relativePackageGizmoPath = "../Packages/com.mycompany.myawesomepackage/Gizmos";
+            string packageEditorPath = $"{packageInfo.assetPath.TrimEnd('/')}/Editor";
+            string destinationFolder = $"Assets/Gizmos/{FP_UtilityData.FP_GIZMOS_DEFAULT}";
+            if (!EnsureAssetDatabaseFolder(destinationFolder))
+            {
+                Debug.LogError($"Could not create the FP icon destination folder: {destinationFolder}");
+                return;
+            }
 
-            //var packageName = loadedPackageManager ? "utility" : "FP_Utility";
-            //var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
-            //var iconRefEditor = FP_Utility_Editor.ReturnEditorResourceIcons(packageRef);
-            /////
-            var loadedPackageManager = IsPackageLoadedViaPackageManager();
-            var packageName = loadedPackageManager ? "utility" : "FP_Utility";
-            var packageRef = FP_Utility_Editor.ReturnEditorPath(packageName, !loadedPackageManager);
-            var iconGizmoEditor = FP_Utility_Editor.ReturnGizmoSequenceIcons(packageRef);
-            //remove Assets
-            string removedAssets = packageRef.Remove(0, 6);
-            string removedGizmoAssets = iconGizmoEditor.Remove(0, 6);
-            string fullPath = Application.dataPath;
-            Debug.Log($"Gizmo Editor: {removedGizmoAssets}, Removed Assets Package Ref: {removedAssets} and we're going to add it to={fullPath}");
-            // 2. Construct absolute path from the Editor context:
-            //    Application.dataPath = "<YourProject>/Assets"
-            //    So we go up one folder to get to "<YourProject>"
-            string packageAbsolutePath = Path.Combine(fullPath, removedAssets);
-            Debug.Log($"Copying from: {packageAbsolutePath}");
+            List<KeyValuePair<string, string>> copyPlan = BuildIconAssetCopyPlan(
+                packageEditorPath,
+                destinationFolder);
+            int copiedCount = 0;
+            int existingCount = 0;
+            int failedCount = 0;
 
-            // 3. Determine your target folder in the Assets/Gizmos directory
-            //    If "Assets/Gizmos" doesn�t exist, create it.
-            string genericFPGizmo = Path.Combine("Gizmos", FP_UtilityData.FP_GIZMOS_DEFAULT);
-            string projectGizmosPath = Path.GetFullPath(Path.Combine(Application.dataPath, genericFPGizmo));
-            Debug.Log($"Creating Directory? {projectGizmosPath}");
-            //return;
-            
+            for (int i = 0; i < copyPlan.Count; i++)
+            {
+                KeyValuePair<string, string> entry = copyPlan[i];
+                if (AssetDatabase.LoadMainAssetAtPath(entry.Value) != null)
+                {
+                    existingCount++;
+                    continue;
+                }
+
+                if (AssetDatabase.CopyAsset(entry.Key, entry.Value))
+                {
+                    copiedCount++;
+                }
+                else
+                {
+                    failedCount++;
+                    Debug.LogError($"Could not copy FP icon asset from {entry.Key} to {entry.Value}.");
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            string resultMessage =
+                $"Copied {copiedCount} FP icon asset(s) to {destinationFolder}. " +
+                $"Preserved {existingCount} existing asset(s).";
+            if (failedCount > 0)
+            {
+                resultMessage += $" {failedCount} asset(s) could not be copied; see the Console for details.";
+            }
+
+            Debug.Log(resultMessage);
+            EditorUtility.DisplayDialog("FP Icon Assets", resultMessage, "OK");
+        }
+
+        [MenuItem("FuzzPhyte/Utility/Editor/Gizmos/Move Icon Assets", true)]
+        private static bool ValidateMoveAssetsFromPackagesToGizmos()
+        {
+            UnityEditor.PackageManager.PackageInfo packageInfo =
+                UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(FP_Utility_Editor).Assembly);
+            return packageInfo != null &&
+                   string.Equals(packageInfo.name, "com.fuzzphyte.utility", StringComparison.OrdinalIgnoreCase) &&
+                   !string.IsNullOrWhiteSpace(packageInfo.assetPath) &&
+                   packageInfo.assetPath.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static List<KeyValuePair<string, string>> BuildIconAssetCopyPlan(
+            string editorPath,
+            string destinationFolder)
+        {
+            var copyPlan = new List<KeyValuePair<string, string>>();
+            var destinationPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string normalizedEditorPath = editorPath.Replace("\\", "/").TrimEnd('/');
+            string normalizedDestination = destinationFolder.Replace("\\", "/").TrimEnd('/');
+            string[] sourceFolders =
+            {
+                ReturnGizmoSequenceIcons(normalizedEditorPath).Replace("\\", "/"),
+                ReturnEditorResourceIcons(normalizedEditorPath).Replace("\\", "/")
+            };
+
+            for (int folderIndex = 0; folderIndex < sourceFolders.Length; folderIndex++)
+            {
+                string sourceFolder = sourceFolders[folderIndex];
+                if (!AssetDatabase.IsValidFolder(sourceFolder))
+                {
+                    continue;
+                }
+
+                string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { sourceFolder });
+                var sourcePaths = new List<string>(guids.Length);
+                for (int guidIndex = 0; guidIndex < guids.Length; guidIndex++)
+                {
+                    string sourcePath = AssetDatabase.GUIDToAssetPath(guids[guidIndex]);
+                    if (!string.IsNullOrWhiteSpace(sourcePath))
+                    {
+                        sourcePaths.Add(sourcePath);
+                    }
+                }
+
+                sourcePaths.Sort(StringComparer.OrdinalIgnoreCase);
+                for (int sourceIndex = 0; sourceIndex < sourcePaths.Count; sourceIndex++)
+                {
+                    string sourcePath = sourcePaths[sourceIndex];
+                    string destinationPath = $"{normalizedDestination}/{Path.GetFileName(sourcePath)}";
+                    if (!destinationPaths.Add(destinationPath))
+                    {
+                        Debug.LogWarning(
+                            $"Skipped duplicate FP icon filename '{Path.GetFileName(sourcePath)}' from {sourcePath}.");
+                        continue;
+                    }
+
+                    copyPlan.Add(new KeyValuePair<string, string>(sourcePath, destinationPath));
+                }
+            }
+
+            return copyPlan;
+        }
+
+        private static bool EnsureAssetDatabaseFolder(string folderPath)
+        {
+            string normalizedPath = folderPath.Replace("\\", "/").Trim('/');
+            string[] segments = normalizedPath.Split('/');
+            if (segments.Length == 0 || !segments[0].Equals("Assets", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string currentPath = segments[0];
+            for (int i = 1; i < segments.Length; i++)
+            {
+                string nextPath = $"{currentPath}/{segments[i]}";
+                if (!AssetDatabase.IsValidFolder(nextPath))
+                {
+                    string guid = AssetDatabase.CreateFolder(currentPath, segments[i]);
+                    if (string.IsNullOrWhiteSpace(guid))
+                    {
+                        return false;
+                    }
+                }
+
+                currentPath = nextPath;
+            }
+
+            return true;
         }
         /// <summary>
         /// Recursively copy the contents of one directory to another.

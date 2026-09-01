@@ -32,15 +32,23 @@ MonoBehaviour:
       A header is treated as valid when the GameObject name is all caps, the object is inactive, and it has no children. Objects that appear after that header in the same sibling scope are treated as part of the section until the next valid header is found.
 
 
-      The Header Options window also provides a native Hierarchy Icon Override workflow for ordinary scene GameObjects. Assign an imported Texture2D or use Import Icon to copy an image into a project-owned Assets location, then apply it to the selected objects. Include Children is optional and disabled by default. Apply and clear operations support Undo. Valid FP Header objects are always excluded so their existing behavior remains unchanged.
+      FP Header supports both the classic Unity Hierarchy and the Unity 6000.6 New Hierarchy. Both modes share the same header detection, colors, foldout state, section visibility, and select-section behavior. In the New Hierarchy, the FP foldout and select-section controls appear immediately before the header name.
+
+
+      The Header Options window also provides a native Hierarchy Icon Override workflow for ordinary scene GameObjects. Assign an imported Texture2D or use Import Icon to copy an image into a project-owned Assets location, then apply it to the selected objects. Add textures to the collapsible Alt-Click Palette and drag its rows to control the popup order, then hold Alt and left-click an ordinary GameObject in either Hierarchy to choose or clear its icon. Alt-click affects only the clicked object. Include Children remains optional and disabled by default for the window apply workflow. Apply and clear operations support Undo. Valid FP Header objects are always excluded so their existing behavior remains unchanged.
+
+
+      For a Unity Package Manager installation, [FuzzPhyte/Utility/Editor/Gizmos/Move Icon Assets](menu:FuzzPhyte/Utility/Editor/Gizmos/Move Icon Assets) copies texture assets from the package Editor/Gizmos and Editor/Icons folders into Assets/Gizmos/FP while preserving existing project assets with the same filename.
 
 
       [FuzzPhyte/Header/Header Options](menu:FuzzPhyte/Header/Header Options) .'
     links:
     - label: Hierarchy Icon Override Documentation
-      url: https://github.com/JShull/FP_Utility/blob/main/README.md#hierarchy-icon-overrides
+      url: https://github.com/JShull/FP_Utility/blob/1.1.0/README.md#hierarchy-icon-overrides
     - label: Unity 6.5 New Hierarchy Window
       url: https://docs.unity3d.com/6000.5/Documentation/Manual/new-hierarchy.html
+    - label: Unity 6.6 BindViewItem API
+      url: https://docs.unity3d.com/6000.6/Documentation/ScriptReference/Unity.Hierarchy.Editor.HierarchyWindow.BindViewItem.html
     - label: Unity 6.6 SetIconForObject API
       url: https://docs.unity3d.com/6000.6/Documentation/ScriptReference/EditorGUIUtility.SetIconForObject.html
   - heading: Scene Asset Tool

@@ -9,8 +9,10 @@
 namespace FuzzPhyte.Utility.Editor
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using UnityEditor;
+    using UnityEditorInternal;
     using UnityEngine;
 
     public class FP_HHeaderWindow : EditorWindow
@@ -18,16 +20,20 @@ namespace FuzzPhyte.Utility.Editor
         [SerializeField] private FP_HHeaderData headerData;
         [SerializeField] private Texture2D hierarchyIconOverride;
         [SerializeField] private bool includeChildren;
+        [SerializeField] private bool hierarchyIconPaletteExpanded = true;
 
         private Vector2 scrollPosition;
         private string statusMessage;
         private MessageType statusMessageType = MessageType.Info;
+        [NonSerialized] private List<Texture2D> hierarchyIconPalette;
+        [NonSerialized] private ReorderableList hierarchyIconPaletteList;
+        private int requestedPaletteRemoval = -1;
 
         [MenuItem("FuzzPhyte/Header/Header Options", false, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER)]
         private static void OpenWindow()
         {
             FP_HHeaderWindow window = GetWindow<FP_HHeaderWindow>("Header Options");
-            window.minSize = new Vector2(420f, 430f);
+            window.minSize = new Vector2(420f, 520f);
             window.Show();
         }
 
@@ -40,6 +46,7 @@ namespace FuzzPhyte.Utility.Editor
 
             Selection.selectionChanged -= Repaint;
             Selection.selectionChanged += Repaint;
+            ReloadHierarchyIconPalette();
         }
 
         private void OnDisable()
@@ -167,6 +174,8 @@ namespace FuzzPhyte.Utility.Editor
                     ImportHierarchyIcon();
                 }
 
+                DrawHierarchyIconPalette();
+
                 includeChildren = EditorGUILayout.ToggleLeft(
                     "Include Children (Recursive)",
                     includeChildren);
@@ -212,6 +221,122 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
+        private void DrawHierarchyIconPalette()
+        {
+            EditorGUILayout.Space(4f);
+            EnsureHierarchyIconPaletteList();
+            hierarchyIconPaletteExpanded = EditorGUILayout.Foldout(
+                hierarchyIconPaletteExpanded,
+                $"Alt-Click Palette ({hierarchyIconPalette.Count})",
+                true,
+                EditorStyles.foldoutHeader);
+            if (!hierarchyIconPaletteExpanded)
+            {
+                return;
+            }
+
+            EditorGUILayout.HelpBox(
+                "Add project Texture2D assets here, then hold Alt and left-click an ordinary GameObject in either Hierarchy to choose its icon. Alt-click always affects only the clicked object.",
+                MessageType.None);
+
+            using (new EditorGUI.DisabledScope(
+                       hierarchyIconOverride == null ||
+                       FPHierarchyIconUtility.PaletteContains(hierarchyIconOverride)))
+            {
+                if (GUILayout.Button("Add Icon Override To Palette"))
+                {
+                    if (FPHierarchyIconUtility.AddPaletteIcon(hierarchyIconOverride))
+                    {
+                        ReloadHierarchyIconPalette();
+                        SetStatus($"Added {hierarchyIconOverride.name} to the Alt-click palette.", MessageType.Info);
+                    }
+                }
+            }
+
+            if (hierarchyIconPalette.Count == 0)
+            {
+                EditorGUILayout.LabelField("No palette icons added.", EditorStyles.miniLabel);
+                return;
+            }
+
+            EditorGUILayout.HelpBox(
+                "Drag rows to change the order used by the Alt-click popup. Click an icon to make it the current override.",
+                MessageType.None);
+
+            requestedPaletteRemoval = -1;
+            hierarchyIconPaletteList.DoLayoutList();
+            if (requestedPaletteRemoval >= 0 && requestedPaletteRemoval < hierarchyIconPalette.Count)
+            {
+                Texture2D removedIcon = hierarchyIconPalette[requestedPaletteRemoval];
+                if (FPHierarchyIconUtility.RemovePaletteIcon(removedIcon))
+                {
+                    ReloadHierarchyIconPalette();
+                    SetStatus($"Removed {removedIcon.name} from the Alt-click palette.", MessageType.Info);
+                }
+            }
+        }
+
+        private void EnsureHierarchyIconPaletteList()
+        {
+            if (hierarchyIconPalette == null || hierarchyIconPaletteList == null)
+            {
+                ReloadHierarchyIconPalette();
+            }
+        }
+
+        private void ReloadHierarchyIconPalette()
+        {
+            hierarchyIconPalette = FPHierarchyIconUtility.GetPaletteIcons();
+            hierarchyIconPaletteList = new ReorderableList(
+                hierarchyIconPalette,
+                typeof(Texture2D),
+                true,
+                false,
+                false,
+                false)
+            {
+                elementHeight = 34f,
+                headerHeight = 0f,
+                footerHeight = 0f,
+                showDefaultBackground = true
+            };
+
+            hierarchyIconPaletteList.drawElementCallback = DrawHierarchyIconPaletteElement;
+            hierarchyIconPaletteList.onReorderCallback = _ =>
+            {
+                if (FPHierarchyIconUtility.SetPaletteIcons(hierarchyIconPalette))
+                {
+                    SetStatus("Updated the Alt-click palette order.", MessageType.Info);
+                }
+            };
+        }
+
+        private void DrawHierarchyIconPaletteElement(Rect rect, int index, bool isActive, bool isFocused)
+        {
+            if (index < 0 || index >= hierarchyIconPalette.Count)
+            {
+                return;
+            }
+
+            Texture2D icon = hierarchyIconPalette[index];
+            rect.y += 2f;
+            rect.height = 30f;
+            Rect iconRect = new Rect(rect.x + 16f, rect.y, 30f, 30f);
+            Rect removeRect = new Rect(rect.xMax - 64f, rect.y + 4f, 64f, 22f);
+            Rect labelRect = new Rect(iconRect.xMax + 6f, rect.y, removeRect.xMin - iconRect.xMax - 12f, rect.height);
+
+            if (GUI.Button(iconRect, new GUIContent(icon, $"Use {icon.name} as the current Icon Override")))
+            {
+                hierarchyIconOverride = icon;
+            }
+
+            EditorGUI.LabelField(labelRect, icon.name);
+            if (GUI.Button(removeRect, "Remove"))
+            {
+                requestedPaletteRemoval = index;
+            }
+        }
+
         private void ImportHierarchyIcon()
         {
             string sourcePath = EditorUtility.OpenFilePanelWithFilters(
@@ -250,8 +375,10 @@ namespace FuzzPhyte.Utility.Editor
                 }
 
                 hierarchyIconOverride = importedIcon;
+                FPHierarchyIconUtility.AddPaletteIcon(importedIcon);
+                ReloadHierarchyIconPalette();
                 EditorGUIUtility.PingObject(importedIcon);
-                SetStatus($"Imported hierarchy icon: {destinationPath}", MessageType.Info);
+                SetStatus($"Imported and added hierarchy icon to the Alt-click palette: {destinationPath}", MessageType.Info);
             }
             catch (Exception exception)
             {
