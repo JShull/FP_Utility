@@ -32,8 +32,17 @@ MonoBehaviour:
       A header is treated as valid when the GameObject name is all caps, the object is inactive, and it has no children. Objects that appear after that header in the same sibling scope are treated as part of the section until the next valid header is found.
 
 
+      The Header Options window also provides a native Hierarchy Icon Override workflow for ordinary scene GameObjects. Assign an imported Texture2D or use Import Icon to copy an image into a project-owned Assets location, then apply it to the selected objects. Include Children is optional and disabled by default. Apply and clear operations support Undo. Valid FP Header objects are always excluded so their existing behavior remains unchanged.
+
+
       [FuzzPhyte/Header/Header Options](menu:FuzzPhyte/Header/Header Options) .'
-    links: []
+    links:
+    - label: Hierarchy Icon Override Documentation
+      url: https://github.com/JShull/FP_Utility/blob/main/README.md#hierarchy-icon-overrides
+    - label: Unity 6.5 New Hierarchy Window
+      url: https://docs.unity3d.com/6000.5/Documentation/Manual/new-hierarchy.html
+    - label: Unity 6.6 SetIconForObject API
+      url: https://docs.unity3d.com/6000.6/Documentation/ScriptReference/EditorGUIUtility.SetIconForObject.html
   - heading: Scene Asset Tool
     showSeparatorBefore: 1
     body: 'FP Scene Asset Tool is an editor window that scans the active scene and builds a reference list of the external assets used by that scene. It is intended to help you audit scene dependencies such as materials, meshes, textures, audio clips, prefab assets, animation assets, ScriptableObjects, fonts, and other referenced content so you can spot misplaced project references, redundant assets, or content coming from the wrong part of the project.

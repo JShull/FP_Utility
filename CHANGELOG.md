@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added a native Hierarchy Icon Override panel to FP Header Options for applying or clearing project-owned custom icons on selected ordinary scene GameObjects, with Undo, multi-selection, and optional recursive child processing that defaults off.
+- Added external image import for hierarchy icons through a user-selected project-owned `Assets` location. Valid FP Header objects remain excluded so existing header behavior is unchanged.
+
 ## [1.0.3]-2026-09-01
 
 ### [1.0.3] Added

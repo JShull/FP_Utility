@@ -816,6 +816,19 @@ You can also use the `Header Options` window to apply the visual style from an `
 * `GameObject/FuzzPhyte/Header/Collapse Z Sections`
   * Collapses all detected headers in the current scene.
 
+#### Hierarchy Icon Overrides
+
+The Header Options window also provides a native Hierarchy Icon Override workflow for ordinary scene GameObjects. This uses Unity's per-GameObject custom icon data rather than drawing an additional FP overlay in the Hierarchy Name column. FP Header objects are always excluded, so their existing foldout, selection, and styling behavior remains unchanged.
+
+1. Open `FuzzPhyte/Header/Header Options` and select one or more ordinary scene GameObjects.
+2. Assign an imported `Texture2D` to `Icon Override`, or use `Import Icon...` to copy an image into a project-owned location under `Assets`.
+3. Leave `Include Children (Recursive)` disabled to affect only the explicitly selected GameObjects. Enable it when inactive and active descendants should also receive the icon.
+4. Click `Apply To Selected`. Use `Clear Selected Icons` to restore Unity's automatic component or type icon.
+
+Apply and clear operations support Unity Undo and mark each affected scene dirty. Project assets and valid FP Header objects are skipped. Custom GameObject icons are serialized with the scene; imported icon textures must remain available in the project.
+
+References: [Unity 6.5 New Hierarchy window](https://docs.unity3d.com/6000.5/Documentation/Manual/new-hierarchy.html) and [Unity 6.6 `EditorGUIUtility.SetIconForObject`](https://docs.unity3d.com/6000.6/Documentation/ScriptReference/EditorGUIUtility.SetIconForObject.html).
+
 ### FP Scene Asset Tool
 
 FP Scene Asset Tool is an editor window that scans the active scene and builds a reference list of the external assets used by that scene. It is intended to help you audit scene dependencies such as materials, meshes, textures, audio clips, prefab assets, animation assets, ScriptableObjects, fonts, and other referenced content so you can spot misplaced project references, redundant assets, or content coming from the wrong part of the project.
