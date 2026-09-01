@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [1.0.3]-2026-09-01
+
+### [1.0.3] Added
 
 - Added `FP_ArticulationGrabMotion`, an `FP_MotionBase`-derived bridge that
   follows a tracked pose with a kinematic Rigidbody anchor and connects it to
@@ -22,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added focused Play Mode coverage for cached-video path assignment, empty-path
   failure handling, and Unity playback lifecycle callbacks.
 
-### Changed
+### [1.0.3] Changed
 
 - Made shared mesh-preview framing scale to the mesh's actual bounds instead of
   imposing a `0.1`-unit minimum, and added common multiplicative zoom limits
@@ -32,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   playback errors through the existing failure event. Playback requests now
   restart completed non-looping videos, disable frame skipping by default, and
   report a one-shot frame/time progression check after playback starts.
+- Updated the internal readme.asset to match the existing readme.md
 
 ## [1.0.2]-2026-08-16
 

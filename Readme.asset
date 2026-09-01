@@ -15,15 +15,8 @@ MonoBehaviour:
   icon: {fileID: 2800000, guid: b521bf5d6ffa177458e7c14188bbf89d, type: 3}
   title: FuzzPhyte Utility
   subtitle: 'Utility Package Documentation '
-  version: 1.0.0
-  overview: "FP_Utility is designed and built to be a simple set of base classes
-    to be used in almost all future FuzzPhyte packages. \nThere is an element of
-    Scriptable Object and an element of just simple input/output functions as well
-    as some core scripts timed to timers etc. \nThere are a lot of static functions
-    to help with file management and Unity Editor management. Please read the full
-    readme located on the GitHub if you want more details. This readme file is designed
-    to get you into the menu system quickly and understanding at a high level what
-    are the core tools that this package manages."
+  version: 1.0.3
+  overview: "FP_Utility is designed and built to be a simple set of base classes to be used in almost all future FuzzPhyte packages. \nThere is an element of Scriptable Object and an element of just simple input/output functions as well as some core scripts timed to timers etc. \nThere are a lot of static functions to help with file management and Unity Editor management. Please read the full readme located on the GitHub if you want more details. This readme file is designed to get you into the menu system quickly and understanding at a high level what are the core tools that this package manages."
   overviewLinks:
   - label: GitHub Readme
     url: https://github.com/JShull/FP_Utility/blob/main/README.md
@@ -32,116 +25,147 @@ MonoBehaviour:
   sections:
   - heading: FP Header
     showSeparatorBefore: 0
-    body: 'FP Header is an editor-only hierarchy organization tool for Unity scenes.
-      It lets you create disabled, all-caps GameObjects that act like visual section
-      headers in the standard Unity Hierarchy without forcing the grouped objects
-      into a parent-child transform relationship. This is useful when you want the
-      readability and collapse behavior of folders, but you do not want to change
-      transform inheritance or scene structure.
+    body: 'FP Header is an editor-only hierarchy organization tool for Unity scenes. It lets you create disabled, all-caps GameObjects that act like visual section headers in the standard Unity Hierarchy without forcing the grouped objects into a parent-child transform relationship. This is useful when you want the readability and collapse behavior of folders, but you do not want to change transform inheritance or scene structure.
 
 
 
-      A header is treated as valid
-      when the GameObject name is all caps, the object is inactive, and it has no
-      children. Objects that appear after that header in the same sibling scope are
-      treated as part of the section until the next valid header is found.
+      A header is treated as valid when the GameObject name is all caps, the object is inactive, and it has no children. Objects that appear after that header in the same sibling scope are treated as part of the section until the next valid header is found.
 
 
-      [FuzzPhyte/Header/Header
-      Options](menu:FuzzPhyte/Header/Header Options) .'
+      [FuzzPhyte/Header/Header Options](menu:FuzzPhyte/Header/Header Options) .'
     links: []
   - heading: Scene Asset Tool
     showSeparatorBefore: 1
-    body: 'FP Scene Asset Tool is an editor window that scans the active scene and
-      builds a reference list of the external assets used by that scene. It is intended
-      to help you audit scene dependencies such as materials, meshes, textures, audio
-      clips, prefab assets, animation assets, ScriptableObjects, fonts, and other
-      referenced content so you can spot misplaced project references, redundant
-      assets, or content coming from the wrong part of the project.
+    body: 'FP Scene Asset Tool is an editor window that scans the active scene and builds a reference list of the external assets used by that scene. It is intended to help you audit scene dependencies such as materials, meshes, textures, audio clips, prefab assets, animation assets, ScriptableObjects, fonts, and other referenced content so you can spot misplaced project references, redundant assets, or content coming from the wrong part of the project.
 
 
 
-      The
-      tool deduplicates assets by path, groups them by detected type, tracks which
-      scene GameObjects reference each asset, and marks package or built-in dependencies
-      as non-selectable so you can focus on project content you actually control.
+      The tool deduplicates assets by path, groups them by detected type, tracks which scene GameObjects reference each asset, and marks package or built-in dependencies as non-selectable so you can focus on project content you actually control.
 
 
-      [FuzzPhyte/Utility/Scene](menu:FuzzPhyte/Utility/Scene/Asset
-      Tool).'
+      [FuzzPhyte/Utility/Scene](menu:FuzzPhyte/Utility/Scene/Asset Tool).'
     links: []
   - heading: Action Event Scanner
     showSeparatorBefore: 0
-    body: 'To help identify and locate various actions/events that any FuzzPhyte
-      package might be using. Really an editor tool for myself but realized it might
-      come in handy for others.
+    body: 'To help identify and locate various actions/events that any FuzzPhyte package might be using. Really an editor tool for myself but realized it might come in handy for others.
 
 
-      FP Action-Event Scanner is an editor-only
-      package audit window for finding C# `event`, `delegate`, and `Action` declarations
-      or usages across FuzzPhyte package folders. It is intended as an internal package-maintenance
-      tool when you need a quick map of where event-style communication is happening
-      across `FP_` packages.
+      FP Action-Event Scanner is an editor-only package audit window for finding C# `event`, `delegate`, and `Action` declarations or usages across FuzzPhyte package folders. It is intended as an internal package-maintenance tool when you need a quick map of where event-style communication is happening across `FP_` packages.
 
 
-      [FuzzPhyte/Utility/Editor/Action-Event Scanner](menu:FuzzPhyte/Utility/Editor/Action-Event
-      Scanner)'
+      [FuzzPhyte/Utility/Editor/Action-Event Scanner](menu:FuzzPhyte/Utility/Editor/Action-Event Scanner)'
     links: []
   - heading: Audio Combine
     showSeparatorBefore: 1
-    body: 'FP Audio Combine Tool is an editor-only multi-clip audio assembly window.
-      It is intended for building a combined WAV from several AudioClips while preserving
-      per-clip trimming, spacing, ordering, gain, and inclusion settings.
+    body: 'FP Audio Combine Tool is an editor-only multi-clip audio assembly window. It is intended for building a combined WAV from several AudioClips while preserving per-clip trimming, spacing, ordering, gain, and inclusion settings.
 
 
-      [FuzzPhyte/Utility/Audio](menu:FuzzPhyte/Utility/Audio/Combine
-      Tool).'
+      [FuzzPhyte/Utility/Audio](menu:FuzzPhyte/Utility/Audio/Combine Tool).'
     links: []
   - heading: Audio Segment
     showSeparatorBefore: 0
-    body: 'FP Audio Segment Tool is an editor-only AudioClip trimming and cleanup
-      helper. It lets you preview a source clip waveform, choose an in/out segment,
-      add independent mute or cut regions, and export the processed result as a WAV
-      asset. Not as elaborate as the Audio Combine tool but easy to split a file
-      in a pinch.
+    body: 'FP Audio Segment Tool is an editor-only AudioClip trimming and cleanup helper. It lets you preview a source clip waveform, choose an in/out segment, add independent mute or cut regions, and export the processed result as a WAV asset. Not as elaborate as the Audio Combine tool but easy to split a file in a pinch.
 
 
-      [FuzzPhyte/Utility/Audio/Segment](menu:FuzzPhyte/Utility/Audio/Segment
-      Tool).'
+      [FuzzPhyte/Utility/Audio/Segment](menu:FuzzPhyte/Utility/Audio/Segment Tool).'
     links: []
   - heading: Mesh Tools
     showSeparatorBefore: 1
-    body: 'There are a few variations of Mesh Tools. You can slice an existing mesh,
-      you can combine some existing meshes, you can generate convex hull solutions
-      for others (think LOD), you can extrude from an SVG (entire SVG selection editor
-      window) and you can generate a mesh based on a grid and all sorts of other
-      parameters associated with mesh generation. Please see the package readme for
-      details on these tools as they are elaborate.
+    body: 'There are a few variations of Mesh Tools. You can slice an existing mesh, you can combine some existing meshes, you can generate convex hull solutions for others (think LOD), you can extrude from an SVG (entire SVG selection editor window) and you can generate a mesh based on a grid and all sorts of other parameters associated with mesh generation. Invert Mesh creates a separate inside-out copy while preserving the source. Mesh Generator creates reusable grid meshes and can connect them to FPMeshGridData assets. The Heightmap Editor inspects, paints, and saves heightmaps used to deform generated grids.Please see the package readme for details on these tools as they are elaborate.
 
 
-      [FuzzPhyte/Utility/Mesh/Slicer](menu:FuzzPhyte/Utility/Mesh/Mesh
-      Slicer)
+      [FuzzPhyte/Utility/Mesh/Slicer](menu:FuzzPhyte/Utility/Mesh/Mesh Slicer)
 
-      [FuzzPhyte/Utility/Mesh/Combine](menu:FuzzPhyte/Utility/Mesh/Combine
-      Meshes)
+      [FuzzPhyte/Utility/Mesh/Combine](menu:FuzzPhyte/Utility/Mesh/Combine Meshes)
 
-      [FuzzPhyte/Utility/Mesh/Convex](menu:FuzzPhyte/Utility/Mesh/Convex
-      Generator)
+      [FuzzPhyte/Utility/Mesh/Convex](menu:FuzzPhyte/Utility/Mesh/Convex Generator)
 
-      [FuzzPhyte/Utility/Mesh/SVG Extruder](menu:FuzzPhyte/Utility/Mesh/SVG
-      Extruder)
+      [FuzzPhyte/Utility/Mesh/SVG Extruder](menu:FuzzPhyte/Utility/Mesh/SVG Extruder)
 
-      [FuzzPhyte/Utility/Mesh/Mesh Generator](menu:FuzzPhyte/Utility/Mesh/Mesh
-      Generator)'
-    links: []
+      [FuzzPhyte/Utility/Mesh/Mesh Generator](menu:FuzzPhyte/Utility/Mesh/Mesh Generator)
+
+      [FP Heightmap Editor](menu:FuzzPhyte/Utility/Rendering/FP Heightmap Editor)
+
+      [Invert Mesh](menu:FuzzPhyte/Utility/Mesh/Invert Mesh)
+
+'
+    links:
+    - label: Mesh Generator and Heightmap Details
+      url: https://github.com/JShull/FP_Utility/blob/main/README.md#mesh-generator-and-fp-heightmap-editor
+    - label: Invert Mesh Documentation
+      url: https://github.com/JShull/FP_Utility/blob/main/README.md#invert-mesh
+  - heading: Runtime OBJ Export
+    showSeparatorBefore: 0
+    body: 'FPMeshRuntimeObjExporter provides a player-safe OBJ export workflow. It collects MeshFilter hierarchies, optionally bakes SkinnedMeshRenderer components, optionally includes non-duplicate MeshCollider geometry, applies child transforms in root-local space, and preserves supported triangle and quad submeshes.
+
+      
+
+      TryBuildPackage returns an in-memory ZIP containing the OBJ, optional MTL data, and optional PNG textures. Pass the result to FPFileExportUtility.TrySaveOrDownload for WebGL download, iOS Files export, Unity Editor and Windows save prompts, or persistent-data output on other platforms.
+
+      
+
+      Imported meshes must have Read/Write enabled. Use MaximumVertexCount and MaximumTextureSize to control memory usage.
+
+      
+
+      Editor export commands are available through [Export Selection as OBJ](menu:GameObject/FuzzPhyte/Mesh/Export Selection as OBJ) and [Export Selected Assets as OBJ](menu:Assets/FuzzPhyte/Mesh/Export Selected as OBJ).'
+    links:
+    - label: Runtime OBJ Documentation
+      url: https://github.com/JShull/FP_Utility/blob/main/README.md#runtime-obj-export
   - heading: 360 Video Mesh Generation
     showSeparatorBefore: 0
-    body: 'Quick tool to generate spheres, ellipses, or quads for use in 360 video
-      work.
+    body: 'Quick tool to generate spheres, ellipses, or quads for use in 360 video work.
 
 
-      [FuzzPhyte/Utility/Video/360 Sphere](menu:FuzzPhyte/Utility/Video/FP
-      Video Sphere Generator)'
+      [FuzzPhyte/Utility/Video/360 Sphere](menu:FuzzPhyte/Utility/Video/FP Video Sphere Generator)'
     links:
     - label: GitHub Readme
       url: https://github.com/JShull/FP_Utility/blob/main/README.md
+  - heading: FP Video Cache Playback Wiring
+    showSeparatorBefore: 0
+    body: 'FP Video downloads and validates remote video files before playing them from Application.persistentDataPath. The VideoPlayer receives a validated local path rather than the remote Azure URL.
+
+      
+
+      The intended playback handoff is FPVideoCacheBootstrap to FPVideoCacheManager to FPVideoSimpleEventBridge.OnResolvedLocalPath to FPVideoPlayerPathReceiver.SetVideoPath.
+
+      
+
+      Connect only On Resolved Local Path to playback. On Request Success, On Source Was Cache, and On Download Was Performed are status outputs and should not trigger additional Prepare or Play calls.
+
+      
+
+      Recommended receiver settings are Prepare On Set enabled, Play On Prepared enabled, Stop Before Assigning enabled, and Allow Frame Skipping disabled. On the VideoPlayer, disable Play On Awake and Skip On Drop, enable Wait For First Frame, and configure the render target separately.
+
+      
+
+      Use [Video Hash Generator](menu:FuzzPhyte/Utility/Video/Hash Generator) to calculate file hashes and lengths and create manifest entries.'
+    links:
+    - label: Video Cache Playback
+      url: https://github.com/JShull/FP_Utility/blob/main/README.md#fp-video-cache-playback-wiring
+  - heading: Runtime Articulation Grab Motion
+    showSeparatorBefore: 1
+    body: FP_ArticulationGrabMotion connects a tracked world-space pose to an ArticulationBody through a temporary ConfigurableJoint attached to a kinematic Rigidbody anchor. It does not parent or directly transform-follow the articulated link. Assign Connected Body, Grab Point, and Follow Target. Use Locked constraint mode for an exact prototype grip or Compliant mode for spring, damping, and force-controlled motion. Enable Snap Grab Point To Follow Target On Start only when the articulation root should be aligned once before the joint is created. Do not place a Rigidbody or transform-following grab component on the visual handle.
+    links:
+    - label: Runtime Articulation Documentation
+      url: https://github.com/JShull/FP_Utility/blob/main/README.md#runtime-articulation-grab-motion
+  - heading: Debug Tools
+    showSeparatorBefore: 1
+    body: FPRuntimeDebugDraw provides editor-only runtime drawing for lines, rays, points, wire shapes, bounds, selection markers, target markers, links, mesh edges, vertices, and normals. Calls are build-safe no-ops outside the Unity Editor. Draw persistent state every frame or pass a duration for temporary marks. The calling system owns the selection, target, click, or gameplay state being visualized. FPRuntimeMeshDebugOverlay is a drop-in Play Mode component for displaying mesh edges, vertices, normals, and bounds from a MeshFilter or assigned mesh.
+    links:
+    - label: Runtime Debug Documentation
+      url: https://github.com/JShull/FP_Utility/blob/main/README.md#runtime-debug-tools
+  - heading: Remove CS Files
+    showSeparatorBefore: 0
+    body: 'Remove CS is an editor-only scene cleanup tool that removes attached MonoBehaviour scripts while preserving hierarchy, transforms, renderers, meshes, colliders, lights, cameras, animation components, and RectTransform layout.
+
+      
+
+      Open [Remove CS](menu:FuzzPhyte/Utility/Editor/Remove CS), add the target scene objects, configure child, AudioSource, and UI/Text options, review the live removal counts, and confirm the cleanup.
+
+      
+
+      Enable Clean Copies In Another Scene for a non-destructive workflow. This copies the selected scene hierarchies to a new or existing scene, fully unpacks prefab connections, cleans the copies, and leaves the original scene objects unchanged. Project-window prefab assets are skipped; open them in Prefab Mode when cleanup is required.'
+    links:
+    - label: Remove CS Documentation
+      url: https://github.com/JShull/FP_Utility/blob/main/README.md#remove-cs
