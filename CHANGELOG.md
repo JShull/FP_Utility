@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `FuzzPhyte/Utility/Editor/Testing/Contribution Validator`, an option-driven review workspace with folder scope, deterministic random sampling, configurable naming/assembly/namespace/header/runtime/identity/cleanliness checks, in-window evidence, source navigation, and Markdown report export.
+- Added guarded sample promotion from a validated staging folder into `Samples~`, including validation fingerprints, manifest preview and update, recoverable backups, transactional failure rollback, and explicit rollback of the last successful promotion.
+- Added focused Edit Mode coverage for header inspection/replacement, deterministic contribution sampling and rule evidence, sample manifest editing, and sample promotion/rollback.
+
+### Changed
+
+- Refactored `FPScriptHeaderEditorWindow` to share its configured header, inspection, encoding, line-ending, and replacement behavior with contribution validation and to accept failed script paths directly from the validator.
+
 ## [1.0.3]-2026-09-01
 
 ### [1.0.3] Added
