@@ -1,0 +1,36 @@
+{
+  "labels": [
+    {
+      "labelLines": [
+        {
+          "speaker": "John",
+          "speakerLabel": "HeaderOne",
+          "message": "Welcome to the aquarium.",
+          "messageLabel": "Paragraph",
+          "headImage": "No_Copyright_Test_1",
+          "secondImage": null
+        },
+        {
+          "speaker": "",
+          "speakerLabel": "",
+          "message": "This equipment is used to circulate water.",
+          "messageLabel": "Paragraph",
+          "headImage": "No_Copyright_Test_1",
+          "secondImage": "No_Copyright_Test_2"
+        }
+      ]
+    },
+    {
+      "labelLines": [
+        {
+          "speaker": "John",
+          "speakerLabel": "HeaderOne",
+          "message": "Be careful around this pump.",
+          "messageLabel": "HeaderTwo",
+          "headImage": "No_Copyright_Test_1",
+          "secondImage": "No_Copyright_Test_2"
+        }
+      ]
+    }
+  ]
+}
