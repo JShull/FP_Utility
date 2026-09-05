@@ -1,0 +1,17 @@
+{
+    "name": "com.fuzzphyte.utility.labeldisplay",
+    "rootNamespace": "FuzzPhyte.Utility.LabelDisplay",
+    "references": [
+        "com.fuzzphyte.utility",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

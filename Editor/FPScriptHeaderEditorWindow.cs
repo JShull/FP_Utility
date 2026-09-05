@@ -38,15 +38,7 @@ namespace FuzzPhyte.Utility.Editor
         }
 
         [SerializeField]
-        private string headerText =
-            "// Copyright (c) 2026 John B. Shull\n" +
-            "// FuzzPhyte LLC is a company associated with John B. Shull\n" +
-            "// This file is part of FP_Utility Package.\n" +
-            "//\n" +
-            "// Public license: GNU GPLv3-or-later.\n" +
-            "// Commercial/proprietary use requires a separate license from John B. Shull.\n" +
-            "//\n" +
-            "// See LICENSE.md COMMERCIAL-LICENSE.md, and NOTICE.md.";
+        private string headerText = FPScriptHeaderUtility.DefaultHeaderText;
 
         [SerializeField] private List<Object> scriptAssets = new List<Object>();
         [SerializeField] private List<HeaderChangeOperation> undoStack = new List<HeaderChangeOperation>();
@@ -74,6 +66,42 @@ namespace FuzzPhyte.Utility.Editor
             FPScriptHeaderEditorWindow window = GetWindow<FPScriptHeaderEditorWindow>("Script Header Editor");
             window.minSize = new Vector2(760f, 520f);
             window.AddSelectedScripts(false);
+        }
+
+        internal static void OpenWithScripts(IReadOnlyList<string> assetPaths)
+        {
+            FPScriptHeaderEditorWindow window = GetWindow<FPScriptHeaderEditorWindow>("Script Header Editor");
+            window.minSize = new Vector2(760f, 520f);
+            window.RecordWindowUndo("Load Header Validation Results");
+            window.scriptAssets.Clear();
+
+            if (assetPaths != null)
+            {
+                for (int i = 0; i < assetPaths.Count; i++)
+                {
+                    MonoScript script = AssetDatabase.LoadAssetAtPath<MonoScript>(assetPaths[i]);
+                    window.AddScriptObject(script, false);
+                }
+            }
+
+            window.Show();
+            window.Focus();
+        }
+
+        private void OnEnable()
+        {
+            if (FPScriptHeaderUtility.HasConfiguredHeaderText())
+            {
+                headerText = FPScriptHeaderUtility.GetConfiguredHeaderText();
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(headerText))
+                {
+                    headerText = FPScriptHeaderUtility.DefaultHeaderText;
+                }
+                FPScriptHeaderUtility.SetConfiguredHeaderText(headerText);
+            }
         }
 
         private void OnGUI()
@@ -246,6 +274,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 RecordWindowUndo("Edit Script Header Text");
                 headerText = nextHeader;
+                FPScriptHeaderUtility.SetConfiguredHeaderText(headerText);
             }
 
             GUI.EndScrollView();
@@ -330,7 +359,7 @@ namespace FuzzPhyte.Utility.Editor
         private void ApplyHeaders()
         {
             ClearMessages();
-            string normalizedHeader = NormalizeHeader(headerText);
+            string normalizedHeader = FPScriptHeaderUtility.NormalizeHeader(headerText);
             if (string.IsNullOrWhiteSpace(normalizedHeader))
             {
                 errors.Add("Header text is empty.");
@@ -385,8 +414,8 @@ namespace FuzzPhyte.Utility.Editor
                 return;
             }
 
-            string originalText = ReadText(target.FullPath, out Encoding encoding);
-            string nextText = BuildHeaderContent(originalText, normalizedHeader, replaceExistingHeader);
+            string originalText = FPScriptHeaderUtility.ReadText(target.FullPath, out Encoding encoding);
+            string nextText = FPScriptHeaderUtility.BuildHeaderContent(originalText, normalizedHeader, replaceExistingHeader);
             if (skipUnchangedFiles && string.Equals(originalText, nextText, StringComparison.Ordinal))
             {
                 return;
@@ -588,138 +617,13 @@ namespace FuzzPhyte.Utility.Editor
                 return false;
             }
 
-            string assetPath = AssetDatabase.GetAssetPath(obj);
-            if (string.IsNullOrEmpty(assetPath) || !assetPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+            if (!FPScriptHeaderUtility.TryGetScriptTarget(obj, out string assetPath, out string fullPath))
             {
                 return false;
             }
 
-            string fullPath = GetFullProjectPath(assetPath);
             target = new ScriptTarget(assetPath, fullPath);
             return true;
-        }
-
-        private static string BuildHeaderContent(string originalText, string normalizedHeader, bool replaceHeader)
-        {
-            string normalizedOriginal = NormalizeLineEndings(originalText);
-            if (normalizedOriginal.StartsWith("\uFEFF", StringComparison.Ordinal))
-            {
-                normalizedOriginal = normalizedOriginal.Substring(1);
-            }
-
-            string body = replaceHeader
-                ? normalizedOriginal.Substring(FindBodyStart(normalizedOriginal))
-                : normalizedOriginal.TrimStart('\n');
-
-            body = body.TrimStart('\n');
-            string nextText = string.IsNullOrEmpty(body)
-                ? normalizedHeader + "\n"
-                : normalizedHeader + "\n\n" + body;
-
-            return nextText.Replace("\n", DetectLineEnding(originalText));
-        }
-
-        private static int FindBodyStart(string text)
-        {
-            int index = 0;
-
-            while (index < text.Length)
-            {
-                int lineStart = index;
-                int lineEnd = text.IndexOf('\n', lineStart);
-                if (lineEnd < 0)
-                {
-                    lineEnd = text.Length;
-                }
-
-                string line = text.Substring(lineStart, lineEnd - lineStart);
-                string trimmedLine = line.TrimStart();
-                int nextLineStart = lineEnd < text.Length ? lineEnd + 1 : lineEnd;
-
-                if (string.IsNullOrWhiteSpace(line) || trimmedLine.StartsWith("//", StringComparison.Ordinal))
-                {
-                    index = nextLineStart;
-                    continue;
-                }
-
-                if (trimmedLine.StartsWith("/*", StringComparison.Ordinal))
-                {
-                    int blockEnd = text.IndexOf("*/", lineStart, StringComparison.Ordinal);
-                    if (blockEnd < 0)
-                    {
-                        return lineStart;
-                    }
-
-                    index = blockEnd + 2;
-                    if (index < text.Length && text[index] == '\n')
-                    {
-                        index++;
-                    }
-
-                    continue;
-                }
-
-                break;
-            }
-
-            while (index < text.Length && text[index] == '\n')
-            {
-                index++;
-            }
-
-            return index;
-        }
-
-        private static string NormalizeHeader(string text)
-        {
-            return NormalizeLineEndings(text).Trim();
-        }
-
-        private static string NormalizeLineEndings(string text)
-        {
-            return string.IsNullOrEmpty(text)
-                ? string.Empty
-                : text.Replace("\r\n", "\n").Replace("\r", "\n");
-        }
-
-        private static string DetectLineEnding(string text)
-        {
-            return !string.IsNullOrEmpty(text) && text.Contains("\r\n") ? "\r\n" : "\n";
-        }
-
-        private static string ReadText(string path, out Encoding encoding)
-        {
-            byte[] bytes = File.ReadAllBytes(path);
-            encoding = DetectEncoding(bytes);
-            string text = encoding.GetString(bytes);
-            return text.StartsWith("\uFEFF", StringComparison.Ordinal) ? text.Substring(1) : text;
-        }
-
-        private static Encoding DetectEncoding(byte[] bytes)
-        {
-            if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-            {
-                return new UTF8Encoding(true);
-            }
-
-            if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
-            {
-                return Encoding.Unicode;
-            }
-
-            if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
-            {
-                return Encoding.BigEndianUnicode;
-            }
-
-            return new UTF8Encoding(false);
-        }
-
-        private static string GetFullProjectPath(string assetPath)
-        {
-            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
-            string relativePath = assetPath.Replace('/', Path.DirectorySeparatorChar);
-            return Path.GetFullPath(Path.Combine(projectRoot, relativePath));
         }
 
         private static string GetBackupRoot()

@@ -6,6 +6,19 @@ FP_Utility is designed and built to be a simple set of base classes to be used i
 
 Unity editor object identity uses `EntityId` on Unity 6.3 and newer. `FP_Utility_Editor.GetEntityIdFromGUID` and `ReturnGUIDFromEntityId` provide GUID conversion without deprecated instance-ID APIs; the previous integer helpers remain as obsolete compatibility wrappers.
 
+### Label Display Sample
+
+Import **Label Display Sample** from the FP Utility package's Samples section in
+Unity Package Manager, then open `Scenes/LabelDisplaySample.unity` in the imported
+sample folder. The sample includes dialogue JSON, images, fonts, themes, prefabs,
+and the `Label_Test` component with its **Spawn Label** context-menu action.
+
+The sample is distributed under `Samples~/LabelDisplaySample` so Unity imports
+it only when requested. Its sample assembly references the reusable LabelDisplay
+and Utility runtime assemblies. Runtime LabelDisplay code remains under
+`Runtime/Design/LabelDisplay/Runtime`; `LabelJsonLine.cs` contains the related JSON
+data types `LabelJsonCollection`, `LabelJson`, and `LabelJsonLine`.
+
 ### Runtime Articulation Grab Motion
 
 `FP_ArticulationGrabMotion` connects a tracked world-space pose to an
@@ -918,6 +931,29 @@ The scanner builds its package filter list from top-level folders under `Assets`
 * `Export Results to File`
   * Writes the grouped scan results to a Markdown file with file links and line numbers.
 
+### FP Contribution Validator
+
+FP Contribution Validator is an editor-only review workspace for checking student, contractor, and external Unity contributions before they are merged into a FuzzPhyte package. Open it from `FuzzPhyte/Utility/Editor/Testing/Contribution Validator`.
+
+Choose any imported Unity folder as the validation root, then enable only the checks that apply to the contribution. The first release includes checks for naming and type/file alignment, assembly definitions, namespaces and FuzzPhyte `using` placement, configured script headers, Runtime-to-Editor API leaks, `GetInstanceID()` usage, and generated repository content.
+
+The validator can inspect every eligible file or select a reproducible random subset. Random selection uses an editable seed, while `package.json`, assembly definitions, assembly references, and repository-junk candidates are always included. Results remain in the window and are grouped by rule with pass, warning, failure, or manual-review status. Findings can open source files at the reported line, select assets, or export to a Markdown report.
+
+#### Script Header Integration
+
+Header validation uses the same configured header and parsing behavior as `FPScriptHeaderEditorWindow`. Use `Fix Headers` to open the existing Script Header Editor with failed scripts preloaded. Header replacement continues to preserve source encoding and line endings, skip unchanged files when requested, and write recoverable backups. A non-FuzzPhyte copyright header is reported for manual review instead of being treated as safe for automatic replacement.
+
+#### Sample Promotion
+
+The `Sample Promotion` section moves an imported staging sample into the selected package's `Samples~` folder and adds or updates its `displayName`, `description`, and `path` entry in `package.json`.
+
+Promotion is available only when the exact staging root has a current validation report with no failures. The tool fingerprints the eligible staging files and rejects promotion if they changed after validation. Before moving anything, use `Preview Changes` to inspect the source, destination, and manifest values. Promotion requires confirmation, creates a manifest backup under `Library/FP_Utility/ContributionValidationBackups`, preserves existing metadata, verifies the new manifest entry, and automatically restores the source and manifest if the transaction fails. `Roll Back Last Promotion` restores the last successful staging move while its backup remains available.
+
+Selecting a **Staging Folder** enables **Sample Assembly Portability** checks during validation. Every C# script in that folder is checked, regardless of random sampling or include filters. A sample must carry its own assembly definitions; assembly references may target definitions inside the same sample by name or GUID. Inherited parent assemblies, ambiguous boundaries, and external assembly-reference targets block promotion. Ordinary runtime dependency references in the sample assembly definition remain supported.
+
+Promotion repeats this preflight even when called through automation, and is blocked while Unity imports or compiles or reports compiler errors. The check observes current Editor compilation state; it does not initiate a fresh build, infer C# dependencies, or prove clean consumer import or runtime behavior. After moving scripts into staging, refresh and compile in Unity before validating and promoting.
+Static validation is read-only. Header repair and sample promotion are separate explicit actions.
+
 ## Software Architecture
 
 FP_Utility has a core data class for ScriptableObjects called FP_Data. This is heavily used for all generic data classes and in other packages there could be further extension of this for generic ScriptableObjects that need a sort of UniqueID. There are additional sub-folders by domain areas. For example, there is a simple IK manager script located in the FuzzPhyte.Utility.Animation namespace. Some of these sub-folders contain their own domain assembly. There are then sections broken up by Scene asset(s), tools for Audio & Video, and other static/instance utility classes for conversions, enums, states, etc.
@@ -925,6 +961,14 @@ FP_Utility has a core data class for ScriptableObjects called FP_Data. This is h
 ### Ways to Extend
 
 Please see the [contributing](./CONTRIBUTING.md) file for more information.
+
+## Contributors
+
+Thank you to [@AustinKazooie](https://github.com/AustinKazooie), FP_Utility's first
+external contributor, for the Label Display system and sample in
+[PR #2](https://github.com/JShull/FP_Utility/pull/2). Their contribution adds
+JSON-driven dialogue labels with themed text and images, plus a sample others
+can learn from.
 
 ## Dependencies
 

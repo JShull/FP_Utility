@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a project-scoped Alt-click icon palette to Header Options. Hold Alt and left-click an ordinary GameObject in either Hierarchy to apply or clear a palette icon without recursively changing children; FP Header objects remain excluded.
 - Added a collapsible, drag-reorderable Alt-click palette whose persisted order is shared by the Hierarchy popup.
 - Completed the package-only `Move Icon Assets` command so it copies texture assets from both `Editor/Gizmos` and `Editor/Icons` into `Assets/Gizmos/FP` through Unity's asset database while preserving existing same-named project assets.
+- Added the Label Display system and sample, contributed by [@AustinKazooie](https://github.com/AustinKazooie) in [PR #2](https://github.com/JShull/FP_Utility/pull/2), FP_Utility's first external contribution.
+- Added mandatory sample assembly-portability checks and a Unity compilation-state gate before promotion, including automation entry points and regression coverage for inherited assembly boundaries.
+
+- Added `FuzzPhyte/Utility/Editor/Testing/Contribution Validator`, an option-driven review workspace with folder scope, deterministic random sampling, configurable naming/assembly/namespace/header/runtime/identity/cleanliness checks, in-window evidence, source navigation, and Markdown report export.
+- Added guarded sample promotion from a validated staging folder into `Samples~`, including validation fingerprints, manifest preview and update, recoverable backups, transactional failure rollback, and explicit rollback of the last successful promotion.
+- Added focused Edit Mode coverage for header inspection/replacement, deterministic contribution sampling and rule evidence, sample manifest editing, and sample promotion/rollback.
+
+### Changed
+
+- Renamed the LabelDisplay JSON data file from `Capsules.cs` to `LabelJsonLine.cs`, preserving its types and asset GUID.
+- Moved the LabelDisplay sample assets and `Label_Test` component into `Samples~/LabelDisplaySample`, added a sample assembly definition, and registered **Label Display Sample** in Package Manager.
+- Refactored `FPScriptHeaderEditorWindow` to share its configured header, inspection, encoding, line-ending, and replacement behavior with contribution validation and to accept failed script paths directly from the validator.
 
 ## [1.0.3]-2026-09-01
 
