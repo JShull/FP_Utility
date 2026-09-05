@@ -939,6 +939,14 @@ FP_Utility has a core data class for ScriptableObjects called FP_Data. This is h
 
 Please see the [contributing](./CONTRIBUTING.md) file for more information.
 
+## Contributors
+
+Thank you to [@AustinKazooie](https://github.com/AustinKazooie), FP_Utility's first
+external contributor, for the Label Display system and sample in
+[PR #2](https://github.com/JShull/FP_Utility/pull/2). Their contribution adds
+JSON-driven dialogue labels with themed text and images, plus a sample others
+can learn from.
+
 ## Dependencies
 
 Please see the [package.json](./package.json) file for more information.

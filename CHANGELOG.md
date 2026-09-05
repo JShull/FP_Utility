@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the Label Display system and sample, contributed by [@AustinKazooie](https://github.com/AustinKazooie) in [PR #2](https://github.com/JShull/FP_Utility/pull/2), FP_Utility's first external contribution.
 - Added mandatory sample assembly-portability checks and a Unity compilation-state gate before promotion, including automation entry points and regression coverage for inherited assembly boundaries.
 
 - Added `FuzzPhyte/Utility/Editor/Testing/Contribution Validator`, an option-driven review workspace with folder scope, deterministic random sampling, configurable naming/assembly/namespace/header/runtime/identity/cleanliness checks, in-window evidence, source navigation, and Markdown report export.
