@@ -96,6 +96,13 @@ namespace FuzzPhyte.Utility.Editor
                     "The staging folder changed after validation. Run the selected checks again before promotion.");
             }
 
+            var preflight = new FPContributionValidationReport { RootAssetPath = sourceAssetPath };
+            FPContributionValidationUtility.ValidateSampleAssemblyBoundaries(sourceAssetPath, preflight);
+            if (preflight.HasFailures)
+            {
+                return new FPSamplePromotionResult(false, FPContributionValidationUtility.ToMarkdown(preflight));
+            }
+
             string originalManifest;
             Encoding manifestEncoding;
             try

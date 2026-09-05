@@ -1,0 +1,17 @@
+{
+    "name": "com.fuzzphyte.utility.labeldisplay.sample",
+    "rootNamespace": "FuzzPhyte.Utility.LabelDisplay",
+    "references": [
+        "com.fuzzphyte.utility",
+        "com.fuzzphyte.utility.labeldisplay"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

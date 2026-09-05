@@ -6,6 +6,19 @@ FP_Utility is designed and built to be a simple set of base classes to be used i
 
 Unity editor object identity uses `EntityId` on Unity 6.3 and newer. `FP_Utility_Editor.GetEntityIdFromGUID` and `ReturnGUIDFromEntityId` provide GUID conversion without deprecated instance-ID APIs; the previous integer helpers remain as obsolete compatibility wrappers.
 
+### Label Display Sample
+
+Import **Label Display Sample** from the FP Utility package's Samples section in
+Unity Package Manager, then open `Scenes/LabelDisplaySample.unity` in the imported
+sample folder. The sample includes dialogue JSON, images, fonts, themes, prefabs,
+and the `Label_Test` component with its **Spawn Label** context-menu action.
+
+The sample is distributed under `Samples~/LabelDisplaySample` so Unity imports
+it only when requested. Its sample assembly references the reusable LabelDisplay
+and Utility runtime assemblies. Runtime LabelDisplay code remains under
+`Runtime/Design/LabelDisplay/Runtime`; `LabelJsonLine.cs` contains the related JSON
+data types `LabelJsonCollection`, `LabelJson`, and `LabelJsonLine`.
+
 ### Runtime Articulation Grab Motion
 
 `FP_ArticulationGrabMotion` connects a tracked world-space pose to an
@@ -913,6 +926,9 @@ The `Sample Promotion` section moves an imported staging sample into the selecte
 
 Promotion is available only when the exact staging root has a current validation report with no failures. The tool fingerprints the eligible staging files and rejects promotion if they changed after validation. Before moving anything, use `Preview Changes` to inspect the source, destination, and manifest values. Promotion requires confirmation, creates a manifest backup under `Library/FP_Utility/ContributionValidationBackups`, preserves existing metadata, verifies the new manifest entry, and automatically restores the source and manifest if the transaction fails. `Roll Back Last Promotion` restores the last successful staging move while its backup remains available.
 
+Selecting a **Staging Folder** enables **Sample Assembly Portability** checks during validation. Every C# script in that folder is checked, regardless of random sampling or include filters. A sample must carry its own assembly definitions; assembly references may target definitions inside the same sample by name or GUID. Inherited parent assemblies, ambiguous boundaries, and external assembly-reference targets block promotion. Ordinary runtime dependency references in the sample assembly definition remain supported.
+
+Promotion repeats this preflight even when called through automation, and is blocked while Unity imports or compiles or reports compiler errors. The check observes current Editor compilation state; it does not initiate a fresh build, infer C# dependencies, or prove clean consumer import or runtime behavior. After moving scripts into staging, refresh and compile in Unity before validating and promoting.
 Static validation is read-only. Header repair and sample promotion are separate explicit actions.
 
 ## Software Architecture

@@ -382,7 +382,7 @@ namespace FuzzPhyte.Utility.Editor
             if (!CanPromoteSample())
             {
                 EditorGUILayout.HelpBox(
-                    "Promotion requires a completed validation of this exact staging root with zero failures.",
+                    "Promotion requires validation of this exact staging root, sample-owned assembly boundaries, and no pending imports or compiler errors.",
                     MessageType.None);
             }
         }
@@ -581,6 +581,7 @@ namespace FuzzPhyte.Utility.Editor
             return new FPContributionValidationOptions
             {
                 RootAssetPath = GetRootAssetPath(),
+                SampleRootAssetPath = GetFolderAssetPath(stagingSampleFolder),
                 IncludeRuntime = includeRuntime,
                 IncludeEditor = includeEditor,
                 IncludeTests = includeTests,
@@ -734,6 +735,7 @@ namespace FuzzPhyte.Utility.Editor
         private bool CanPromoteSample()
         {
             if (report == null || report.WasCancelled || report.HasFailures ||
+                EditorApplication.isCompiling || EditorApplication.isUpdating || EditorUtility.scriptCompilationFailed ||
                 stagingSampleFolder == null || promotionPackageRoot == null ||
                 string.IsNullOrWhiteSpace(promotionFolderName) ||
                 string.IsNullOrWhiteSpace(promotionDisplayName))
@@ -856,7 +858,7 @@ namespace FuzzPhyte.Utility.Editor
         private bool AnyCheckEnabled()
         {
             return checkNaming || checkAssemblies || checkNamespaces || checkHeaders ||
-                   checkRuntimeEditorSeparation || checkObjectIdentity || checkRepositoryCleanliness;
+                   checkRuntimeEditorSeparation || checkObjectIdentity || checkRepositoryCleanliness || stagingSampleFolder != null;
         }
 
         private void SetAllChecks(bool enabled)

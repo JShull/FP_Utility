@@ -50,6 +50,7 @@ namespace FuzzPhyte.Utility.Editor
     internal sealed class FPContributionValidationOptions
     {
         public string RootAssetPath;
+        public string SampleRootAssetPath;
         public bool IncludeRuntime = true;
         public bool IncludeEditor = true;
         public bool IncludeTests = true;

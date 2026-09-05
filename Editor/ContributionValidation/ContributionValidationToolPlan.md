@@ -4,6 +4,7 @@
 
 Implementation is in progress. The shared header layer, static-validator MVP, Markdown reporting, guarded sample promotion, rollback, and focused Edit Mode tests are implemented. Unity compilation and broader acceptance workflows remain phased work.
 
+Sample assembly-portability preflight is implemented: staging validation checks all sample scripts for sample-owned assembly boundaries, and promotion repeats the check before filesystem or manifest mutation. Current Unity import/compilation state must be clear. Focused regressions cover inherited parent/sibling assemblies, internal/external assembly references, scope-filter bypass prevention, and refusal without mutation. This observes current compiler state; automatic compilation orchestration and consumer import validation remain later phases.
 ## Purpose
 
 Create a reusable FuzzPhyte Unity Editor tool for reviewing student, contractor, and external contributions before they are merged into `FP_Utility` or another FuzzPhyte Unity package.

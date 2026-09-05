@@ -133,6 +133,51 @@ namespace FuzzPhyte.Utility.Editor.Tests
             Assert.That(report.Count(FPContributionValidationSeverity.Warning), Is.GreaterThanOrEqualTo(1));
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Run_SampleAssemblyBoundaryDoesNotInheritParentOrSibling(bool localDefinition)
+        {
+            string sample = Path.Combine(temporaryFullPath, "Sample");
+            string runtime = Path.Combine(temporaryFullPath, "Runtime");
+            Directory.CreateDirectory(sample);
+            Directory.CreateDirectory(runtime);
+            const string definition = "{\"name\":\"com.fuzzphyte.sample\"}";
+            File.WriteAllText(Path.Combine(temporaryFullPath, "parent.asmdef"), definition);
+            File.WriteAllText(Path.Combine(runtime, "runtime.asmdef"), definition);
+            File.WriteAllText(Path.Combine(sample, "Example.cs"), "class Example {}");
+            if (localDefinition) File.WriteAllText(Path.Combine(sample, "sample.asmdef"), definition);
+            var options = DisabledOptions();
+            options.RootAssetPath = temporaryAssetPath;
+            options.SampleRootAssetPath = temporaryAssetPath + "/Sample";
+            options.IncludeSamples = false;
+            options.UseRandomSample = true;
+            options.RandomFileCount = 0;
+
+            FPContributionValidationReport report = FPContributionValidationUtility.Run(options);
+
+            Assert.That(report.HasFailures, Is.EqualTo(!localDefinition));
+            if (!localDefinition)
+                Assert.That(report.Findings.Any(f => f.AssetPath.EndsWith("Example.cs") && f.Message.Contains("owning assembly")), Is.True);
+        }
+
+        [TestCase("com.fuzzphyte.sample", false)]
+        [TestCase("com.fuzzphyte.external", true)]
+        public void Run_SampleAssemblyReferenceMustResolveInsideSample(string reference, bool fails)
+        {
+            string shared = Path.Combine(temporaryFullPath, "Shared");
+            string linked = Path.Combine(temporaryFullPath, "Linked");
+            Directory.CreateDirectory(shared);
+            Directory.CreateDirectory(linked);
+            File.WriteAllText(Path.Combine(shared, "sample.asmdef"), "{\"name\":\"com.fuzzphyte.sample\"}");
+            File.WriteAllText(Path.Combine(linked, "sample.asmref"), "{\"reference\":\"" + reference + "\"}");
+            File.WriteAllText(Path.Combine(linked, "Example.cs"), "class Example {}");
+            var options = DisabledOptions();
+            options.RootAssetPath = temporaryAssetPath;
+            options.SampleRootAssetPath = temporaryAssetPath;
+
+            Assert.That(FPContributionValidationUtility.Run(options).HasFailures, Is.EqualTo(fails));
+        }
+
         private static FPContributionValidationOptions DisabledOptions()
         {
             return new FPContributionValidationOptions

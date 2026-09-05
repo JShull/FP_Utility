@@ -76,8 +76,9 @@ namespace FuzzPhyte.Utility.Editor.Tests
                     new FPSampleManifestEntry("Sample", "Description", "Samples~/Sample")));
         }
 
-        [Test]
-        public void PromoteAndRollback_MoveFolderAndRestoreManifest()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PromoteAndRollback_MoveFolderAndRestoreManifest(bool unsafeScript)
         {
             string rootAssetPath = $"Temp/FPSamplePromotionTests_{System.Guid.NewGuid():N}";
             string rootFullPath = FPScriptHeaderUtility.GetFullProjectPath(rootAssetPath);
@@ -94,6 +95,7 @@ namespace FuzzPhyte.Utility.Editor.Tests
                 Directory.CreateDirectory(sourceFullPath);
                 File.WriteAllText(Path.Combine(packageFullPath, "package.json"), originalManifest);
                 File.WriteAllText(Path.Combine(sourceFullPath, "Sample.txt"), "sample");
+                if (unsafeScript) File.WriteAllText(Path.Combine(sourceFullPath, "Example.cs"), "class Example {}");
 
                 FPContributionValidationOptions options = DisabledOptions(sourceAssetPath);
                 FPContributionValidationReport report = FPContributionValidationUtility.Run(options);
@@ -110,6 +112,17 @@ namespace FuzzPhyte.Utility.Editor.Tests
 
                 FPSamplePromotionResult promotion = FPSamplePromotionUtility.Promote(request);
                 record = promotion.Record;
+
+                if (unsafeScript)
+                {
+                    Assert.That(promotion.Success, Is.False);
+                    Assert.That(promotion.Message, Does.Contain("owning assembly"));
+                    Assert.That(record, Is.Null);
+                    Assert.That(Directory.Exists(sourceFullPath), Is.True);
+                    Assert.That(Directory.Exists(Path.Combine(packageFullPath, "Samples~")), Is.False);
+                    Assert.That(File.ReadAllText(Path.Combine(packageFullPath, "package.json")), Is.EqualTo(originalManifest));
+                    return;
+                }
 
                 Assert.That(promotion.Success, Is.True, promotion.Message);
                 Assert.That(Directory.Exists(sourceFullPath), Is.False);

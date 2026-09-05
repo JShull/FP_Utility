@@ -15,6 +15,7 @@ namespace FuzzPhyte.Utility.Editor
     using System.Security.Cryptography;
     using System.Text;
     using System.Text.RegularExpressions;
+    using UnityEditor;
     using UnityEngine;
 
     /// <summary>
@@ -104,8 +105,99 @@ namespace FuzzPhyte.Utility.Editor
                 RunCleanlinessChecks(report);
             }
 
+            if (!string.IsNullOrWhiteSpace(options.SampleRootAssetPath))
+            {
+                ValidateSampleAssemblyBoundaries(options.SampleRootAssetPath, report);
+            }
+
             cancelProgress?.Invoke("Complete", 1f);
             return report;
+        }
+
+        /// <summary>
+        /// Inspects all sample scripts regardless of filters or random sampling. Moving a
+        /// sample must not silently replace an inherited parent assembly with another one.
+        /// </summary>
+        internal static void ValidateSampleAssemblyBoundaries(string sampleAssetPath, FPContributionValidationReport report)
+        {
+            const string rule = "Sample Assembly Portability";
+            int issuesBefore = report.Findings.Count;
+            string root = Path.GetFullPath(FPScriptHeaderUtility.GetFullProjectPath(sampleAssetPath))
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (!Directory.Exists(root))
+            {
+                Add(report, rule, FPContributionValidationSeverity.Failure, "The staging sample folder does not exist.", sampleAssetPath);
+                return;
+            }
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorUtility.scriptCompilationFailed)
+            {
+                Add(report, rule, FPContributionValidationSeverity.Failure,
+                    "Unity is importing, compiling, or has script compilation errors. Sample promotion is blocked.", sampleAssetPath,
+                    0, "Complete asset import and resolve Console compiler errors, then validate the staging sample again.");
+            }
+
+            string[] definitions = Directory.GetFiles(root, "*.asmdef", SearchOption.AllDirectories);
+            foreach (string script in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories).OrderBy(path => path, StringComparer.Ordinal))
+            {
+                string directory = Path.GetDirectoryName(script);
+                string boundary = null;
+                while (directory != null)
+                {
+                    string[] boundaries = Directory.GetFiles(directory, "*.asmdef")
+                        .Concat(Directory.GetFiles(directory, "*.asmref")).ToArray();
+                    if (boundaries.Length > 0)
+                    {
+                        boundary = boundaries.Length == 1 ? boundaries[0] : null;
+                        break;
+                    }
+                    if (string.Equals(directory, root, StringComparison.OrdinalIgnoreCase)) break;
+                    directory = Path.GetDirectoryName(directory);
+                }
+
+                string assetPath = NormalizeAssetPath(sampleAssetPath) + "/" + NormalizeAssetPath(GetRelativePath(root, script));
+                if (boundary == null)
+                {
+                    Add(report, rule, FPContributionValidationSeverity.Failure,
+                        "Sample script has no unambiguous assembly boundary inside the sample; moving it can change its owning assembly.",
+                        assetPath, 0, "Add a sample assembly definition referencing the required runtime assemblies, then compile the staged sample.");
+                    continue;
+                }
+                try
+                {
+                    if (boundary.EndsWith(".asmref", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string reference = JsonUtility.FromJson<FPSampleAssemblyReference>(File.ReadAllText(boundary))?.reference;
+                        boundary = definitions.FirstOrDefault(definition => SampleAssemblyReferenceMatches(reference, definition));
+                        if (boundary == null) throw new InvalidDataException("Assembly reference does not resolve to an assembly definition inside the sample.");
+                    }
+                    if (string.IsNullOrWhiteSpace(JsonUtility.FromJson<FPAssemblyDefinitionData>(File.ReadAllText(boundary))?.name))
+                        throw new InvalidDataException("Sample assembly definition has no name.");
+                }
+                catch (Exception exception)
+                {
+                    Add(report, rule, FPContributionValidationSeverity.Failure,
+                        $"Sample assembly boundary could not be verified: {exception.Message}", assetPath,
+                        0, "Use a sample-owned assembly definition with explicit runtime references and verify Unity compilation before promotion.");
+                }
+            }
+            AddPassWhenNoIssues(report, rule, issuesBefore,
+                "All sample scripts carry an assembly boundary; Unity reports no pending import or compilation errors. Consumer import and runtime behavior remain separate checks.");
+        }
+
+        private static bool SampleAssemblyReferenceMatches(string reference, string definition)
+        {
+            if (string.IsNullOrWhiteSpace(reference)) return false;
+            if (!reference.StartsWith("GUID:", StringComparison.OrdinalIgnoreCase))
+                return string.Equals(reference, JsonUtility.FromJson<FPAssemblyDefinitionData>(File.ReadAllText(definition))?.name, StringComparison.Ordinal);
+            if (!File.Exists(definition + ".meta")) return false;
+            Match guid = Regex.Match(File.ReadAllText(definition + ".meta"), @"(?m)^guid:\s*([a-fA-F0-9]+)\s*$");
+            return guid.Success && string.Equals(reference.Substring(5), guid.Groups[1].Value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Serializable]
+        private sealed class FPSampleAssemblyReference
+        {
+            public string reference;
         }
 
         internal static List<string> CollectEligibleAssetPaths(FPContributionValidationOptions options)

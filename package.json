@@ -22,40 +22,46 @@
       "com.unity.entities.graphics":"6.4.0"
     },
     "samples": [
-      {
-        "displayName": "Utility Samples",
-        "description": "Includes some examples of the different ScriptableObject based use cases and other misc. scripts for how you can utilize some of these base classes. Audio Example for ramping audio in and out as well. Spline Timeline follower example here as well.",
-        "path": "Samples~/SamplesURP"
-      },
-      {
-        "displayName": "Skybox Transition Sample",
-        "description": "Showcasing a simple custom shader effect to transition between two textures on a single material.",
-        "path": "Samples~/Skybox"
-      },
-      {
-        "displayName": "Apple iOS File Import Plugin",
-        "description": "Native iOS I/O: Save .json, Open .md, and save .wav files to the iOS device",
-        "path": "Samples~/iOSPlugin"
-      },
-      {
-        "displayName": "URP FP Render Settings",
-        "description": "Base URP settings for Mesh/Vertex Render Features",
-        "path": "Samples~/URPSettings"
-      },{
-        "displayName": "URP Profiles",
-        "description": "URP Profiles for URP FP Render Environments",
-        "path": "Samples~/URPProfiles"
-      },
-      {
-        "displayName": "Openness Functionality",
-        "description": "Using the Tick System to monitor Drawers and Hinges for state of open/close",
-        "path": "Samples~/Openness"
-      },
-      {
-        "displayName":"Audio Samples",
-        "description": "All audio samples were created by John Shull using various equipment and microphones like 360 stereo & directional microphones",
-        "path": "Samples~/FPAudio"
-      }
+        {
+            "displayName": "Utility Samples",
+            "description": "Includes some examples of the different ScriptableObject based use cases and other misc. scripts for how you can utilize some of these base classes. Audio Example for ramping audio in and out as well. Spline Timeline follower example here as well.",
+            "path": "Samples~/SamplesURP"
+        },
+        {
+            "displayName": "Skybox Transition Sample",
+            "description": "Showcasing a simple custom shader effect to transition between two textures on a single material.",
+            "path": "Samples~/Skybox"
+        },
+        {
+            "displayName": "Apple iOS File Import Plugin",
+            "description": "Native iOS I/O: Save .json, Open .md, and save .wav files to the iOS device",
+            "path": "Samples~/iOSPlugin"
+        },
+        {
+            "displayName": "URP FP Render Settings",
+            "description": "Base URP settings for Mesh/Vertex Render Features",
+            "path": "Samples~/URPSettings"
+        },
+        {
+            "displayName": "URP Profiles",
+            "description": "URP Profiles for URP FP Render Environments",
+            "path": "Samples~/URPProfiles"
+        },
+        {
+            "displayName": "Openness Functionality",
+            "description": "Using the Tick System to monitor Drawers and Hinges for state of open/close",
+            "path": "Samples~/Openness"
+        },
+        {
+            "displayName": "Audio Samples",
+            "description": "All audio samples were created by John Shull using various equipment and microphones like 360 stereo & directional microphones",
+            "path": "Samples~/FPAudio"
+        },
+        {
+            "displayName": "Label Display Sample",
+            "description": "Demonstrates dialogue labels with JSON content, themed text, images, prefabs, and the Spawn Label sample component.",
+            "path": "Samples~/LabelDisplaySample"
+        }
     ],
     "keywords": [
       "ScriptableObject",
