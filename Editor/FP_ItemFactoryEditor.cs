@@ -76,14 +76,11 @@ namespace FuzzPhyte.Utility.Editor
         private void LoadDerivedTypes()
         {
             fpDataDerivedTypes = new List<Type> { null }; // Add null to represent "NA"
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var type in TypeCache.GetTypesDerivedFrom<FP_Data>())
             {
-                foreach (var type in assembly.GetTypes())
+                if (!type.IsAbstract)
                 {
-                    if (type.IsSubclassOf(typeof(FP_Data)) && !type.IsAbstract)
-                    {
-                        fpDataDerivedTypes.Add(type);
-                    }
+                    fpDataDerivedTypes.Add(type);
                 }
             }
         }

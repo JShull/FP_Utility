@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0]-2026-09-08
+
 ### Added
 
 - Added a native Hierarchy Icon Override panel to FP Header Options for applying or clearing project-owned custom icons on selected ordinary scene GameObjects, with Undo, multi-selection, and optional recursive child processing that defaults off.
@@ -15,6 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a project-scoped Alt-click icon palette to Header Options. Hold Alt and left-click an ordinary GameObject in either Hierarchy to apply or clear a palette icon without recursively changing children; FP Header objects remain excluded.
 - Added a collapsible, drag-reorderable Alt-click palette whose persisted order is shared by the Hierarchy popup.
 - Completed the package-only `Move Icon Assets` command so it copies texture assets from both `Editor/Gizmos` and `Editor/Icons` into `Assets/Gizmos/FP` through Unity's asset database while preserving existing same-named project assets.
+
+### Changed
+
+- Incorporated all changes from 1.0.4, including guarded ElevenLabs generation, CLI prepare/execute/status/resume, durable response caching, and Unity analyzer fixes.
+- Synchronized README, internal Readme.asset, and package metadata to 1.1.0 while retaining the Header and Alt-click icon workflows. Unity 6000.6 New Hierarchy code remains conditionally compiled; the declared package minimum remains Unity 6000.3.5f1.
+
+## [1.0.4]-2026-09-08
+
+### Added
+
+- Added shared ElevenLabs/OpenAI generation service, offline manifests with exact text and voice IDs, explicit manifest authorization, and request/input-character limits.
+- Added durable per-request reservations and response caching, immediate per-clip saving, import-only resume, uncertain-outcome retry blocking, and explicit hash-based reuse of existing clips.
+- Added prepare, execute, status, and resume PowerShell commands using the connected Unity Editor, plus focused Edit Mode regression tests without paid provider calls.
+
 - Added the Label Display system and sample, contributed by [@AustinKazooie](https://github.com/AustinKazooie) in [PR #2](https://github.com/JShull/FP_Utility/pull/2), FP_Utility's first external contribution.
 - Added mandatory sample assembly-portability checks and a Unity compilation-state gate before promotion, including automation entry points and regression coverage for inherited assembly boundaries.
 
@@ -24,9 +40,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated the existing ElevenLabs Text to Speech window with separate translation and speech preparation, speech-only input, manifest review, and guarded execution. Paired audio and optional FP_Vocab remain available.
+- Synchronized package metadata, README, and internal Readme.asset to version 1.0.4.
+
 - Renamed the LabelDisplay JSON data file from `Capsules.cs` to `LabelJsonLine.cs`, preserving its types and asset GUID.
 - Moved the LabelDisplay sample assets and `Label_Test` component into `Samples~/LabelDisplaySample`, added a sample assembly definition, and registered **Label Display Sample** in Package Manager.
 - Refactored `FPScriptHeaderEditorWindow` to share its configured header, inspection, encoding, line-ending, and replacement behavior with contribution validation and to accept failed script paths directly from the validator.
+
+### Fixed
+
+- Resolved Unity 6.6 analyzer warnings by explicitly excluding the audio-combine waveform cache from serialization, using Unity's current-assembly API in the debug scanner on Unity 6.5+, and discovering FP_Data subclasses through TypeCache in the data factory.
 
 ## [1.0.3]-2026-09-01
 

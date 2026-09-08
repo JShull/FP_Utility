@@ -5,8 +5,8 @@
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "6000.3",
     "unityRelease": "5f1",
-    "documentationUrl": "https://github.com/jshull/FP_Utility/blob/main/README.md",
-    "changelogUrl": "https://github.com/JShull/FP_Utility/blob/main/CHANGELOG.md",
+    "documentationUrl": "https://github.com/jshull/FP_Utility/blob/1.1.0/README.md",
+    "changelogUrl": "https://github.com/JShull/FP_Utility/blob/1.1.0/CHANGELOG.md",
     "licensesUrl": "https://github.com/jshull/FP_Utility/blob/main/LICENSE.md",
     "repository": {
       "type": "git",

@@ -15,14 +15,21 @@ MonoBehaviour:
   icon: {fileID: 2800000, guid: b521bf5d6ffa177458e7c14188bbf89d, type: 3}
   title: FuzzPhyte Utility
   subtitle: 'Utility Package Documentation '
-  version: 1.0.3
+  version: 1.1.0
   overview: "FP_Utility is designed and built to be a simple set of base classes to be used in almost all future FuzzPhyte packages. \nThere is an element of Scriptable Object and an element of just simple input/output functions as well as some core scripts timed to timers etc. \nThere are a lot of static functions to help with file management and Unity Editor management. Please read the full readme located on the GitHub if you want more details. This readme file is designed to get you into the menu system quickly and understanding at a high level what are the core tools that this package manages."
   overviewLinks:
   - label: GitHub Readme
-    url: https://github.com/JShull/FP_Utility/blob/main/README.md
+    url: https://github.com/JShull/FP_Utility/blob/1.1.0/README.md
   - label: Changelog
-    url: https://github.com/JShull/FP_Utility/blob/main/CHANGELOG.md
+    url: https://github.com/JShull/FP_Utility/blob/1.1.0/CHANGELOG.md
   sections:
+  - heading: Version 1.1.0
+    showSeparatorBefore: 0
+    body: 'Includes the latest 1.0.4 work plus FP Header icon overrides and the Alt-click palette. Classic Hierarchy remains supported; New Hierarchy integration is enabled only on Unity 6000.6 and newer. The package minimum remains Unity 6000.3.5f1.
+
+
+      ElevenLabs and OpenAI operations now share reviewed manifests, explicit request/input-character limits, durable response caching, and CLI prepare/execute/status/resume. Also includes Contribution Validator safeguards, the Label Display sample, and fixes for waveform-cache serialization and assembly-discovery analyzer warnings. See the sections below for each workflow.'
+    links: []
   - heading: FP Header
     showSeparatorBefore: 0
     body: 'FP Header is an editor-only hierarchy organization tool for Unity scenes. It lets you create disabled, all-caps GameObjects that act like visual section headers in the standard Unity Hierarchy without forcing the grouped objects into a parent-child transform relationship. This is useful when you want the readability and collapse behavior of folders, but you do not want to change transform inheritance or scene structure.
@@ -115,15 +122,15 @@ MonoBehaviour:
     showSeparatorBefore: 0
     body: 'FPMeshRuntimeObjExporter provides a player-safe OBJ export workflow. It collects MeshFilter hierarchies, optionally bakes SkinnedMeshRenderer components, optionally includes non-duplicate MeshCollider geometry, applies child transforms in root-local space, and preserves supported triangle and quad submeshes.
 
-      
+
 
       TryBuildPackage returns an in-memory ZIP containing the OBJ, optional MTL data, and optional PNG textures. Pass the result to FPFileExportUtility.TrySaveOrDownload for WebGL download, iOS Files export, Unity Editor and Windows save prompts, or persistent-data output on other platforms.
 
-      
+
 
       Imported meshes must have Read/Write enabled. Use MaximumVertexCount and MaximumTextureSize to control memory usage.
 
-      
+
 
       Editor export commands are available through [Export Selection as OBJ](menu:GameObject/FuzzPhyte/Mesh/Export Selection as OBJ) and [Export Selected Assets as OBJ](menu:Assets/FuzzPhyte/Mesh/Export Selected as OBJ).'
     links:
@@ -142,19 +149,19 @@ MonoBehaviour:
     showSeparatorBefore: 0
     body: 'FP Video downloads and validates remote video files before playing them from Application.persistentDataPath. The VideoPlayer receives a validated local path rather than the remote Azure URL.
 
-      
+
 
       The intended playback handoff is FPVideoCacheBootstrap to FPVideoCacheManager to FPVideoSimpleEventBridge.OnResolvedLocalPath to FPVideoPlayerPathReceiver.SetVideoPath.
 
-      
+
 
       Connect only On Resolved Local Path to playback. On Request Success, On Source Was Cache, and On Download Was Performed are status outputs and should not trigger additional Prepare or Play calls.
 
-      
+
 
       Recommended receiver settings are Prepare On Set enabled, Play On Prepared enabled, Stop Before Assigning enabled, and Allow Frame Skipping disabled. On the VideoPlayer, disable Play On Awake and Skip On Drop, enable Wait For First Frame, and configure the render target separately.
 
-      
+
 
       Use [Video Hash Generator](menu:FuzzPhyte/Utility/Video/Hash Generator) to calculate file hashes and lengths and create manifest entries.'
     links:
@@ -176,13 +183,34 @@ MonoBehaviour:
     showSeparatorBefore: 0
     body: 'Remove CS is an editor-only scene cleanup tool that removes attached MonoBehaviour scripts while preserving hierarchy, transforms, renderers, meshes, colliders, lights, cameras, animation components, and RectTransform layout.
 
-      
+
 
       Open [Remove CS](menu:FuzzPhyte/Utility/Editor/Remove CS), add the target scene objects, configure child, AudioSource, and UI/Text options, review the live removal counts, and confirm the cleanup.
 
-      
+
 
       Enable Clean Copies In Another Scene for a non-destructive workflow. This copies the selected scene hierarchies to a new or existing scene, fully unpacks prefab connections, cleans the copies, and leaves the original scene objects unchanged. Project-window prefab assets are skipped; open them in Prefab Mode when cleanup is required.'
     links:
     - label: Remove CS Documentation
       url: https://github.com/JShull/FP_Utility/blob/main/README.md#remove-cs
+  - heading: ElevenLabs Text to Speech
+    showSeparatorBefore: 1
+    body: 'Prepare, review, and authorize translation or speech requests within explicit request and input-character limits. Speech Only sends approved text directly to ElevenLabs; paired generation retains optional reciprocal FP_Vocab assets. Saved responses and the durable request ledger prevent repeat purchases when resuming imports. Uncertain provider outcomes stop automatic retries. Limits are workload controls, not currency estimates.
+
+
+      Open [ElevenLabs Text to Speech](menu:FuzzPhyte/Utility/Audio/ElevenLabs Text to Speech). Configure credentials in [FP Keys Manager](menu:FuzzPhyte/Utility/Editor/Testing/Keys Manager).
+
+
+      Connected Editor automation: Tools~/elevenlabs.ps1 provides prepare, execute, status, and resume. Review the exact manifest hash before authorizing execution. Preserve UserSettings/FPElevenLabs with generated audio; this folder stores approved manifests, responses, and the ledger. A saved manifest can be passed to CLI status/resume after losing window state. See the full README for JSON inputs, existing-clip adoption, and recovery details.'
+    links: []
+  - heading: Contribution Validator
+    showSeparatorBefore: 1
+    body: 'Review contributed scripts with deterministic checks, source evidence, and Markdown reports. Promote validated samples into UPM Samples~ with assembly-portability checks, a Unity compilation-state gate, manifest previews, recoverable backups, and rollback.
+
+
+      Open [Contribution Validator](menu:FuzzPhyte/Utility/Editor/Testing/Contribution Validator).'
+    links: []
+  - heading: Label Display Sample
+    showSeparatorBefore: 1
+    body: Import Label Display Sample from FP Utility's Samples section in Package Manager, then open Scenes/LabelDisplaySample.unity in the imported sample folder. Includes dialogue JSON, images, fonts, themes, prefabs, and Label_Test with its Spawn Label action. Runtime LabelDisplay code remains reusable in the package. Contributed by AustinKazooie in PR #2, FP Utility's first external contribution.
+    links: []
