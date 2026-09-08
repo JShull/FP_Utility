@@ -21,8 +21,6 @@ namespace FuzzPhyte.Utility.Editor
     public class FPElevenLabsTextToSpeechWindow : EditorWindow
     {
         private const string VoicesEndpoint = "https://api.elevenlabs.io/v2/voices";
-        private const string TextToSpeechEndpoint = "https://api.elevenlabs.io/v1/text-to-speech";
-        private const string OpenAIResponsesEndpoint = "https://api.openai.com/v1/responses";
         private const string OutputFormat = "mp3_44100_128";
         private const string DefaultModelId = "eleven_v3";
         private const string LegacyDefaultModelId = "eleven_multilingual_v2";
@@ -59,6 +57,12 @@ namespace FuzzPhyte.Utility.Editor
         private MessageType statusMessageType = MessageType.Info;
         private Vector2 scrollPosition;
         private bool isRequestRunning;
+        [SerializeField] private bool speechOnly;
+        [SerializeField] private int maxGenerationRequests;
+        [SerializeField] private int maxGenerationCharacters;
+        [SerializeField] private string preparedManifestJson = string.Empty;
+        [SerializeField] private bool preparedTranslation;
+        private bool approvePreparedManifest;
 
         [MenuItem("FuzzPhyte/Utility/Audio/ElevenLabs Text to Speech", priority = FP_UtilityData.MENU_UTILITY_AUDIO + 2)]
         public static void ShowWindow()
@@ -127,9 +131,11 @@ namespace FuzzPhyte.Utility.Editor
 
             EditorGUILayout.LabelField("ElevenLabs Text to Speech", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Translate English, Spanish, or French text with OpenAI, then generate paired MP3 AudioClip assets with one ElevenLabs voice.",
+                "Prepare and review translation or speech requests, then authorize generation within explicit limits.",
                 MessageType.Info);
 
+            using (new EditorGUI.DisabledScope(isRequestRunning))
+            {
             DrawAuthenticationSection();
             DrawVoiceSection();
             DrawRequestSettingsSection();
@@ -137,6 +143,7 @@ namespace FuzzPhyte.Utility.Editor
             DrawOutputSection();
             DrawFPVocabSection();
             DrawGenerateSection();
+            }
 
             EditorGUILayout.EndScrollView();
         }
@@ -364,7 +371,7 @@ namespace FuzzPhyte.Utility.Editor
                 && HasAnyRequestText();
             using (new EditorGUI.DisabledScope(isRequestRunning || !canTranslate))
             {
-                if (GUILayout.Button(isRequestRunning ? "Request in progress..." : "Translate All Requests", GUILayout.Height(26f)))
+                if (GUILayout.Button(isRequestRunning ? "Request in progress..." : "Prepare Translations (Dry Run)", GUILayout.Height(26f)))
                 {
                     TranslateRequests();
                 }
@@ -429,19 +436,33 @@ namespace FuzzPhyte.Utility.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Generate Audio", EditorStyles.boldLabel);
 
+            speechOnly = EditorGUILayout.Toggle("Speech Only (Original Text)", speechOnly);
+            maxGenerationRequests = EditorGUILayout.IntField("Maximum Paid Requests", maxGenerationRequests);
+            maxGenerationCharacters = EditorGUILayout.IntField("Maximum Input Characters", maxGenerationCharacters);
+            EditorGUILayout.HelpBox("Limits apply to each prepared manifest, including failed attempts. Zero permits cache reuse only. Characters are UTF-16 input units, not a currency estimate. Speech Only sends Original Text directly, including approved French dialogue.", MessageType.Info);
+
             bool canGenerate = HasElevenLabsApiKey()
                 && GetSelectedVoice() != null
                 && !string.IsNullOrWhiteSpace(modelId)
                 && !string.IsNullOrWhiteSpace(voiceName)
-                && (!generateFPVocab || FPElevenLabsVocabAssetUtility.IsAvailable)
-                && HasAnyCurrentTranslation();
+                && (speechOnly || !generateFPVocab || FPElevenLabsVocabAssetUtility.IsAvailable)
+                && (speechOnly ? HasAnyRequestText() : HasAnyCurrentTranslation());
 
             using (new EditorGUI.DisabledScope(isRequestRunning || !canGenerate))
             {
-                if (GUILayout.Button(isRequestRunning ? "Request in progress..." : "Generate All Audio Pairs", GUILayout.Height(30f)))
+                if (GUILayout.Button(isRequestRunning ? "Request in progress..." : "Prepare Audio (Dry Run)", GUILayout.Height(30f)))
                 {
                     GenerateSpeechPairs();
                 }
+            }
+
+            if (!string.IsNullOrEmpty(preparedManifestJson))
+            {
+                EditorGUILayout.LabelField("Prepared Manifest", EditorStyles.boldLabel);
+                EditorGUILayout.TextArea(preparedManifestJson, GUILayout.MinHeight(180f));
+                approvePreparedManifest = EditorGUILayout.ToggleLeft("Authorize this exact manifest and its limits", approvePreparedManifest);
+                using (new EditorGUI.DisabledScope(isRequestRunning || !approvePreparedManifest))
+                    if (GUILayout.Button("Execute / Resume Prepared Manifest")) ExecutePreparedManifest();
             }
 
             if (!string.IsNullOrWhiteSpace(statusMessage))
@@ -719,363 +740,125 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        private async void TranslateRequests()
+        private void TranslateRequests() => PrepareManifest(true);
+
+        private void GenerateSpeechPairs() => PrepareManifest(false);
+
+        private FPElevenLabsGenerationManifest BuildManifest(bool translation)
         {
-            if (isRequestRunning || this == null)
+            var requests = new List<FPElevenLabsGenerationRequest>();
+            VoiceInfo voice = GetSelectedVoice();
+            foreach (SpeechRequest row in speechRequests)
             {
-                return;
-            }
-
-            if (!HasOpenAICredentials())
-            {
-                SetStatus("Save the OpenAI API key, organization ID, and project ID in FP Keys Manager first.", MessageType.Warning);
-                return;
-            }
-
-            if (sourceLanguage == targetLanguage)
-            {
-                SetStatus("Choose two different languages for translation.", MessageType.Warning);
-                return;
-            }
-
-            string requestedApiKey = GetOpenAIApiKey();
-            string requestedOrganizationId = GetOpenAIOrganizationId();
-            string requestedProjectId = GetOpenAIProjectId();
-            string requestedOpenAIModelId = openAIModelId.Trim();
-            FPTranslationLanguage requestedSourceLanguage = sourceLanguage;
-            FPTranslationLanguage requestedTargetLanguage = targetLanguage;
-            int translatedCount = 0;
-            int failedOrSkippedCount = 0;
-
-            isRequestRunning = true;
-            SetStatus(
-                $"Translating {speechRequests.Count} request(s) from {FPElevenLabsEditorUtility.GetLanguageName(requestedSourceLanguage)} to {FPElevenLabsEditorUtility.GetLanguageName(requestedTargetLanguage)}...",
-                MessageType.Info);
-
-            try
-            {
-                for (int i = 0; i < speechRequests.Count; i++)
+                if (row == null || string.IsNullOrWhiteSpace(row.originalText))
+                    throw new InvalidOperationException("Every row needs Original Text. Remove empty rows before preparing.");
+                if (translation)
                 {
-                    SpeechRequest speechRequest = speechRequests[i];
-                    if (speechRequest == null)
-                    {
-                        speechRequest = new SpeechRequest();
-                        speechRequests[i] = speechRequest;
-                    }
-
-                    string sourceText = speechRequest.originalText.Trim();
-                    if (string.IsNullOrWhiteSpace(sourceText))
-                    {
-                        SetRequestStatus(speechRequest, "Skipped because Original Text is empty.", MessageType.Warning);
-                        failedOrSkippedCount++;
-                        continue;
-                    }
-
-                    SetRequestStatus(speechRequest, $"Translating request {i + 1} of {speechRequests.Count}...", MessageType.Info);
-                    Repaint();
-
-                    try
-                    {
-                        string translation = await RequestTranslationAsync(
-                            requestedApiKey,
-                            requestedOrganizationId,
-                            requestedProjectId,
-                            requestedOpenAIModelId,
-                            requestedSourceLanguage,
-                            requestedTargetLanguage,
-                            sourceText);
-                        if (this == null)
-                        {
-                            return;
-                        }
-
-                        string additionalEnglishTranslation = string.Empty;
-                        if (requestedSourceLanguage != FPTranslationLanguage.English
-                            && requestedTargetLanguage != FPTranslationLanguage.English)
-                        {
-                            additionalEnglishTranslation = await RequestTranslationAsync(
-                                requestedApiKey,
-                                requestedOrganizationId,
-                                requestedProjectId,
-                                requestedOpenAIModelId,
-                                requestedSourceLanguage,
-                                FPTranslationLanguage.English,
-                                sourceText);
-                            if (this == null)
-                            {
-                                return;
-                            }
-                        }
-
-                        string englishBaseFileName = FPElevenLabsEditorUtility.GetEnglishBaseFileName(
-                            requestedSourceLanguage,
-                            requestedTargetLanguage,
-                            sourceText,
-                            translation,
-                            additionalEnglishTranslation);
-
-                        speechRequest.translatedText = translation;
-                        speechRequest.translatedSourceText = sourceText;
-                        speechRequest.translatedSourceLanguage = requestedSourceLanguage;
-                        speechRequest.translatedTargetLanguage = requestedTargetLanguage;
-                        speechRequest.baseFileName = englishBaseFileName.Trim();
-                        SetRequestStatus(
-                            speechRequest,
-                            HasCurrentTranslation(speechRequest)
-                                ? "Translation and English Base File Name received."
-                                : "Translation received, but this row changed during the request. Translate it again before generating audio.",
-                            HasCurrentTranslation(speechRequest) ? MessageType.Info : MessageType.Warning);
-                        translatedCount++;
-                    }
-                    catch (Exception exception)
-                    {
-                        failedOrSkippedCount++;
-                        SetRequestStatus(speechRequest, $"Translation failed: {exception.Message}", MessageType.Error);
-                        Debug.LogError($"OpenAI translation request {i + 1} failed: {exception.Message}");
-                    }
+                    requests.Add(BuildTranslationRequest(row.originalText, targetLanguage));
+                    if (sourceLanguage != FPTranslationLanguage.English && targetLanguage != FPTranslationLanguage.English)
+                        requests.Add(BuildTranslationRequest(row.originalText, FPTranslationLanguage.English));
                 }
-
-                EditorPrefs.SetString(OpenAIModelIdPreference, openAIModelId);
-                EditorPrefs.SetInt(SourceLanguagePreference, (int)sourceLanguage);
-                EditorPrefs.SetInt(TargetLanguagePreference, (int)targetLanguage);
-                SetStatus(
-                    failedOrSkippedCount == 0
-                        ? $"Translated all {translatedCount} request(s). Review the translations, then generate all audio pairs."
-                        : $"Translated {translatedCount} request(s); {failedOrSkippedCount} failed or were skipped. Review each row before generating audio.",
-                    failedOrSkippedCount == 0 ? MessageType.Info : MessageType.Warning);
-            }
-            finally
-            {
-                if (this != null)
+                else
                 {
-                    isRequestRunning = false;
-                    Repaint();
+                    if (voice == null || string.IsNullOrWhiteSpace(voiceName) || string.IsNullOrWhiteSpace(row.baseFileName))
+                        throw new InvalidOperationException("Select a voice and provide Voice Name and every Base File Name.");
+                    if (!speechOnly && !HasCurrentTranslation(row))
+                        throw new InvalidOperationException("Translate stale rows first, or select Speech Only.");
+                    requests.Add(BuildSpeechRequest(row, row.originalText, "Original", sourceLanguage, voice.voice_id));
+                    if (!speechOnly)
+                        requests.Add(BuildSpeechRequest(row, row.translatedText, "Translation", targetLanguage, voice.voice_id));
                 }
             }
+            return new FPElevenLabsGenerationService().Prepare(requests.ToArray(), maxGenerationRequests, maxGenerationCharacters);
         }
 
-        private async void GenerateSpeechPairs()
+        private FPElevenLabsGenerationRequest BuildTranslationRequest(string text, FPTranslationLanguage target)
         {
-            if (isRequestRunning || this == null)
-            {
-                return;
-            }
-
-            VoiceInfo selectedVoice = GetSelectedVoice();
-            if (selectedVoice == null)
-            {
-                SetStatus("Select an ElevenLabs voice first.", MessageType.Warning);
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(voiceName))
-            {
-                SetStatus("Enter a Voice Name for the output filename suffix.", MessageType.Warning);
-                return;
-            }
-
-            string requestedApiKey = GetElevenLabsApiKey();
-            string requestedVoiceId = selectedVoice.voice_id;
-            string requestedVoiceName = voiceName.Trim();
-            string requestedModelId = modelId.Trim();
-            string requestedAssetFolder = outputAssetFolder;
-            FPTranslationLanguage requestedSourceLanguage = sourceLanguage;
-            FPTranslationLanguage requestedTargetLanguage = targetLanguage;
-            bool requestedGenerateFPVocab = generateFPVocab;
-            FP_LanguageLevel requestedLevelIntroduced = vocabLevelIntroduced;
-            CEFRLevel requestedCEFRLevel = vocabCEFRLevel;
-            FP_VocabCategory requestedVocabCategory = vocabCategory;
-            Type requestedVocabType = null;
-            if (requestedGenerateFPVocab
-                && !FPElevenLabsVocabAssetUtility.TryGetVocabType(out requestedVocabType))
-            {
-                SetStatus("FP_Vocab was not found. Install or enable FP_Utility_EDU before generating vocab assets.", MessageType.Error);
-                return;
-            }
-
-            string absoluteFolder = FPElevenLabsEditorUtility.GetAbsoluteFolderPath(requestedAssetFolder, Application.dataPath);
-            if (!Directory.Exists(absoluteFolder))
-            {
-                SetStatus("The selected Unity output folder no longer exists. Choose another folder.", MessageType.Error);
-                return;
-            }
-
-            int generatedCount = 0;
-            int failedOrSkippedCount = 0;
-            var importedClips = new List<UnityEngine.Object>();
-
-            isRequestRunning = true;
-            SetStatus($"Generating {speechRequests.Count} audio pair(s) with {selectedVoice.name}...", MessageType.Info);
-
-            try
-            {
-                for (int i = 0; i < speechRequests.Count; i++)
-                {
-                    SpeechRequest speechRequest = speechRequests[i];
-                    if (speechRequest == null)
-                    {
-                        speechRequest = new SpeechRequest();
-                        speechRequests[i] = speechRequest;
-                    }
-
-                    if (string.IsNullOrWhiteSpace(speechRequest.baseFileName))
-                    {
-                        SetRequestStatus(speechRequest, "Skipped because the English Base File Name is empty.", MessageType.Warning);
-                        failedOrSkippedCount++;
-                        continue;
-                    }
-
-                    if (!HasCurrentTranslation(speechRequest, requestedSourceLanguage, requestedTargetLanguage))
-                    {
-                        SetRequestStatus(speechRequest, "Skipped because its translation is missing or stale.", MessageType.Warning);
-                        failedOrSkippedCount++;
-                        continue;
-                    }
-
-                    string requestedBaseFileName = speechRequest.baseFileName.Trim();
-                    string requestedOriginalText = speechRequest.originalText.Trim();
-                    string requestedTranslatedText = speechRequest.translatedText.Trim();
-                    bool requestedIsColor = speechRequest.isColor;
-                    bool audioAssetsSaved = false;
-                    SetRequestStatus(speechRequest, $"Generating audio pair {i + 1} of {speechRequests.Count}...", MessageType.Info);
-                    Repaint();
-
-                    try
-                    {
-                        byte[] originalAudioBytes = await RequestSpeechAsync(
-                            requestedApiKey,
-                            requestedVoiceId,
-                            requestedOriginalText,
-                            requestedModelId);
-                        byte[] translatedAudioBytes = await RequestSpeechAsync(
-                            requestedApiKey,
-                            requestedVoiceId,
-                            requestedTranslatedText,
-                            requestedModelId);
-                        if (this == null)
-                        {
-                            return;
-                        }
-
-                        string originalFileName = FPElevenLabsEditorUtility.BuildLanguageMp3FileName(
-                            requestedBaseFileName,
-                            "Original",
-                            requestedSourceLanguage,
-                            requestedVoiceName,
-                            requestedIsColor);
-                        string translatedFileName = FPElevenLabsEditorUtility.BuildLanguageMp3FileName(
-                            requestedBaseFileName,
-                            "Translation",
-                            requestedTargetLanguage,
-                            requestedVoiceName,
-                            requestedIsColor);
-                        AudioClip originalClip = SaveAudioAsset(
-                            originalAudioBytes,
-                            originalFileName,
-                            requestedAssetFolder,
-                            absoluteFolder,
-                            out string originalAssetPath);
-                        AudioClip translatedClip = SaveAudioAsset(
-                            translatedAudioBytes,
-                            translatedFileName,
-                            requestedAssetFolder,
-                            absoluteFolder,
-                            out string translatedAssetPath);
-                        audioAssetsSaved = true;
-
-                        if (originalClip != null)
-                        {
-                            importedClips.Add(originalClip);
-                        }
-
-                        if (translatedClip != null)
-                        {
-                            importedClips.Add(translatedClip);
-                        }
-
-                        FPElevenLabsVocabAssetPair vocabPair = default;
-                        if (requestedGenerateFPVocab)
-                        {
-                            vocabPair = FPElevenLabsVocabAssetUtility.CreatePair(
-                                requestedVocabType,
-                                requestedOriginalText,
-                                requestedTranslatedText,
-                                requestedSourceLanguage,
-                                requestedTargetLanguage,
-                                originalClip,
-                                translatedClip,
-                                originalAssetPath,
-                                translatedAssetPath,
-                                requestedLevelIntroduced,
-                                requestedCEFRLevel,
-                                requestedVocabCategory);
-                            importedClips.Add(vocabPair.SourceVocab);
-                            importedClips.Add(vocabPair.TargetVocab);
-                        }
-
-                        generatedCount++;
-                        SetRequestStatus(
-                            speechRequest,
-                            requestedGenerateFPVocab
-                                ? $"Saved audio and reciprocal FP_Vocab assets for {requestedBaseFileName}."
-                                : $"Saved {originalAssetPath} and {translatedAssetPath}.",
-                            MessageType.Info);
-                        Debug.Log($"Saved ElevenLabs audio to {originalAssetPath} and {translatedAssetPath}");
-                    }
-                    catch (Exception exception)
-                    {
-                        failedOrSkippedCount++;
-                        SetRequestStatus(
-                            speechRequest,
-                            requestedGenerateFPVocab && audioAssetsSaved
-                                ? $"Audio was saved, but FP_Vocab generation failed: {exception.Message}"
-                                : $"Audio generation failed: {exception.Message}",
-                            MessageType.Error);
-                        Debug.LogError($"ElevenLabs audio/FP_Vocab request {i + 1} failed: {exception.Message}");
-                    }
-                }
-
-                if (importedClips.Count > 0)
-                {
-                    Selection.objects = importedClips.ToArray();
-                    EditorGUIUtility.PingObject(importedClips[importedClips.Count - 1]);
-                }
-
-                savedVoiceId = requestedVoiceId;
-                EditorPrefs.SetString(SelectedVoicePreference, savedVoiceId);
-                EditorPrefs.SetString(ModelIdPreference, modelId);
-                EditorPrefs.SetString(VoiceNamePreference, voiceName);
-                SetStatus(
-                    failedOrSkippedCount == 0
-                        ? requestedGenerateFPVocab
-                            ? $"Generated all {generatedCount} audio and FP_Vocab pair(s) in {requestedAssetFolder}."
-                            : $"Generated all {generatedCount} audio pair(s) in {requestedAssetFolder}."
-                        : $"Generated {generatedCount} audio pair(s); {failedOrSkippedCount} failed or were skipped. Review each row for details.",
-                    failedOrSkippedCount == 0 ? MessageType.Info : MessageType.Warning);
-            }
-            finally
-            {
-                if (this != null)
-                {
-                    isRequestRunning = false;
-                    Repaint();
-                }
-            }
+            return new FPElevenLabsGenerationRequest { operation = "translation", text = text,
+                modelId = openAIModelId, sourceLanguage = sourceLanguage.ToString(), targetLanguage = target.ToString() };
         }
 
-        private static AudioClip SaveAudioAsset(
-            byte[] audioBytes,
-            string fileName,
-            string assetFolder,
-            string absoluteFolder,
-            out string assetFilePath)
+        private FPElevenLabsGenerationRequest BuildSpeechRequest(SpeechRequest row, string text,
+            string variant, FPTranslationLanguage language, string voiceId)
         {
-            string requestedAssetPath = $"{assetFolder.TrimEnd('/')}/{fileName}";
-            assetFilePath = AssetDatabase.GenerateUniqueAssetPath(requestedAssetPath);
-            string absoluteFilePath = Path.Combine(absoluteFolder, Path.GetFileName(assetFilePath));
-            File.WriteAllBytes(absoluteFilePath, audioBytes);
-            AssetDatabase.ImportAsset(assetFilePath, ImportAssetOptions.ForceSynchronousImport);
-            return AssetDatabase.LoadAssetAtPath<AudioClip>(assetFilePath);
+            return new FPElevenLabsGenerationRequest { text = text, voiceId = voiceId, modelId = modelId,
+                sourceLanguage = language.ToString(), outputAssetPath = outputAssetFolder.TrimEnd('/') + "/" +
+                FPElevenLabsEditorUtility.BuildLanguageMp3FileName(row.baseFileName, variant, language, voiceName, row.isColor) };
+        }
+
+        private void PrepareManifest(bool translation)
+        {
+            approvePreparedManifest = false;
+            preparedManifestJson = string.Empty;
+            try
+            {
+                var manifest = BuildManifest(translation);
+                preparedTranslation = translation;
+                preparedManifestJson = JsonUtility.ToJson(manifest, true);
+                SetStatus($"Dry run: {manifest.newRequests} new request(s), {manifest.newCharacters} input characters. Review exact text, voice IDs, outputs, and limits below.", MessageType.Info);
+            }
+            catch (Exception exception) { SetStatus(exception.Message, MessageType.Error); }
+        }
+
+        private async void ExecutePreparedManifest()
+        {
+            if (isRequestRunning || !approvePreparedManifest) return;
+            isRequestRunning = true;
+            approvePreparedManifest = false;
+            try
+            {
+                var manifest = JsonUtility.FromJson<FPElevenLabsGenerationManifest>(preparedManifestJson);
+                if (BuildManifest(preparedTranslation).hash != manifest.hash)
+                    throw new InvalidOperationException("Inputs or limits changed. Prepare and review a new manifest.");
+                bool translation = preparedTranslation;
+                bool pairs = !speechOnly;
+                bool createVocab = !translation && pairs && generateFPVocab;
+                Type vocabType = null;
+                if (createVocab && !FPElevenLabsVocabAssetUtility.TryGetVocabType(out vocabType))
+                    throw new InvalidOperationException("FP_Utility_EDU is required for FP_Vocab creation.");
+                var rows = speechRequests.ToArray();
+                var source = sourceLanguage;
+                var target = targetLanguage;
+                var level = vocabLevelIntroduced;
+                var cefr = vocabCEFRLevel;
+                var category = vocabCategory;
+                SetStatus("Executing approved manifest. Responses are saved before import; resume reuses saved results.", MessageType.Info);
+                manifest = await new FPElevenLabsGenerationService().ExecuteAsync(manifest, manifest.hash);
+                preparedManifestJson = JsonUtility.ToJson(manifest, true);
+                int index = 0;
+                foreach (var row in rows)
+                {
+                    if (translation)
+                    {
+                        string original = manifest.requests[index].text;
+                        string translated = manifest.items[index++].resultText;
+                        string english = source != FPTranslationLanguage.English && target != FPTranslationLanguage.English
+                            ? manifest.items[index++].resultText : string.Empty;
+                        row.translatedText = translated;
+                        row.translatedSourceText = original.Trim();
+                        row.translatedSourceLanguage = source;
+                        row.translatedTargetLanguage = target;
+                        row.baseFileName = FPElevenLabsEditorUtility.GetEnglishBaseFileName(source, target, original, translated, english);
+                    }
+                    else
+                    {
+                        var original = manifest.requests[index++];
+                        if (pairs)
+                        {
+                            var translated = manifest.requests[index++];
+                            if (createVocab)
+                                FPElevenLabsVocabAssetUtility.CreatePair(vocabType, original.text, translated.text,
+                                    source, target, AssetDatabase.LoadAssetAtPath<AudioClip>(original.outputAssetPath),
+                                    AssetDatabase.LoadAssetAtPath<AudioClip>(translated.outputAssetPath), original.outputAssetPath,
+                                    translated.outputAssetPath, level, cefr, category);
+                        }
+                    }
+                    SetRequestStatus(row, translation ? "Translation saved. Review before preparing audio." : "Audio saved and imported.", MessageType.Info);
+                }
+                SetStatus("Prepared manifest completed. Saved responses will be reused on resume.", MessageType.Info);
+            }
+            catch (Exception exception) { SetStatus(exception.Message, MessageType.Error); }
+            finally { isRequestRunning = false; if (this != null) Repaint(); }
         }
 
         private static async Task<List<VoiceInfo>> RequestVoicesAsync(string apiKey)
@@ -1136,77 +919,6 @@ namespace FuzzPhyte.Utility.Editor
                 right?.name,
                 StringComparison.OrdinalIgnoreCase));
             return requestedVoices;
-        }
-
-        private static async Task<string> RequestTranslationAsync(
-            string apiKey,
-            string organizationId,
-            string projectId,
-            string requestedModelId,
-            FPTranslationLanguage originalLanguage,
-            FPTranslationLanguage translationLanguage,
-            string originalText)
-        {
-            var payload = new OpenAIResponsesRequest
-            {
-                model = requestedModelId,
-                instructions = FPElevenLabsEditorUtility.BuildTranslationInstructions(
-                    originalLanguage,
-                    translationLanguage),
-                input = originalText,
-                max_output_tokens = 1024
-            };
-
-            byte[] payloadBytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(payload));
-            using (var request = new UnityWebRequest(OpenAIResponsesEndpoint, UnityWebRequest.kHttpVerbPOST))
-            {
-                request.uploadHandler = new UploadHandlerRaw(payloadBytes);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
-                request.SetRequestHeader("OpenAI-Organization", organizationId);
-                request.SetRequestHeader("OpenAI-Project", projectId);
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = 120;
-
-                await SendRequestAsync(request, "OpenAI");
-                return FPElevenLabsEditorUtility.ExtractOpenAIOutputText(request.downloadHandler.text);
-            }
-        }
-
-        private static async Task<byte[]> RequestSpeechAsync(
-            string apiKey,
-            string voiceId,
-            string text,
-            string requestedModelId)
-        {
-            var payload = new TextToSpeechRequest
-            {
-                text = text,
-                model_id = requestedModelId
-            };
-
-            string url = $"{TextToSpeechEndpoint}/{Uri.EscapeDataString(voiceId)}?output_format={OutputFormat}";
-            byte[] payloadBytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(payload));
-
-            using (var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST))
-            {
-                request.uploadHandler = new UploadHandlerRaw(payloadBytes);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("xi-api-key", apiKey);
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.SetRequestHeader("Accept", "audio/mpeg");
-                request.timeout = 120;
-
-                await SendRequestAsync(request, "ElevenLabs");
-
-                byte[] audioBytes = request.downloadHandler.data;
-                if (audioBytes == null || audioBytes.Length == 0)
-                {
-                    throw new InvalidOperationException("ElevenLabs returned an empty audio file.");
-                }
-
-                return audioBytes;
-            }
         }
 
         private static async Task SendRequestAsync(UnityWebRequest request, string serviceName)
@@ -1406,21 +1118,6 @@ namespace FuzzPhyte.Utility.Editor
             public string category;
         }
 
-        [Serializable]
-        private sealed class TextToSpeechRequest
-        {
-            public string text;
-            public string model_id;
-        }
-
-        [Serializable]
-        private sealed class OpenAIResponsesRequest
-        {
-            public string model;
-            public string instructions;
-            public string input;
-            public int max_output_tokens;
-        }
     }
 
     internal enum FPTranslationLanguage
@@ -1763,6 +1460,15 @@ namespace FuzzPhyte.Utility.Editor
 
             string sourceVocabPath = BuildVocabAssetPath(sourceAudioAssetPath);
             string targetVocabPath = BuildVocabAssetPath(targetAudioAssetPath);
+            var existingSource = AssetDatabase.LoadAssetAtPath<ScriptableObject>(sourceVocabPath);
+            var existingTarget = AssetDatabase.LoadAssetAtPath<ScriptableObject>(targetVocabPath);
+            if (File.Exists(sourceVocabPath) || File.Exists(targetVocabPath))
+            {
+                if (MatchesExistingVocab(existingSource, vocabType, sourceWord, sourceAudio, existingTarget) &&
+                    MatchesExistingVocab(existingTarget, vocabType, targetWord, targetAudio, existingSource))
+                    return new FPElevenLabsVocabAssetPair(existingSource, existingTarget);
+                throw new InvalidOperationException("Existing FP_Vocab assets conflict or form an incomplete pair. Audio is saved; review the assets before resuming.");
+            }
             ScriptableObject sourceVocab = null;
             ScriptableObject targetVocab = null;
             bool sourceAssetCreated = false;
@@ -1896,8 +1602,18 @@ namespace FuzzPhyte.Utility.Editor
                 throw new InvalidOperationException("The generated audio asset path has no Unity asset folder.");
             }
 
-            return AssetDatabase.GenerateUniqueAssetPath(
-                $"{assetFolder}/{BuildVocabAssetFileName(audioAssetPath)}");
+            return $"{assetFolder}/{BuildVocabAssetFileName(audioAssetPath)}";
+        }
+
+        private static bool MatchesExistingVocab(ScriptableObject vocab, Type type, string word,
+            AudioClip audio, ScriptableObject translation)
+        {
+            if (vocab == null || translation == null || vocab.GetType() != type) return false;
+            var serialized = new SerializedObject(vocab);
+            var translations = FindRequiredProperty(serialized, "Translations");
+            return FindRequiredProperty(serialized, "Word").stringValue == word &&
+                FindRequiredRelativeProperty(FindRequiredProperty(serialized, "WordAudio"), "AudioClip").objectReferenceValue == audio &&
+                translations.arraySize == 1 && translations.GetArrayElementAtIndex(0).objectReferenceValue == translation;
         }
 
         private static SerializedProperty FindRequiredProperty(SerializedObject serializedObject, string propertyName)

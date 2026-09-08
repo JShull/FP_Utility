@@ -24,7 +24,11 @@ namespace FuzzPhyte.Utility.Editor
             int total = 0;
             int genericHits = 0;
 
+#if UNITY_6000_5_OR_NEWER
+            var assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies()
+#else
             var assemblies = AppDomain.CurrentDomain.GetAssemblies()
+#endif
                 .Where(a =>
                 {
                     var name = a.GetName().Name;

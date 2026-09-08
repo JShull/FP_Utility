@@ -37,7 +37,7 @@ namespace FuzzPhyte.Utility.Editor
             public bool locked;
             public bool muted;
             public bool expanded = true;
-            public WaveformCache waveform;
+            [NonSerialized] public WaveformCache waveform;
             public int lastWaveWidth;
             public AudioClip lastClip;
             public float lastWaveIn;

@@ -2,6 +2,8 @@
 
 ## Utility
 
+Version: **1.0.4**
+
 FP_Utility is designed and built to be a simple set of base classes to be used in almost all future FuzzPhyte packages. There is an element of Scriptable Object and an element of just simple input/output functions as well as some core scripts timed to timers etc. There are a lot of static functions to help with file management and Unity Editor management. Please see the FP_UtilityData class as well as the FP_Utility_Editor class for a lot of these functions/enums/structs etc.
 
 Unity editor object identity uses `EntityId` on Unity 6.3 and newer. `FP_Utility_Editor.GetEntityIdFromGUID` and `ReturnGUIDFromEntityId` provide GUID conversion without deprecated instance-ID APIs; the previous integer helpers remain as obsolete compatibility wrappers.
@@ -289,13 +291,56 @@ Open the tool from `FuzzPhyte/Utility/Audio/ElevenLabs Text to Speech`.
 3. Select a voice and confirm the ElevenLabs model ID. The default is `eleven_v3`.
 4. Choose the original and target languages and confirm the OpenAI model ID. The default translation model is `gpt-4o-mini`.
 5. Add requests manually or click `Load Markdown`. Markdown imports append to existing rows, apply the file's Person as Voice Name, apply its Translation Model language pair, and create one row for every bullet under `Language` and optional `Color` headings.
-6. Click `Translate All Requests` and review each returned translation. The tool fills every Base File Name from the English form: English source text is used directly, an English target uses the returned translation, and a language pair without English makes an additional English translation request for naming. Changing a row's original text or the shared language pair invalidates its translation.
+6. Click `Prepare Translations (Dry Run)`, review the manifest, set sufficient request and character limits and prepare again if needed, then authorize and execute it. Review each returned translation. The tool fills every Base File Name from the English form: English source text is used directly, an English target uses the returned translation, and a language pair without English makes an additional English translation request for naming. Changing a row's original text or the shared language pair invalidates its translation.
 7. Confirm the editable Voice Name suffix and choose an existing folder inside the project's `Assets` folder.
 8. Optionally enable `Generate FP_Vocab`. The additional `Level Introduced`, `CEFR Level`, and `Vocab Category` controls appear only while this option is enabled. This optional integration requires FP_Utility EDU to be installed.
-9. Click `Generate All Audio Pairs`. Each valid row makes two ElevenLabs requests with the same selected voice and model. Normal assets use `{English Base File Name}_{Original or Translation}_{Language}_{Voice Name}.mp3`; Color items use `Color_{English Base File Name}_{Original or Translation}_{Language}_{Voice Name}.mp3`.
+9. Click `Prepare Audio (Dry Run)`, review exact text, voice IDs, existing files, and limits, then authorize and execute the prepared manifest. Each paired row needs at most two ElevenLabs requests with the same selected voice and model; saved responses are reused. Select `Speech Only (Original Text)` to send approved dialogue directly without OpenAI or a translation. Normal assets use `{English Base File Name}_{Original or Translation}_{Language}_{Voice Name}.mp3`; Color items use `Color_{English Base File Name}_{Original or Translation}_{Language}_{Voice Name}.mp3`.
 10. Use each row's `Clear` or `Remove` control, or use the confirmed `Clear All` action. `Save Markdown` writes the current Person, Translation Model, Language items, and optional Color items back to the supported format.
 
-When `Generate FP_Vocab` is enabled, the tool creates one source-language and one target-language FP_Vocab asset beside each generated audio pair. It fills Word, Language, Level Introduced, CEFR Level, Vocab Category, and Word Audio. Each UniqueID is the exact imported MP3 filename, and each asset's Translations list references its counterpart. IPA, definitions, semantic maps, and modifier fields remain empty because the request workflow does not provide authoritative values for them.
+#### Spending controls and resume
+
+All paid translation and speech routes use `FPElevenLabsGenerationService`. Preparation and status are offline. Limits default to zero and are bound to the reviewed manifest hash together with exact text, model, voice, output paths, and project. Editing these inputs requires a new prepare/approval. Request limits count submitted attempts, including failures; character limits count C# UTF-16 input units (including whitespace). These are workload limits, **not dollar or provider-credit caps**; OpenAI tokens and ElevenLabs billing can differ. The translation payload retains the existing 1,024 output-token limit.
+
+The service reserves each request before sending and atomically saves each response before copying/importing an MP3. A project-wide file lease prevents overlapping window/CLI executions. Approved manifests, responses, and the ledger live in `<UnityProject>/UserSettings/FPElevenLabs`; preserve and back up this local folder with the audio. It contains text and response data, but no API keys. Recover a lost window manifest from `<hash>.manifest.json` and pass it to CLI status/resume. Identical text/model/voice/payload requests reuse the same response even at a new output path. No unique numbered MP3s are generated automatically. Missing or corrupt recorded responses block repurchase.
+
+`Execute / Resume Prepared Manifest` retries local copying/importing from the cache. A provider error or interruption without a saved response becomes `uncertain` and blocks automatic retry. Check provider history before reconciliation; for recovered speech, save the recovered MP3 at the manifest output path and explicitly adopt its SHA-256 as described below. A response saved immediately before interruption is recoverable without another request. Resuming translation restores its saved text. The CLI status lists response/cache state and existing file hashes; `cached` confirms saved response bytes, not a successful Unity import. CLI execution reports success only after imports finish.
+
+Untracked existing clips are reported as `conflict` and are never silently overwritten. To explicitly reuse one through the CLI, copy its reported SHA-256 into that request's `existingSha256`, prepare again, and approve the new manifest. This is your assertion that the existing audio matches the specified text and voice; the tool verifies file integrity, not spoken content. It also allows reconciliation of recovered speech without another paid request. Translation uncertainty requires provider reconciliation outside this tool; there is no automatic paid retry/reset command.
+
+#### Connected Editor CLI
+
+Run `Tools~/elevenlabs.ps1` with an explicit Unity project root. It uses Unity CLI discovery and the installed Pipeline JSON transport, including older Pipeline packages that cannot parse the newer CLI command-line syntax. It does not add a Pipeline assembly or SDK dependency. The public JSON entry points are `FPElevenLabsGenerationCli.Prepare`, `Execute`, `Status`, and `Resume`; synchronous eval hosts use `Start` to write asynchronous completion to a new report file.
+
+Example offline input (`requests.json`), using an already-approved French line and an existing Assets folder:
+
+```json
+{
+  "maxRequests": 1,
+  "maxCharacters": 8,
+  "requests": [
+    {
+      "operation": "speech",
+      "text": "Bonjour!",
+      "voiceId": "REPLACE_WITH_APPROVED_VOICE_ID",
+      "modelId": "eleven_v3",
+      "outputAssetPath": "Assets/Bonjour.mp3"
+    }
+  ]
+}
+```
+
+```powershell
+$project = 'C:/GItHub/FPLibraries/FPLibraries'
+& './Tools~/elevenlabs.ps1' prepare -ProjectPath $project -InputPath ./requests.json -OutputPath ./manifest.json
+# Review manifest.json and obtain authorization for its exact hash and limits before execute.
+& './Tools~/elevenlabs.ps1' execute -ProjectPath $project -InputPath ./manifest.json -OutputPath ./result.json -ApprovedHash '<reviewed hash>'
+& './Tools~/elevenlabs.ps1' status -ProjectPath $project -InputPath ./manifest.json -OutputPath ./status.json
+& './Tools~/elevenlabs.ps1' resume -ProjectPath $project -InputPath ./manifest.json -OutputPath ./resume-result.json -ApprovedHash '<reviewed hash>'
+```
+
+Every output report path must be new. Execute/resume returns after starting; the report stays empty while running, then contains a completed manifest or an `error` object. Check the report and status before resuming after a client disconnect. CLI workflows generate/import audio and return translations; optional FP_Vocab authoring remains in the window. For translation-only input use `operation: "translation"`, `modelId: "gpt-4o-mini"`, `sourceLanguage: "English"`, `targetLanguage: "French"`, and exact `text`; omit audio paths and voice IDs. No speech request is added implicitly.
+
+When `Generate FP_Vocab` is enabled for paired audio, the tool creates one source-language and one target-language FP_Vocab asset beside each generated audio pair. Speech Only does not create vocab pairs. It fills Word, Language, Level Introduced, CEFR Level, Vocab Category, and Word Audio. Each UniqueID is the exact imported MP3 filename, and each asset's Translations list references its counterpart. Resume reuses matching word/audio/reciprocal-reference pairs, preserving their existing metadata; conflicting or incomplete pairs stop vocab creation while retaining the audio. IPA, definitions, semantic maps, and modifier fields remain empty on new assets because the request workflow does not provide authoritative values for them.
 
 The markdown loader accepts this structure (the `Color` section is optional):
 
