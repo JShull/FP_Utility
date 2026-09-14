@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Hardened local ElevenLabs atomic saves with at most three replacement attempts (50/150 ms waits), retained staging files on failure, and structured local CLI diagnostics including destination, operation, exception type/HResult, attributes, and full stack. No provider retry or delete-then-move fallback is introduced.
+- Added independent filesystem tests for transient/persistent replacement failures, Windows sharing locks, read-only destinations, output collisions, and staging errors.
+
 ## [1.0.4]-2026-09-08
 
 ### Added
