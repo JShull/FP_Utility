@@ -7,14 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [1.0.5]-2026-09-15
+
+### [1.0.5] Added
+
+- Added FP Asset Tracer at `FuzzPhyte/Utility/Editor/Debug/Asset Tracer` and in the Project asset context menu, with cancellable direct/indirect dependency scans, filtering, dependency-chain details, and saved serialized reference inspection.
+- Added missing-prefab override review and explicit cleanup workflows, including Unity Undo for native unused-override cleanup and recoverable backups for closed-asset cleanup.
+
+### [1.0.5] Changed
+
+- Highlighted traced GameObject and prefab-owner details with the shared FuzzPhyte cyan color while keeping copied reports as plain text.
+
+- Standardized Asset Tracer naming and the `FuzzPhyte.Utility.Editor` namespace, removed the imported project-specific scene exception, and moved cleanup backups to `Library/FP_Utility/AssetTracerCleanup`.
+- Documented Asset Tracer usage, cleanup safeguards, recovery, and dependency-scan limitations in its guide, README, and internal Readme.asset.
+- Synchronized package metadata, README, and internal Readme.asset to version 1.0.5.
+
+### [1.0.5] Fixed
 
 - Hardened local ElevenLabs atomic saves with at most three replacement attempts (50/150 ms waits), retained staging files on failure, and structured local CLI diagnostics including destination, operation, exception type/HResult, attributes, and full stack. No provider retry or delete-then-move fallback is introduced.
 - Added independent filesystem tests for transient/persistent replacement failures, Windows sharing locks, read-only destinations, output collisions, and staging errors.
 
 ## [1.0.4]-2026-09-08
 
-### Added
+### [1.0.4] Added
 
 - Added shared ElevenLabs/OpenAI generation service, offline manifests with exact text and voice IDs, explicit manifest authorization, and request/input-character limits.
 - Added durable per-request reservations and response caching, immediate per-clip saving, import-only resume, uncertain-outcome retry blocking, and explicit hash-based reuse of existing clips.
@@ -27,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added guarded sample promotion from a validated staging folder into `Samples~`, including validation fingerprints, manifest preview and update, recoverable backups, transactional failure rollback, and explicit rollback of the last successful promotion.
 - Added focused Edit Mode coverage for header inspection/replacement, deterministic contribution sampling and rule evidence, sample manifest editing, and sample promotion/rollback.
 
-### Changed
+### [1.0.4] Changed
 
 - Updated the existing ElevenLabs Text to Speech window with separate translation and speech preparation, speech-only input, manifest review, and guarded execution. Paired audio and optional FP_Vocab remain available.
 - Synchronized package metadata, README, and internal Readme.asset to version 1.0.4.
@@ -36,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved the LabelDisplay sample assets and `Label_Test` component into `Samples~/LabelDisplaySample`, added a sample assembly definition, and registered **Label Display Sample** in Package Manager.
 - Refactored `FPScriptHeaderEditorWindow` to share its configured header, inspection, encoding, line-ending, and replacement behavior with contribution validation and to accept failed script paths directly from the validator.
 
-### Fixed
+### [1.0.4] Fixed
 
 - Resolved Unity 6.6 analyzer warnings by explicitly excluding the audio-combine waveform cache from serialization, using Unity's current-assembly API in the debug scanner on Unity 6.5+, and discovering FP_Data subclasses through TypeCache in the data factory.
 

@@ -15,7 +15,7 @@ MonoBehaviour:
   icon: {fileID: 2800000, guid: b521bf5d6ffa177458e7c14188bbf89d, type: 3}
   title: FuzzPhyte Utility
   subtitle: 'Utility Package Documentation '
-  version: 1.0.4
+  version: 1.0.5
   overview: "FP_Utility is designed and built to be a simple set of base classes to be used in almost all future FuzzPhyte packages. \nThere is an element of Scriptable Object and an element of just simple input/output functions as well as some core scripts timed to timers etc. \nThere are a lot of static functions to help with file management and Unity Editor management. Please read the full readme located on the GitHub if you want more details. This readme file is designed to get you into the menu system quickly and understanding at a high level what are the core tools that this package manages."
   overviewLinks:
   - label: GitHub Readme
@@ -190,3 +190,18 @@ MonoBehaviour:
     showSeparatorBefore: 1
     body: Import Label Display Sample from FP Utility's Samples section in Package Manager, then open Scenes/LabelDisplaySample.unity in the imported sample folder. Includes dialogue JSON, images, fonts, themes, prefabs, and Label_Test with its Spawn Label action. Runtime LabelDisplay code remains reusable in the package. Contributed by AustinKazooie in PR #2, FP Utility's first external contribution.
     links: []
+  - heading: Asset Tracer
+    showSeparatorBefore: 1
+    body: 'FP Asset Tracer finds direct and indirect users of a saved asset, with optional package candidates, cancellable scanning, path filtering, Select / Ping, and Copy Paths. Details show a shortest dependency chain, exposed serialized fields, material texture slots, and saved scene names, GUIDs, fileIDs, and line numbers without opening scenes.
+
+
+      Open [Asset Tracer](menu:FuzzPhyte/Utility/Editor/Debug/Asset Tracer), assign Target asset or Use Selection, then Search References. The same command is available from a Project asset''s FuzzPhyte/Utility/Editor/Debug context menu.
+
+
+      Review Real Uses / Missing-Prefab Overrides audits all direct results, including filtered-out results. Cleanup requires explicit in-window confirmation. Unity: Remove Unused Overrides operates on loaded prefab roots and removes all unused overrides on those roots; Undo is available and scenes must be saved explicitly. The separate closed-text-asset fallback removes matching missing-prefab reference override records, refuses package or loaded assets, and rechecks source availability, file contents, and editability. Backups and restore instructions go under Library/FP_Utility/AssetTracerCleanup/<unique-id>/. This fallback has no Undo; preserve its backup when clearing Library.
+
+
+      Successful closed-asset cleanup rescans and audits after imports settle. Native cleanup waits for explicit scene saving. Dependencies are file-level, so results alone do not prove exact sub-asset usage. Runtime string/Resources/Addressables lookups and unsaved changes are outside the scan. Cancelled scans are incomplete; rescan after asset changes. Zero results are not a safe-deletion guarantee. The tool never deletes the selected asset or edits lighting data. See the full guide for cleanup scope and recovery details.'
+    links:
+    - label: Asset Tracer Guide
+      url: https://github.com/JShull/FP_Utility/blob/main/Editor/AssetTracer/FPAssetTracer.md
