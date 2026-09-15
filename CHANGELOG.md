@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Made automatic FP Utility startup updates opt-in with **Auto Update FP_Utility**, defaulting off directly below **Show Startup Messages**. The popup and background update preferences are independent; enabling auto-update retains the next-session startup timing. Startup text now reflects the update setting.
+
 ## [1.1.0]-2026-09-15
 
 ### [1.1.0] Added

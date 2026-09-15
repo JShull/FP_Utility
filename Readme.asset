@@ -229,3 +229,7 @@ MonoBehaviour:
     links:
     - label: Asset Tracer Guide
       url: https://github.com/JShull/FP_Utility/blob/main/Editor/AssetTracer/FPAssetTracer.md
+  - heading: Package Startup Options
+    showSeparatorBefore: 1
+    body: '[Show Startup Messages](menu:FuzzPhyte/Utility/Package Messages/Show Startup Messages) controls only the welcome popup. [Auto Update FP_Utility](menu:FuzzPhyte/Utility/Package Messages/Auto Update FP_Utility), directly below it, controls background startup updates and is off by default. Enable it to update FP Utility once after project loading in the next Editor session, when installed through Package Manager. Toggling it does not immediately run an update. These independent preferences are saved per user on this machine and apply across projects. Manual [Update Packages](menu:FuzzPhyte/Utility/Update Packages) remains available.'
+    links: []

@@ -24,8 +24,17 @@ namespace FuzzPhyte.Utility.Editor
         private const string StartupMessageIconRelativePath = "Editor/Gizmos/FP_BanditWorks.png";
         private const string SessionCheckKey = "FuzzPhyte.Utility.Editor.FPUtilitySessionCheck.HasRun";
         private const string ShowPackageMessagesEditorPrefsKey = "FuzzPhyte.Utility.Editor.FPUtilitySessionCheck.ShowPackageMessages";
+        private const string AutoUpdateUtilityEditorPrefsKey = "FuzzPhyte.Utility.Editor.FPUtilitySessionCheck.AutoUpdateUtility";
         private const string PackageStartupMessageTitle = "FP Utility";
-        private const string PackageStartupMessage = "FP Utility is checking for the latest Git package update for this Unity project.\n\nThanks for using this package!";
+        private static string PackageStartupMessage => AutoUpdateUtility
+            ? "FP Utility is checking for the latest Git package update for this Unity project.\n\nThanks for using this package!"
+            : "Automatic FP Utility updates are off. Enable Auto Update FP_Utility under FuzzPhyte > Utility > Package Messages to update at project startup.\n\nThanks for using this package!";
+
+        public static bool AutoUpdateUtility
+        {
+            get => EditorPrefs.GetBool(AutoUpdateUtilityEditorPrefsKey, false);
+            set => EditorPrefs.SetBool(AutoUpdateUtilityEditorPrefsKey, value);
+        }
 
         public static bool ShowPackageMessages
         {
@@ -60,7 +69,10 @@ namespace FuzzPhyte.Utility.Editor
 
             SessionState.SetBool(SessionCheckKey, true);
             ShowPackageMessageIfEnabled();
-            FPCheckPackageUpdates.RunUtilityPackageUpdateCheck();
+            if (AutoUpdateUtility)
+            {
+                FPCheckPackageUpdates.RunUtilityPackageUpdateCheck();
+            }
         }
 
         [MenuItem("FuzzPhyte/Utility/Package Messages/Show Startup Messages", priority = FP_UtilityData.MENU_UTILITY_PACKAGES + 10)]
@@ -73,6 +85,19 @@ namespace FuzzPhyte.Utility.Editor
         private static bool ValidateTogglePackageMessages()
         {
             Menu.SetChecked("FuzzPhyte/Utility/Package Messages/Show Startup Messages", ShowPackageMessages);
+            return true;
+        }
+
+        [MenuItem("FuzzPhyte/Utility/Package Messages/Auto Update FP_Utility", priority = FP_UtilityData.MENU_UTILITY_PACKAGES + 11)]
+        public static void ToggleAutoUpdateUtility()
+        {
+            AutoUpdateUtility = !AutoUpdateUtility;
+        }
+
+        [MenuItem("FuzzPhyte/Utility/Package Messages/Auto Update FP_Utility", true)]
+        private static bool ValidateToggleAutoUpdateUtility()
+        {
+            Menu.SetChecked("FuzzPhyte/Utility/Package Messages/Auto Update FP_Utility", AutoUpdateUtility);
             return true;
         }
 

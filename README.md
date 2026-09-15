@@ -8,6 +8,15 @@ FP_Utility is designed and built to be a simple set of base classes to be used i
 
 Unity editor object identity uses `EntityId` on Unity 6.3 and newer. `FP_Utility_Editor.GetEntityIdFromGUID` and `ReturnGUIDFromEntityId` provide GUID conversion without deprecated instance-ID APIs; the previous integer helpers remain as obsolete compatibility wrappers.
 
+### Package Startup Options
+
+Under **FuzzPhyte > Utility > Package Messages**:
+
+- **Show Startup Messages** controls only the welcome popup.
+- **Auto Update FP_Utility**, directly below it, controls the background FP Utility package update request and is **off by default**. Enable it to run once after the project finishes loading on the next Editor session, when FP Utility is loaded through Package Manager. Changing the toggle does not immediately run an update.
+
+These independent preferences are saved per user in Unity EditorPrefs and apply across projects on that machine. Manual **FuzzPhyte > Utility > Update Packages** remains available regardless of the automatic-update setting.
+
 ### Label Display Sample
 
 Import **Label Display Sample** from the FP Utility package's Samples section in
