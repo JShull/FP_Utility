@@ -333,17 +333,73 @@ namespace FuzzPhyte.Utility.Editor
             using (var sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
         }
 
-        private static void WriteAtomic(string path, byte[] bytes, bool replace = true)
+        internal static void WriteAtomic(string path, byte[] bytes, bool replace = true,
+            Action<string, string> replaceFile = null, Action<int> wait = null)
         {
+            path = Path.GetFullPath(path);
             string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            string operation = "stage";
+            int attempts = 0;
             try
             {
                 using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 { stream.Write(bytes, 0, bytes.Length); stream.Flush(true); }
-                if (replace && File.Exists(path)) File.Replace(temporary, path, null);
-                else File.Move(temporary, path);
+                if (replace && File.Exists(path))
+                {
+                    operation = "replace";
+                    // Retry only the local commit of these already-flushed bytes. Never re-enter generation.
+                    for (attempts = 1; ; attempts++)
+                    {
+                        try
+                        {
+                            if (replaceFile == null) File.Replace(temporary, path, null);
+                            else replaceFile(temporary, path);
+                            break;
+                        }
+                        catch (IOException) when (attempts < 3 && File.Exists(temporary) && File.Exists(path) &&
+                            (File.GetAttributes(path) & FileAttributes.ReadOnly) == 0)
+                        {
+                            int delay = attempts == 1 ? 50 : 150;
+                            if (wait == null) System.Threading.Thread.Sleep(delay);
+                            else wait(delay);
+                        }
+                    }
+                }
+                else
+                {
+                    operation = "move-new";
+                    attempts = 1;
+                    File.Move(temporary, path);
+                }
             }
-            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch (Exception exception)
+            {
+                // Retain staged bytes for diagnosis/recovery. No delete-destination fallback, and no
+                // cleanup exception can mask the original failure. No request payloads or keys are recorded.
+                throw new AtomicSaveException(path, temporary, operation, attempts, exception);
+            }
+        }
+
+        internal sealed class AtomicSaveException : IOException
+        {
+            internal readonly string Destination;
+            internal readonly string Temporary;
+            internal readonly string Operation;
+            internal readonly int Attempts;
+            internal readonly string DestinationAttributes;
+
+            internal AtomicSaveException(string destination, string temporary, string operation, int attempts, Exception cause)
+                : base($"Local atomic save failed during {operation} after {attempts} commit attempt(s): {destination}. " +
+                    $"Staged file: {temporary}. {cause.GetType().FullName} (0x{cause.HResult:X8}): {cause.Message}", cause)
+            {
+                Destination = destination;
+                Temporary = temporary;
+                Operation = operation;
+                Attempts = attempts;
+                HResult = cause.HResult;
+                try { DestinationAttributes = File.Exists(destination) ? File.GetAttributes(destination).ToString() : "Missing"; }
+                catch (Exception metadataError) { DestinationAttributes = "Unavailable: " + metadataError.GetType().FullName; }
+            }
         }
 
         private static FPTranslationLanguage ParseLanguage(string language)

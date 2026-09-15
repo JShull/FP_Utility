@@ -46,11 +46,33 @@ namespace FuzzPhyte.Utility.Editor
             {
                 string result;
                 try { result = await Execute(manifestJson, approvedHash); }
-                catch (Exception exception) { result = JsonUtility.ToJson(new Failure { error = exception.Message }); }
+                catch (Exception exception) { result = BuildFailureJson(exception); }
                 await writer.WriteAsync(result);
             }
         }
 
-        [Serializable] private sealed class Failure { public string error; }
+        internal static string BuildFailureJson(Exception exception)
+        {
+            var failure = new Failure { error = exception.Message };
+            // Full filesystem diagnostics are local-only and contain no provider request/credential data.
+            if (exception is FPElevenLabsGenerationService.AtomicSaveException save)
+            {
+                failure.destination = save.Destination;
+                failure.temporary = save.Temporary;
+                failure.operation = save.Operation;
+                failure.attempts = save.Attempts;
+                failure.destinationAttributes = save.DestinationAttributes;
+                failure.exceptionType = save.InnerException.GetType().FullName;
+                failure.hResult = "0x" + save.InnerException.HResult.ToString("X8");
+                failure.stack = save.ToString();
+            }
+            return JsonUtility.ToJson(failure, true);
+        }
+
+        [Serializable] private sealed class Failure
+        {
+            public string error, destination, temporary, operation, destinationAttributes, exceptionType, hResult, stack;
+            public int attempts;
+        }
     }
 }
