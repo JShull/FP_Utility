@@ -21,6 +21,9 @@ namespace FuzzPhyte.Utility.Editor
         private const string NewHierarchyFoldoutName = "fp-hheader-foldout";
         private const string NewHierarchySelectAllName = "fp-hheader-select-all";
         private const string NewHierarchyControlsName = "fp-hheader-controls";
+        private const string NewHierarchyItemClass = "fp-hheader-item";
+        private const string NewHierarchyBackgroundName = "fp-hheader-background";
+        private static StyleSheet newHierarchyStyleSheet;
         private const float NewHierarchyControlSize = 15f;
         private const float NewHierarchyControlsWidth = 34f;
 
@@ -76,6 +79,7 @@ namespace FuzzPhyte.Utility.Editor
             HierarchyViewItem item)
         {
             UnregisterNewHierarchyPaletteBinding(item);
+            ResetNewHierarchyItem(item);
             boundNewHierarchyHeaders.Remove(item);
         }
 
@@ -132,9 +136,30 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             bool isExpanded = IsHeaderExpanded(headerObject);
+            item.AddToClassList(NewHierarchyItemClass);
+            // Headers are deliberately inactive GameObjects, but their editor controls
+            // must not inherit Unity's inactive-object opacity.
+            item.style.opacity = 1f;
             if (item.RowContainer != null)
             {
-                item.RowContainer.style.backgroundColor = isExpanded ? headerColor : collapsedColor;
+                if (newHierarchyStyleSheet == null)
+                {
+                    bool packaged = FP_Utility_Editor.IsPackageLoadedViaPackageManager();
+                    string editorPath = FP_Utility_Editor.ReturnEditorPath(packaged ? "utility" : "FP_Utility", !packaged);
+                    newHierarchyStyleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(
+                        (editorPath + "/FP_HHeader.NewHierarchy.uss").Replace('\\', '/'));
+                }
+                if (newHierarchyStyleSheet != null)
+                {
+                    VisualElement row = item.RowContainer;
+                    if (!row.styleSheets.Contains(newHierarchyStyleSheet)) row.styleSheets.Add(newHierarchyStyleSheet);
+                    var background = new VisualElement { name = NewHierarchyBackgroundName, pickingMode = PickingMode.Ignore };
+                    background.AddToClassList(NewHierarchyBackgroundName);
+                    background.style.backgroundColor = isExpanded ? headerColor : collapsedColor;
+                    // Own only this backing element. Unity owns the row background and
+                    // animates it for ping; the stylesheet yields to ping and selection.
+                    row.Insert(0, background);
+                }
             }
 
             if (item.Name != null)
@@ -241,16 +266,15 @@ namespace FuzzPhyte.Utility.Editor
 
         private static void ResetNewHierarchyItem(HierarchyViewItem item)
         {
-            if (item.RowContainer != null)
-            {
-                item.RowContainer.style.backgroundColor = StyleKeyword.Null;
-            }
+            if (!item.ClassListContains(NewHierarchyItemClass)) return;
+            item.RemoveFromClassList(NewHierarchyItemClass);
+            item.style.opacity = StyleKeyword.Null;
+            RemoveNewHierarchyElement(item.RowContainer, NewHierarchyBackgroundName);
 
             if (item.Name != null)
             {
                 item.Name.style.color = StyleKeyword.Null;
                 item.Name.style.unityFontStyleAndWeight = StyleKeyword.Null;
-                item.Name.style.paddingLeft = StyleKeyword.Null;
 
                 VisualElement nameContainer = item.Name.parent;
                 if (nameContainer != null)

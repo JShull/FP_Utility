@@ -889,6 +889,10 @@ You can also use the `Header Options` window to apply the visual style from an `
 
 FP Header supports both Unity's classic Hierarchy and the Unity 6000.6 New Hierarchy. The classic window continues to use Unity's IMGUI hierarchy callback, while Unity 6000.6 and newer use the public UI Toolkit `HierarchyWindow.BindViewItem` API. Both paths use the same header detection, colors, foldout state, section visibility, and select-section behavior. In the New Hierarchy, the FP foldout and select-section controls are placed immediately before the header name.
 
+In the New Hierarchy, FP Header backgrounds sit behind the text and controls and yield to Unity's native ping and selection highlights. Header icons remain at full opacity even though header GameObjects are intentionally inactive. Ordinary rows retain Unity's own styling.
+
+Selecting a scene object opens every closed FP Header section containing it, including sections around its ancestors. Unrelated sections remain closed, and already-open sections are unchanged. Clicking a scene-object reference in an Inspector also reveals its containing sections and replays the ping after the hierarchy refreshes, preserving the current selection. This supports UI Toolkit ObjectFields and standard IMGUI serialized reference fields; object-picker buttons and Project assets are unaffected. Custom IMGUI fields drawn without serialized property callbacks and direct script calls to `PingObject` are not intercepted.
+
 #### Hierarchy Icon Overrides
 
 The Header Options window also provides a native Hierarchy Icon Override workflow for ordinary scene GameObjects. This uses Unity's per-GameObject custom icon data rather than drawing an additional FP overlay in the Hierarchy Name column. FP Header objects are always excluded, so their existing foldout, selection, and styling behavior remains unchanged.

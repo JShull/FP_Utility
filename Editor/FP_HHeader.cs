@@ -870,30 +870,73 @@ namespace FuzzPhyte.Utility.Editor
         }
         private static void ExpandHeaderForSelection(GameObject selectedObj)
         {
+            RevealHeaderSections(selectedObj, true);
+        }
+        internal static bool RevealHeaderForPing(UnityEngine.Object reference)
+        {
+            if (!IsEnabled || EditorApplication.isPlayingOrWillChangePlaymode || EditorUtility.IsPersistent(reference))
+            {
+                return false;
+            }
+
+            GameObject target = reference is Component component ? component.gameObject : reference as GameObject;
+            return RevealHeaderSections(target, false);
+        }
+        private static bool RevealHeaderSections(GameObject selectedObj, bool requireSelection)
+        {
             if (selectedObj == null || !HasUsableScene(selectedObj.scene))
             {
-                return;
+                return false;
             }
 
-            GameObject headerObj = FindOwningHeader(selectedObj);
-            if (headerObj == null)
+            if (!ExpandContainingHeaderSections(selectedObj))
             {
-                return;
+                return false;
             }
 
-            string headerKey = headerObj.name;
-            if (!foldoutStates.ContainsKey(headerKey) || foldoutStates[headerKey])
-            {
-                return;
-            }
-
-            foldoutStates[headerKey] = true;
-            ShowSubsequentObjects(headerObj);
             SaveFoldoutStatesToPrefs();
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
             EditorApplication.DirtyHierarchyWindowSorting();
             RepaintHierarchyWindows();
-            EditorGUIUtility.PingObject(selectedObj);
+            // Let the hierarchy rebuild its visible rows before highlighting the target.
+            EditorApplication.delayCall += () =>
+            {
+                if (selectedObj != null && IsEnabled && !EditorApplication.isPlayingOrWillChangePlaymode &&
+                    (!requireSelection || Selection.activeGameObject == selectedObj))
+                {
+                    EditorGUIUtility.PingObject(selectedObj);
+                }
+            };
+            return true;
+        }
+        internal static bool ExpandContainingHeaderSections(GameObject selectedObj)
+        {
+            if (selectedObj == null || !HasUsableScene(selectedObj.scene))
+            {
+                return false;
+            }
+
+            bool changed = false;
+            for (Transform current = selectedObj.transform; current != null; current = current.parent)
+            {
+                // A header starts a new section; it does not belong to the preceding one.
+                if (IsHeaderObject(current.gameObject))
+                {
+                    continue;
+                }
+
+                GameObject headerObj = FindPreviousHeaderSibling(current);
+                if (headerObj == null || IsHeaderExpanded(headerObj))
+                {
+                    continue;
+                }
+
+                foldoutStates[headerObj.name] = true;
+                ShowSubsequentObjects(headerObj);
+                changed = true;
+            }
+
+            return changed;
         }
         private static GameObject FindOwningHeader(GameObject selectedObj)
         {

@@ -1,0 +1,15 @@
+/* Keep FP backing below row content; Unity owns selection and ping animation.
+   Ping selectors match Unity 6000.6's native HierarchyView transition classes. */
+.fp-hheader-background {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.unity-collection-view__item--selected > .fp-hheader-background,
+.hierarchy-item__ping-ramp-in-style > .fp-hheader-background,
+.hierarchy-item__ping-ramp-out-style > .fp-hheader-background {
+    display: none;
+}
