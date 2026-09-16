@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Resolve the New Hierarchy stylesheet by its Unity asset GUID so header backgrounds load from both Assets checkouts and installed UPM packages without relying on package-location detection.
 - Inspector scene-reference clicks now reveal containing closed FP Header sections and replay the highlight without changing selection, for UI Toolkit ObjectFields and standard IMGUI serialized reference fields.
 - Selecting an object now reveals all containing closed FP Header sections, including outer sections when the nearest header is already open. Unrelated sections stay closed, and the selection ping is deferred until the hierarchy refreshes.
 - Preserved Unity 6000.6 New Hierarchy ping and selection highlights by moving FP Header backgrounds behind row content and hiding them during native highlights. Header controls now retain full opacity despite headers being inactive GameObjects; recycled ordinary rows keep Unity-owned styling.

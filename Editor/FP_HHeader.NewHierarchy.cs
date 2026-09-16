@@ -23,6 +23,8 @@ namespace FuzzPhyte.Utility.Editor
         private const string NewHierarchyControlsName = "fp-hheader-controls";
         private const string NewHierarchyItemClass = "fp-hheader-item";
         private const string NewHierarchyBackgroundName = "fp-hheader-background";
+        // Resolve the asset itself so Assets checkouts and UPM installations share one lookup.
+        private const string NewHierarchyStyleSheetGuid = "61fb69c1b67260b458a0e472eba58316";
         private static StyleSheet newHierarchyStyleSheet;
         private const float NewHierarchyControlSize = 15f;
         private const float NewHierarchyControlsWidth = 34f;
@@ -144,10 +146,8 @@ namespace FuzzPhyte.Utility.Editor
             {
                 if (newHierarchyStyleSheet == null)
                 {
-                    bool packaged = FP_Utility_Editor.IsPackageLoadedViaPackageManager();
-                    string editorPath = FP_Utility_Editor.ReturnEditorPath(packaged ? "utility" : "FP_Utility", !packaged);
                     newHierarchyStyleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(
-                        (editorPath + "/FP_HHeader.NewHierarchy.uss").Replace('\\', '/'));
+                        AssetDatabase.GUIDToAssetPath(NewHierarchyStyleSheetGuid));
                 }
                 if (newHierarchyStyleSheet != null)
                 {
