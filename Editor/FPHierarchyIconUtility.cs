@@ -149,6 +149,34 @@ namespace FuzzPhyte.Utility.Editor
             return true;
         }
 
+        internal static int AddPaletteIcons(IReadOnlyList<UnityEngine.Object> objects)
+        {
+            if (objects == null)
+            {
+                return 0;
+            }
+
+            IconPaletteData data = LoadPaletteData();
+            var uniqueGuids = new HashSet<string>(data.Guids);
+            int addedCount = 0;
+            for (int i = 0; i < objects.Count; i++)
+            {
+                string guid = GetAssetGuid(objects[i] as Texture2D);
+                if (!string.IsNullOrWhiteSpace(guid) && uniqueGuids.Add(guid))
+                {
+                    data.Guids.Add(guid);
+                    addedCount++;
+                }
+            }
+
+            if (addedCount > 0)
+            {
+                SavePaletteData(data);
+            }
+
+            return addedCount;
+        }
+
         internal static bool RemovePaletteIcon(Texture2D icon)
         {
             string guid = GetAssetGuid(icon);

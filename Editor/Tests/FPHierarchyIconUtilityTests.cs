@@ -187,6 +187,29 @@ namespace FuzzPhyte.Utility.Editor.Tests
         }
 
         [Test]
+        public void Palette_BulkAddAppendsUniqueAssetsAndSkipsInvalidItems()
+        {
+            Texture2D openIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/FP_Utility/Editor/Icons/HH_Open.png");
+            Texture2D closeIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/FP_Utility/Editor/Icons/HH_Close.png");
+            Assert.That(openIcon, Is.Not.Null);
+            Assert.That(closeIcon, Is.Not.Null);
+            FPHierarchyIconUtility.AddPaletteIcon(closeIcon);
+
+            int addedCount = FPHierarchyIconUtility.AddPaletteIcons(
+                new Object[] { closeIcon, null, root, icon, openIcon, openIcon });
+
+            Assert.That(addedCount, Is.EqualTo(1));
+            Assert.That(FPHierarchyIconUtility.GetPaletteIcons(), Is.EqualTo(new[] { closeIcon, openIcon }));
+            string savedPalette = EditorPrefs.GetString(paletteEditorPrefsKey);
+            Assert.That(FPHierarchyIconUtility.AddPaletteIcons(new Object[] { openIcon, closeIcon }), Is.Zero);
+            Assert.That(FPHierarchyIconUtility.AddPaletteIcons(new Object[] { null, root, icon }), Is.Zero);
+            Assert.That(FPHierarchyIconUtility.AddPaletteIcons(null), Is.Zero);
+            Assert.That(EditorPrefs.GetString(paletteEditorPrefsKey), Is.EqualTo(savedPalette));
+        }
+
+        [Test]
         public void Palette_SetOrderPersistsAndRemovesDuplicates()
         {
             Texture2D openIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(

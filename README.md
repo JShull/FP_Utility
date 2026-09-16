@@ -895,7 +895,7 @@ The Header Options window also provides a native Hierarchy Icon Override workflo
 
 1. Open `FuzzPhyte/Header/Header Options` and select one or more ordinary scene GameObjects.
 2. Assign an imported `Texture2D` to `Icon Override`, or use `Import Icon...` to copy an image into a project-owned location under `Assets`.
-3. Click `Add Icon Override To Palette` to make an existing project texture available from the Hierarchy. Icons imported with `Import Icon...` are added to the palette automatically.
+3. Click `Add Icon Override To Palette` to add the current texture, or multi-select textures in the Project window and click `Add Selected Icons To Palette`. You can also drag multiple Project textures onto the palette's drop area. This works with the icons copied to `Assets/Gizmos/FP` by `Move Icon Assets`. Bulk additions append new icons without changing the existing order and skip duplicates and non-texture items. Icons imported with `Import Icon...` are added to the palette automatically. For external images, import them into the Project window first before adding them in bulk.
 4. Expand or collapse `Alt-Click Palette` as needed. Drag palette rows to control the icon order used by the popup, click an icon to make it the current override, or use `Remove` to take it out of the palette.
 5. Leave `Include Children (Recursive)` disabled to affect only the explicitly selected GameObjects. Enable it when inactive and active descendants should also receive the icon.
 6. Click `Apply To Selected`. Use `Clear Selected Icons` to restore Unity's automatic component or type icon.

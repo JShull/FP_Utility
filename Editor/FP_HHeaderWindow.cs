@@ -253,6 +253,32 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
 
+            UnityEngine.Object[] selectedAssets = Selection.objects;
+            using (new EditorGUI.DisabledScope(!HasPaletteTexture(selectedAssets)))
+            {
+                if (GUILayout.Button("Add Selected Icons To Palette"))
+                {
+                    AddHierarchyIconPaletteItems(selectedAssets);
+                }
+            }
+
+            Rect dropRect = GUILayoutUtility.GetRect(0f, 48f, GUILayout.ExpandWidth(true));
+            GUI.Box(dropRect, "Drop multiple Texture2D assets here from the Project window", EditorStyles.helpBox);
+            Event currentEvent = Event.current;
+            if (dropRect.Contains(currentEvent.mousePosition) &&
+                (currentEvent.type == EventType.DragUpdated || currentEvent.type == EventType.DragPerform))
+            {
+                bool hasTextures = HasPaletteTexture(DragAndDrop.objectReferences);
+                DragAndDrop.visualMode = hasTextures ? DragAndDropVisualMode.Copy : DragAndDropVisualMode.Rejected;
+                if (hasTextures && currentEvent.type == EventType.DragPerform)
+                {
+                    DragAndDrop.AcceptDrag();
+                    AddHierarchyIconPaletteItems(DragAndDrop.objectReferences);
+                }
+
+                currentEvent.Use();
+            }
+
             if (hierarchyIconPalette.Count == 0)
             {
                 EditorGUILayout.LabelField("No palette icons added.", EditorStyles.miniLabel);
@@ -274,6 +300,28 @@ namespace FuzzPhyte.Utility.Editor
                     SetStatus($"Removed {removedIcon.name} from the Alt-click palette.", MessageType.Info);
                 }
             }
+        }
+
+        private static bool HasPaletteTexture(IReadOnlyList<UnityEngine.Object> objects)
+        {
+            for (int i = 0; i < objects.Count; i++)
+            {
+                if (objects[i] is Texture2D texture && !string.IsNullOrEmpty(AssetDatabase.GetAssetPath(texture)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void AddHierarchyIconPaletteItems(IReadOnlyList<UnityEngine.Object> objects)
+        {
+            int addedCount = FPHierarchyIconUtility.AddPaletteIcons(objects);
+            ReloadHierarchyIconPalette();
+            SetStatus(
+                $"Added {addedCount} icon(s) to the Alt-click palette. Skipped {objects.Count - addedCount} duplicate or non-texture item(s).",
+                MessageType.Info);
         }
 
         private void EnsureHierarchyIconPaletteList()
