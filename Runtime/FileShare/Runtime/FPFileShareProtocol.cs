@@ -18,6 +18,8 @@ namespace FuzzPhyte.Utility.FileShare
         public const string IdHeader = "X-FP-Transfer";
         public const string LengthHeader = "X-FP-Length";
         public const long DefaultMaximumBytes = 128L * 1024 * 1024;
+        // 32 equally likely symbols, excluding 0, 1, I and O: 12 characters = 60 random bits.
+        private const string TokenAlphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
         public static string ValidateFileName(string name)
         {
@@ -67,9 +69,21 @@ namespace FuzzPhyte.Utility.FileShare
 
         public static string CreateToken()
         {
-            var bytes = new byte[24];
+            var bytes = new byte[12];
             using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes);
-            return Convert.ToBase64String(bytes);
+            var token = new char[bytes.Length];
+            for (int i = 0; i < bytes.Length; i++) token[i] = TokenAlphabet[bytes[i] % TokenAlphabet.Length];
+            return new string(token);
+        }
+
+        /// <summary>Accept lower-case and optional spaces/dashes for short tokens. Preserve legacy Base64 tokens exactly.</summary>
+        public static string NormalizeToken(string value)
+        {
+            if (value == null || value.Length > 128) return value;
+            string compact = value.Replace(" ", "").Replace("-", "").ToUpperInvariant();
+            if (compact.Length != 12) return value;
+            foreach (char c in compact) if (TokenAlphabet.IndexOf(c) < 0) return value;
+            return compact;
         }
     }
 

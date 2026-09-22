@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `FPFileShareException` with stable failure categories and HTTP status for runtime caller diagnostics, including blocked HTTP policy, token rejection, conflict, size/checksum rejection, timeout/connection failure and invalid receipts. Cancellation remains `OperationCanceledException`; no application security settings are changed.
 - Added the optional FileShare runtime sender and Editor receiver window under FuzzPhyte > Utility > Editor > File Share, with manual pairing, streamed uploads, SHA-256 receipts, duplicate-safe transfer IDs, bounded uploads, cancellation cleanup, and explicit import of received data files. Includes loopback Edit Mode integration tests and setup documentation.
 - Added bulk Project texture selection and drag-and-drop to the Header Options Alt-click icon palette, preserving existing order and skipping duplicates and non-texture items.
 
 ### Changed
 
+- Shortened FileShare receiver tokens to 12 unambiguous random characters, accepting lowercase and optional spaces/dashes for manual entry while retaining legacy token compatibility. Throttle invalid-token responses; tokens still rotate on receiver restart.
 - Resolve the New Hierarchy stylesheet by its Unity asset GUID so header backgrounds load from both Assets checkouts and installed UPM packages without relying on package-location detection.
 - Inspector scene-reference clicks now reveal containing closed FP Header sections and replay the highlight without changing selection, for UI Toolkit ObjectFields and standard IMGUI serialized reference fields.
 - Selecting an object now reveals all containing closed FP Header sections, including outer sections when the nearest header is already open. Unrelated sections stay closed, and the selection ping is deferred until the hierarchy refreshes.

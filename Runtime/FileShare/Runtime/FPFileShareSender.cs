@@ -31,6 +31,7 @@ namespace FuzzPhyte.Utility.FileShare
                 || pairingToken.Contains("\r") || pairingToken.Contains("\n"))
                 throw new ArgumentException("Enter a valid pairing token.");
             if (transferId == Guid.Empty) throw new ArgumentException("A non-empty transfer ID is required.");
+            pairingToken = FPFileShareProtocol.NormalizeToken(pairingToken);
             if (timeoutSeconds < 1) throw new ArgumentOutOfRangeException(nameof(timeoutSeconds));
             string path = Path.GetFullPath(filePath);
             string name = FPFileShareProtocol.ValidateFileName(Path.GetFileName(path));
@@ -48,7 +49,12 @@ namespace FuzzPhyte.Utility.FileShare
                 request.SetRequestHeader(FPFileShareProtocol.TokenHeader, pairingToken);
                 request.SetRequestHeader(FPFileShareProtocol.NameHeader, FPFileShareProtocol.EncodeFileName(name));
                 request.SetRequestHeader(FPFileShareProtocol.HashHeader, hash);
-                var operation = request.SendWebRequest();
+                UnityWebRequestAsyncOperation operation;
+                try { operation = request.SendWebRequest(); }
+                catch (Exception ex) when (FPFileShareException.IsPolicyError(ex.Message))
+                {
+                    throw FPFileShareException.Policy(ex);
+                }
                 // Abort immediately on main-thread cancellation (including Editor teardown),
                 // rather than depending on another frame to resume the polling loop.
                 using var abortRegistration = cancellationToken.Register(request.Abort, useSynchronizationContext: true);
@@ -63,12 +69,13 @@ namespace FuzzPhyte.Utility.FileShare
                     cancellationToken.ThrowIfCancellationRequested();
                     if (request.result != UnityWebRequest.Result.Success
                         || (request.responseCode != 200 && request.responseCode != 201))
-                        throw new IOException($"Transfer failed (HTTP {request.responseCode}): {request.error}. The local file is retained.");
+                        throw FPFileShareException.FromResponse(request.responseCode, request.error);
                     if (request.GetResponseHeader(FPFileShareProtocol.IdHeader) != transferId.ToString("N")
                         || request.GetResponseHeader(FPFileShareProtocol.HashHeader) != hash
                         || request.GetResponseHeader(FPFileShareProtocol.LengthHeader) != length.ToString(CultureInfo.InvariantCulture)
                         || request.GetResponseHeader(FPFileShareProtocol.NameHeader) != FPFileShareProtocol.EncodeFileName(name))
-                        throw new IOException("The receiver did not return a matching saved-file receipt. Retry with the same transfer ID.");
+                        throw new FPFileShareException(FPFileShareFailure.ReceiptMismatch,
+                            "The receiver did not return a matching saved-file receipt. Retry with the same transfer ID.", request.responseCode);
                     progress?.Report(1f);
                     return new FPFileShareReceipt(transferId, name, length, hash, request.responseCode == 200);
                 }

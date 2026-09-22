@@ -93,7 +93,55 @@ namespace FuzzPhyte.Utility.FileShare.Editor.Tests
             var send = Send(Guid.NewGuid(), "wrong-token");
             yield return Wait(send);
             Assert.That(send.IsFaulted, Is.True);
+            var error = send.Exception.GetBaseException() as FPFileShareException;
+            Assert.That(error?.Failure, Is.EqualTo(FPFileShareFailure.TokenRejected));
+            Assert.That(error.HttpStatusCode, Is.EqualTo(401));
             Assert.That(Directory.GetFiles(inbox), Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator RuntimeSender_ShortTokenAcceptsLowercaseAndGrouping()
+        {
+            Assert.That(receiver.PairingToken.Length, Is.EqualTo(12));
+            string entered = receiver.PairingToken.ToLowerInvariant().Insert(8, "-").Insert(4, " ");
+            var send = Send(Guid.NewGuid(), entered);
+            yield return Wait(send);
+            Assert.That(send.Status, Is.EqualTo(TaskStatus.RanToCompletion), send.Exception?.ToString());
+            Assert.That(receiver.TryDequeue(out var file), Is.True);
+            CollectionAssert.AreEqual(File.ReadAllBytes(source), File.ReadAllBytes(file.Path));
+        }
+
+        [UnityTest]
+        public IEnumerator RuntimeSender_StoppedReceiver_HasConnectionFailure()
+        {
+            receiver.Dispose();
+            var send = Send(Guid.NewGuid());
+            yield return Wait(send);
+            Assert.That((send.Exception?.GetBaseException() as FPFileShareException)?.Failure,
+                Is.EqualTo(FPFileShareFailure.ConnectionFailure));
+            Assert.That(File.Exists(source), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator RuntimeSender_NoResponse_HasTimeout()
+        {
+            receiver.Dispose();
+            var listener = new TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+            TcpClient client = null;
+            try
+            {
+                var accept = listener.AcceptTcpClientAsync();
+                var send = FPFileShareSender.SendAsync(source, receiver.Endpoint, receiver.PairingToken,
+                    Guid.NewGuid(), timeoutSeconds: 1);
+                yield return Wait(accept);
+                client = accept.Result;
+                yield return Wait(send);
+                Assert.That((send.Exception?.GetBaseException() as FPFileShareException)?.Failure,
+                    Is.EqualTo(FPFileShareFailure.Timeout));
+                Assert.That(File.Exists(source), Is.True);
+            }
+            finally { client?.Dispose(); listener.Stop(); }
         }
 
         [UnityTest]
@@ -123,6 +171,7 @@ namespace FuzzPhyte.Utility.FileShare.Editor.Tests
             var second = Send(id);
             yield return Wait(second);
             Assert.That(second.IsFaulted, Is.True);
+            Assert.That((second.Exception.GetBaseException() as FPFileShareException)?.Failure, Is.EqualTo(FPFileShareFailure.Conflict));
             Assert.That(File.ReadAllText(received.Path), Is.EqualTo(original));
             Assert.That(Directory.GetFiles(inbox, "*.part", SearchOption.AllDirectories), Is.Empty);
         }
@@ -175,6 +224,9 @@ namespace FuzzPhyte.Utility.FileShare.Editor.Tests
                 yield return Wait(send);
                 Assert.That(send.IsFaulted, Is.True);
                 Assert.That(send.Exception.ToString(), Does.Contain("matching saved-file receipt"));
+                var error = send.Exception.GetBaseException() as FPFileShareException;
+                Assert.That(error?.Failure, Is.EqualTo(FPFileShareFailure.ReceiptMismatch));
+                Assert.That(error.HttpStatusCode, Is.EqualTo(201));
                 Assert.That(File.Exists(source), Is.True);
             }
             finally { client?.Dispose(); listener.Stop(); }
@@ -240,6 +292,7 @@ namespace FuzzPhyte.Utility.FileShare.Editor.Tests
             yield return Wait(upload);
             Assert.That(upload.IsFaulted, Is.True);
             Assert.That(upload.Exception.ToString(), Does.Contain("413"));
+            Assert.That((upload.Exception.GetBaseException() as FPFileShareException)?.Failure, Is.EqualTo(FPFileShareFailure.SizeLimit));
             Assert.That(Directory.GetFiles(inbox), Is.Empty);
         }
 

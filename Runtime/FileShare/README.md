@@ -12,6 +12,8 @@ Reusable single-file uploads from a Unity application to a Unity Editor inbox. T
 
 For another device, choose this computer's Wi-Fi/Ethernet IPv4 address before starting. Enter the displayed receiver address and pairing token on that device. `127.0.0.1` on a phone refers to the phone, not this computer. Pairing tokens change on receiver restart and are not serialized or written to logs/preferences.
 
+New receiver tokens are 12 random characters (60 bits), excluding ambiguous `0/O` and `1/I`. Enter them as shown or use lowercase and optional spaces/dashes; the updated sender and receiver normalize the short format. Older 32-character Base64 tokens remain case-sensitive and unchanged. Existing apps can send a new short token exactly as displayed without a protocol update. Invalid-token responses incur a 250 ms delay to limit online guessing. This is a session token for trusted-LAN use, not a public-service password or a six-digit pairing code. HTTP still provides no encryption.
+
 The test sender lets you retry the same file with the same transfer ID. Choose **New transfer ID** after changing the file or when intentionally sending another copy. A retry with the same ID and identical contents returns the existing receipt, including after a receiver restart; conflicting content/name returns HTTP 409.
 
 ## Runtime integration
@@ -34,6 +36,24 @@ var receipt = await FPFileShareSender.SendAsync(
 ```
 
 The sender hashes on a worker thread and streams from disk with `UploadHandlerFile`; it does not buffer a whole recording in memory. Keep the source unchanged until completion. Handle exceptions and cancellation in your UI. No automatic retries or source-file deletion occur. A lost response/cancellation after server commit is an uncertain outcome: retry with the same ID to resolve it without duplicating the file.
+
+### Caller diagnostics
+
+Transfer/receipt failures throw `FPFileShareException` (an `IOException`) with a stable `Failure` enum and `HttpStatusCode` (zero when no response is available). Categories: `TokenRejected`, `Conflict`, `SizeLimit`, `ChecksumMismatch`, `ConnectionFailure`, `Timeout`, `PolicyRejected`, `ReceiptMismatch`, and `HttpError`. Present its `Message` for actionable feedback; do not log tokens, request headers or file contents. Unity's known HTTP/ATS rejection messages are classified as policy errors; unfamiliar platform messages may still be reported as connection failures or their original exception. This is diagnostic classification, not a connectivity probe.
+
+Cancellation still throws `OperationCanceledException` and keeps the task cancelled. Argument validation and local file I/O retain their normal exception types. A synchronous policy exception from Unity is retained as `InnerException`; use `Failure`/`Message` rather than `GetBaseException()` for UI classification.
+
+```csharp
+try { /* await FPFileShareSender.SendAsync(...); */ }
+catch (OperationCanceledException) { /* Retain local file and transfer ID. */ }
+catch (FPFileShareException ex)
+{
+    // Show ex.Message; use ex.Failure and ex.HttpStatusCode for UI decisions.
+    // PolicyRejected requires an app build configuration fix, not a new token.
+}
+```
+
+The iPhone test reported `Non-secure network connections disabled in Player Settings`, before reaching a receiver. The consuming app must configure Unity's HTTP policy and applicable iOS ATS/local-network permissions and rebuild. FileShare does not weaken those policies automatically. A JSON file is an independent upload: no WAV, audio recording, or microphone is required.
 
 ## Protocol and storage
 
@@ -72,3 +92,5 @@ References: [Unity UploadHandlerFile](https://docs.unity3d.com/6000.0/Documentat
 Run the Edit Mode assembly `com.fuzzphyte.utility.fileshare.editor.tests`. Tests use temporary inboxes and loopback listeners, covering the real runtime sender, multi-megabyte files, duplicate receipts across restart, mismatched content, invalid token/name/checksum, size limits, and cancellation/receiver shutdown cleanup. Device networking, iOS/IL2CPP, and macOS receiver behavior require separate validation.
 
 Windows validation on Unity 6000.6.0f1 (2026-09-22): compilation passed. All 16 test cases passed when their NUnit assertions and coroutine bodies were executed through a temporary Editor coroutine with fixture setup/teardown. The standard Test Runner workflow was not completed because the open scene had unsaved changes; the scene was preserved. A separate File Share window upload of FP_RecorderFace's `BobTest0.json` (5,170,921 bytes) returned a verified receipt and matched the original SHA-256. This is Editor loopback validation, not an iOS or LAN-device test.
+
+Follow-up validation on the same date: the shorter-token and structured-error updates compiled, and all 31 FileShare cases passed (19 integration/protocol and 12 diagnostic/token cases), alongside 21 RecorderFace regression cases. Assertions/coroutine bodies ran through the same scene-preserving Editor approach, with unexpected Unity-error capture. Real loopback tests covered lowercase/grouped short tokens, unavailable receiver, timeout, authentication, conflicts, size rejection, verified receipts, retries and cancellation. No iPhone-to-Editor success is claimed; the reported device build blocked HTTP before contacting the receiver.

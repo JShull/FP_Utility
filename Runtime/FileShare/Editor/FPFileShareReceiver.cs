@@ -116,8 +116,13 @@ namespace FuzzPhyte.Utility.FileShare.Editor
                 using (timeout.Token.Register(() => { try { request.InputStream.Close(); response.Abort(); } catch { } }))
                 try
                 {
-                    if (request.Headers[FPFileShareProtocol.TokenHeader] != PairingToken)
-                    { response.StatusCode = 401; return; }
+                    if (FPFileShareProtocol.NormalizeToken(request.Headers[FPFileShareProtocol.TokenHeader]) != PairingToken)
+                    {
+                        // Bound online guessing; requests are processed sequentially by this receiver.
+                        await Task.Delay(250, timeout.Token).ConfigureAwait(false);
+                        response.StatusCode = 401;
+                        return;
+                    }
                     if (request.HttpMethod != "POST" || !string.IsNullOrEmpty(request.Url.Query)
                         || !request.Url.AbsolutePath.StartsWith(FPFileShareProtocol.Route, StringComparison.Ordinal)
                         || !Guid.TryParseExact(request.Url.AbsolutePath.Substring(FPFileShareProtocol.Route.Length), "N", out var id)
