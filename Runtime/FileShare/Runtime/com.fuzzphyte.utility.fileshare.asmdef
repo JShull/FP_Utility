@@ -1,0 +1,17 @@
+{
+    "name": "com.fuzzphyte.utility.fileshare",
+    "rootNamespace": "FuzzPhyte.Utility.FileShare",
+    "references": [
+        "com.fuzzphyte.utility",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

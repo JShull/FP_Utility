@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the optional FileShare runtime sender and Editor receiver window under FuzzPhyte > Utility > Editor > File Share, with manual pairing, streamed uploads, SHA-256 receipts, duplicate-safe transfer IDs, bounded uploads, cancellation cleanup, and explicit import of received data files. Includes loopback Edit Mode integration tests and setup documentation.
 - Added bulk Project texture selection and drag-and-drop to the Header Options Alt-click icon palette, preserving existing order and skipping duplicates and non-texture items.
 
 ### Changed

@@ -1,0 +1,20 @@
+{
+    "name": "com.fuzzphyte.utility.fileshare.editor",
+    "rootNamespace": "FuzzPhyte.Utility.FileShare.Editor",
+    "references": [
+        "com.fuzzphyte.utility",
+        "com.fuzzphyte.utility.editor",
+        "com.fuzzphyte.utility.fileshare"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

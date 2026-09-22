@@ -1,0 +1,11 @@
+{
+    "name": "com.fuzzphyte.utility.fileshare.editor.tests",
+    "rootNamespace": "FuzzPhyte.Utility.FileShare.Editor.Tests",
+    "references": [
+        "com.fuzzphyte.utility.fileshare",
+        "com.fuzzphyte.utility.fileshare.editor"
+    ],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": false,
+    "optionalUnityReferences": ["TestAssemblies"]
+}
