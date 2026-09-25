@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `FPSceneViewGrid`, a disposable editor grid provider using an owned preview scene and explicit SceneView camera scope, for FP_Parametric and other authoring tools.
+- Added Edit Mode grid registration and camera filtering; destroyed scoped cameras cannot expose their grid to other views.
+- Grid Render Graph passes now snapshot per-grid property blocks, preserve the shared material, declare blend/depth access, and dispose owned quad meshes.
+- Validated the grid integration in Unity 6000.6.0f1 / URP 17.6.0 with 10 focused Edit Mode tests and pixel comparisons confirming target-camera drawing, other-camera isolation, and unchanged material state.
 - Added `FPFileShareException` with stable failure categories and HTTP status for runtime caller diagnostics, including blocked HTTP policy, token rejection, conflict, size/checksum rejection, timeout/connection failure and invalid receipts. Cancellation remains `OperationCanceledException`; no application security settings are changed.
 - Added the optional FileShare runtime sender and Editor receiver window under FuzzPhyte > Utility > Editor > File Share, with manual pairing, streamed uploads, SHA-256 receipts, duplicate-safe transfer IDs, bounded uploads, cancellation cleanup, and explicit import of received data files. Includes loopback Edit Mode integration tests and setup documentation.
 - Added bulk Project texture selection and drag-and-drop to the Header Options Alt-click icon palette, preserving existing order and skipping duplicates and non-texture items.

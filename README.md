@@ -152,12 +152,13 @@ Each effect has up to three cooperating parts:
 | `FPRuntimeCutawayGeometryFeature` | `BeforeRenderingOpaques` | `FPRuntimeCutawayVolume` |
 | `FPRuntimeCutawayRevealFeature` | `AfterRenderingTransparents` | `FPRuntimeCutawayVolume` |
 | `FPRuntimeMeshViewerFeature` | `AfterRenderingOpaques` | `FPRuntimeMeshViewer` |
-| `FPRuntimeGridFeature` | `AfterRenderingOpaques` | One or more `FPRuntimeGridPlane` components |
+| `FPRuntimeGridFeature` | `AfterRenderingSkybox` | One or more `FPRuntimeGridPlane` components |
 | `FPRuntimeMeasurementFeature` | `AfterRenderingTransparents` | `FPRuntimeMeasurementOverlay` |
 
 4. Confirm that the runtime Camera uses that Renderer Data. Either make its Pipeline Asset renderer the default, or select the matching renderer under the Camera's URP `Rendering > Renderer` setting.
 5. For layer-filtered cutaway passes, include the selected target layers in the Camera `Culling Mask` as well as in the renderer feature's layer mask.
 6. `FPRuntimeMeshViewerFeature`, `FPRuntimeGridFeature`, and `FPRuntimeMeasurementFeature` expose `Draw In Scene View`. Leave it disabled for Game-camera-only output or enable it for authoring previews. The cutaway features currently run for every camera that uses their Renderer Data and has a matching active volume.
+7. For FPRuntimeGridFeature: confirm that the URP render feature renders 'After Rendering Skybox'
 
 No special projection, field of view, or post-processing setting is required; perspective and orthographic Game cameras use the same feature setup. These features use the active camera depth attachment for normal depth testing but do not sample the URP Opaque Texture or Depth Texture, so those Pipeline Asset copies do not need to be enabled solely for these effects. With camera stacking, add the features only to the renderer or renderers that should draw the effect; using the same configured renderer on multiple cameras can draw it more than once.
 
@@ -242,9 +243,13 @@ Only one enabled `FPRuntimeMeshViewer` is supported because the feature reads `F
 4. Set minor/major colors, opacity, line thickness, units, and spacing. Enable `Use Major Spacing` to specify the major interval directly; otherwise every tenth minor line is major.
 5. Toggle `Is Enabled` without disabling the component when a grid should remain registered but temporarily hidden.
 
-The component converts the selected unit to meters for the shader. If code changes `Units`, `Spacing In Units`, `Major Spacing In Units`, `Use Major Spacing`, or `Custom Meters Per Unit` after `Awake`, call `RecalculateWorldSpacing()` afterward. Multiple enabled grid planes are supported. Their appearance fields override the shared grid material immediately before each draw, so use the component fields as the per-grid source of truth.
+The component converts the selected unit to meters for the shader. If code changes `Units`, `Spacing In Units`, `Major Spacing In Units`, `Use Major Spacing`, or `Custom Meters Per Unit` after `Awake`, call `RecalculateWorldSpacing()` afterward. Multiple enabled grid planes are supported. Their appearance fields supply per-draw property blocks, so use the component fields as the per-grid source of truth; the shared material remains unchanged.
 
 The grid shader is transparent, writes no depth, and uses `ZTest LEqual`; it is hidden by nearer scene geometry. Change the feature to `AfterRenderingTransparents` only when the desired composition requires the grid to be submitted after other transparent objects.
+
+`FPRuntimeGridPlane` registers in Edit Mode as well as Play Mode. `SetCameraScope(camera, onlySceneView)` restricts an owned grid to one camera; losing that camera does not make the grid global. Preview and reflection cameras are excluded. The renderer snapshots transforms and per-grid `MaterialPropertyBlock` values during Render Graph recording, so multiple grids do not overwrite one another's appearance or modify the shared material.
+
+Editor tools can own an `FPSceneViewGrid` ScriptableObject, call `Configure(camera, origin, rotation, extents, spacingMetres)`, and destroy it when finished. It creates a hidden grid in an owned preview scene, releases resources on camera loss, reload, and Play Mode transition, and reports renderer setup through `GetStatus()`. It requires an already configured grid feature on the active URP default renderer; it does not edit renderer assets. FP_Parametric uses this optional bridge for its active sketch-plane backdrop and shared dimension-snap spacing.
 
 #### Runtime Measurement Overlay
 

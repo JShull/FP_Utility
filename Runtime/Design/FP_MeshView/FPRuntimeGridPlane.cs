@@ -10,6 +10,7 @@ namespace FuzzPhyte.Utility
 {
     using System.Collections.Generic;
     using UnityEngine;
+    [ExecuteAlways]
     public sealed class FPRuntimeGridPlane : MonoBehaviour
     {
         private static readonly List<FPRuntimeGridPlane> s_Active = new();
@@ -48,6 +49,25 @@ namespace FuzzPhyte.Utility
 
         [Header("Enable")]
         public bool IsEnabled = true;
+
+        // Transient owner scope: a destroyed target must not turn a scoped grid into a global grid.
+        private bool hasCameraScope;
+        private Camera targetCamera;
+        private bool sceneViewOnly;
+
+        public void SetCameraScope(Camera camera, bool onlySceneView = false)
+        {
+            if (camera == null) throw new System.ArgumentNullException(nameof(camera));
+            hasCameraScope = true; targetCamera = camera; sceneViewOnly = onlySceneView;
+        }
+
+        public bool IsVisibleTo(Camera camera)
+        {
+            if (camera == null || !isActiveAndEnabled || !IsEnabled) return false;
+            if (hasCameraScope && (targetCamera == null || camera != targetCamera)) return false;
+            if (sceneViewOnly && camera.cameraType != CameraType.SceneView) return false;
+            return camera.cameraType != CameraType.Preview && camera.cameraType != CameraType.Reflection;
+        }
 
         private void OnValidate()
         {
@@ -99,6 +119,7 @@ namespace FuzzPhyte.Utility
         }
         private void OnEnable()
         {
+            RecalculateWorldSpacing();
             if (!s_Active.Contains(this)) s_Active.Add(this);
         }
 

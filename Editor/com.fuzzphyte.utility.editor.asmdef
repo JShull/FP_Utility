@@ -3,6 +3,8 @@
     "rootNamespace": "FuzzPhyte.Utility.Editor",
     "references": [
         "com.fuzzphyte.utility",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime",
         "Unity.Mathematics",
         "Unity.TextMeshPro",
         "Unity.Timeline",
