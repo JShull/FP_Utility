@@ -131,6 +131,18 @@ public class CharacterOrderDebug : MonoBehaviour
 3. Use the camera-relative vertex and normal settings to keep debug marks readable as the camera moves or switches between perspective and orthographic modes.
 4. Toggle `Depth Test` depending on whether the debug overlay should sit inside the scene depth or draw over it.
 
+### URP Dithered Surface Materials
+
+`Runtime/Design/FP_Dither` provides character and organic URP Lit Shader Graphs using shared UV-space Bayer dithering before lighting, plus a foliage variant that preserves ordinary texture-alpha cutouts. Strength, color steps, ordered-dither amount, bias and a constant mask are material controls; no Renderer Feature or dither texture is required. Includes comparison materials, a synthetic static/skinned test scene, and GPU/Edit Mode checks. Desktop validation includes a supplied tree across four LODs; representative character, headset stability and target-device performance remain pending. See [FP Dither setup and validation](Runtime/Design/FP_Dither/README.md).
+
+The material **Pattern** dropdown also offers texture-free Squares, Dots, Lines, Plus, Diamond and five-point Star modes, with rotation, plus proportions and derivative-based edge/distance filtering. Existing materials default to Bayer. `Examples/Shapes/FP_DitherShapes.unity` provides a labeled seven-pattern comparison. The separate lighting shader adds a calibrated custom-stamp texture mode and lightning-bolt example in `Examples/Stamps/FP_DitherStamps.unity`.
+
+The opt-in **FP_DitherLightingLit** shader adds independent per-material albedo, diffuse-light and received-shadow dithering. Standard URP and stylized objects share normal lights and cast silhouettes; the receiver chooses the shadow style. `Examples/Lighting/FP_DitherLighting.unity` demonstrates all four lighting/shadow combinations. See the dither README for pipeline prerequisites, desktop tests and unresolved XR/orthographic screen-space-shadow validation.
+
+See [XR platform support](Runtime/Design/FP_Dither/XR_PLATFORM_SUPPORT.md) for Vision Pro Unity/Metal versus PolySpatial/RealityKit, Meta Quest / 2027 VR Glasses planning, shadow configuration and the remaining validation queue. After the first custom-stamp slice, 164/164 package Editor tests pass; no headset compatibility or performance certification is implied.
+
+Separate opaque/cutout [PolySpatial surface candidates](Runtime/Design/FP_Dither/POLYSPATIAL_IMPLEMENTATION.md) now preserve the seven procedural albedo patterns using a restricted float-only function. Their desktop comparison and regressions bring the suite to 176/176 passing tests. MaterialX export and native visionOS rendering remain pending in a PolySpatial-enabled host project.
+
 ### Runtime URP Mesh View Render Features
 
 The render features under `Runtime/Design/FP_MeshView/URP` are the build-capable URP path for cutaway rendering, mesh inspection, measurement marks, and world grids. They are separate from the editor-only Runtime Debug Draw system above. The current implementations use URP Render Graph APIs and are intended for the Unity and URP versions declared by this package.

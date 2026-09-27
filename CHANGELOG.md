@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added separate opaque/cutout PolySpatial surface candidates with seven procedural albedo patterns expressed in the documented MaterialX Custom Function subset, a desktop comparison and 12 additional regressions (176/176 package tests passed). Native lighting/shadows remain conventional. PolySpatial export, visionOS builds and headset performance are explicitly pending; no platform dependency was added.
+
+- Added the first custom-stamp slice to `FP_DitherLightingLit`: a calibrated lightning-bolt rank texture, shared sampling for albedo/light/shadow styling, standalone comparison scene, reproducible offline polygon-to-rank helper and GPU/render regressions. Added a sourced Vision Pro/Meta XR support matrix that separates Unity/Metal from PolySpatial/RealityKit and tracks remaining device acceptance.
+
+- Added opt-in `FP_DitherLightingLit` material lighting with independent albedo, direct diffuse and received-shadow strengths, shared analytic patterns, ordinary alpha cutout and URP pass integration. Added a mixed standard/stylized lighting example and render regression tests. Existing albedo Shader Graphs and project renderer settings are preserved; device profiling and orthographic screen-space-shadow validation remain pending.
+- Expanded FP Dither with analytic square, dot, line, plus, diamond and five-point star patterns, a material dropdown, rotation, plus arm ratio, and derivative-based edge/minification filtering. Preserved Bayer defaults and existing property/subgraph IDs. Added a seven-pattern comparison scene, GPU tone/coverage/repetition regressions and a reproducible offline star-area helper. Headset performance remains pending; custom stamps are supplied separately on the lighting shader.
+- Added `FP_Dither` URP Lit character/organic Shader Graphs and a texture-cutout foliage variant with a shared UV-space Bayer 4x4 core, independent quantization/dither controls, synthetic comparison materials/scene, and eleven Edit Mode/GPU contract checks. All 124 package Editor tests passed; a supplied tree rendered across four LODs with preserved cutouts and shadows. Representative character and headset validation/performance remain pending. See `Runtime/Design/FP_Dither/README.md`.
 - Added `FPSceneViewGrid`, a disposable editor grid provider using an owned preview scene and explicit SceneView camera scope, for FP_Parametric and other authoring tools.
 - Added Edit Mode grid registration and camera filtering; destroyed scoped cameras cannot expose their grid to other views.
 - Grid Render Graph passes now snapshot per-grid property blocks, preserve the shared material, declare blend/depth access, and dispose owned quad meshes.

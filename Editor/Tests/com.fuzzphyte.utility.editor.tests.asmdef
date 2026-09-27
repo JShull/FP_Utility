@@ -4,7 +4,8 @@
     "references": [
         "com.fuzzphyte.utility.editor",
         "com.fuzzphyte.utility",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"
