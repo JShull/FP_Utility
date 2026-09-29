@@ -2313,20 +2313,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private float GetWorldUnitsPerPixel(Rect rect, Vector3 center)
         {
-            Camera camera = previewUtility.camera;
-            if (camera.orthographic)
-            {
-                return (camera.orthographicSize * 2f) / Mathf.Max(1f, rect.height);
-            }
-
-            float distance = Mathf.Abs(Vector3.Dot(center - camera.transform.position, camera.transform.forward));
-            if (distance <= 0.0001f)
-            {
-                distance = Vector3.Distance(center, camera.transform.position);
-            }
-
-            float worldHeight = 2f * distance * Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f);
-            return worldHeight / Mathf.Max(1f, rect.height);
+            return FPMeshPreviewEditorUtility.CalculateWorldUnitsPerPixel(previewUtility.camera, rect, center);
         }
 
         private void ApplyPreviewPan(Rect rect, Vector2 delta)
@@ -2338,8 +2325,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
             Bounds bounds = CalculatePreviewBounds();
             Camera camera = previewUtility.camera;
-            float unitsPerPixel = GetWorldUnitsPerPixel(rect, bounds.center + previewPanOffset);
-            previewPanOffset += ((-camera.transform.right * delta.x) + (camera.transform.up * delta.y)) * unitsPerPixel;
+            previewPanOffset += FPMeshPreviewEditorUtility.CalculatePanDelta(camera, rect, bounds.center + previewPanOffset, delta);
         }
 
         private Vector2 WorldToPreviewGuiPoint(Rect rect, Vector3 world)

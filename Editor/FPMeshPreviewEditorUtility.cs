@@ -115,6 +115,21 @@ namespace FuzzPhyte.Utility.Editor
             return ClampPreviewZoom(currentZoom * Mathf.Exp(scrollDelta * sensitivity));
         }
 
+        public static float CalculateWorldUnitsPerPixel(Camera camera, Rect rect, Vector3 focus)
+        {
+            if (camera.orthographic) return camera.orthographicSize * 2f / Mathf.Max(1f, rect.height);
+            float distance = Mathf.Abs(Vector3.Dot(focus - camera.transform.position, camera.transform.forward));
+            if (distance <= 0.0001f) distance = Vector3.Distance(focus, camera.transform.position);
+            return 2f * distance * Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f) / Mathf.Max(1f, rect.height);
+        }
+
+        /// <summary>Camera/focus translation that makes the content follow a GUI-space drag.</summary>
+        public static Vector3 CalculatePanDelta(Camera camera, Rect rect, Vector3 focus, Vector2 delta)
+        {
+            return (-camera.transform.right * delta.x + camera.transform.up * delta.y)
+                * CalculateWorldUnitsPerPixel(camera, rect, focus);
+        }
+
         public static FPMeshPreviewProjection DrawProjectionPopup(FPMeshPreviewProjection projection)
         {
             Rect rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);

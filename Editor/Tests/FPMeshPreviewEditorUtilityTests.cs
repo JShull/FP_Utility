@@ -13,6 +13,31 @@ namespace FuzzPhyte.Utility.Editor.Tests
 
     public sealed class FPMeshPreviewEditorUtilityTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PanKeepsContentUnderPointerInEitherProjection(bool orthographic)
+        {
+            var go = new GameObject("Preview pan test");
+            var target = new RenderTexture(800, 600, 0);
+            try
+            {
+                var camera = go.AddComponent<Camera>();
+                camera.targetTexture = target;
+                camera.orthographic = orthographic; camera.orthographicSize = 0.3f;
+                camera.fieldOfView = 30f; camera.aspect = 800f / 600f;
+                camera.transform.rotation = Quaternion.Euler(24, -36, 0);
+                Vector3 focus = new Vector3(1, 2, 3);
+                camera.transform.position = focus - camera.transform.forward * 2f;
+                Vector3 before = camera.WorldToViewportPoint(focus);
+                var drag = new Vector2(32, -18);
+                camera.transform.position += FPMeshPreviewEditorUtility.CalculatePanDelta(camera, new Rect(0, 0, 800, 600), focus, drag);
+                Vector3 after = camera.WorldToViewportPoint(focus);
+                Assert.That((after.x - before.x) * 800, Is.EqualTo(drag.x).Within(0.001f));
+                Assert.That((before.y - after.y) * 600, Is.EqualTo(drag.y).Within(0.001f));
+            }
+            finally { Object.DestroyImmediate(go); Object.DestroyImmediate(target); }
+        }
+
         [Test]
         public void CalculateFitDistance_ScalesWithTinyMeshBounds()
         {

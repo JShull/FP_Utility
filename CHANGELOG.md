@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Shared preview pan and world-units-per-pixel calculations between the Mesh Vertex Painter and vegetation rig editor, with perspective/orthographic projection tests.
+
 - Added separate opaque/cutout PolySpatial surface candidates with seven procedural albedo patterns expressed in the documented MaterialX Custom Function subset, a desktop comparison and 12 additional regressions (176/176 package tests passed). Native lighting/shadows remain conventional. PolySpatial export, visionOS builds and headset performance are explicitly pending; no platform dependency was added.
 
 - Added the first custom-stamp slice to `FP_DitherLightingLit`: a calibrated lightning-bolt rank texture, shared sampling for albedo/light/shadow styling, standalone comparison scene, reproducible offline polygon-to-rank helper and GPU/render regressions. Added a sourced Vision Pro/Meta XR support matrix that separates Unity/Metal from PolySpatial/RealityKit and tracks remaining device acceptance.
