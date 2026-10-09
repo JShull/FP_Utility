@@ -795,3 +795,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 0.1.0 Removed
 
 - None... yet
+
+- Exposed `FPAudioWaveformDrawing.DrawColumn` for shared Editor audio envelopes; Audio Combine and Biologging use the same column renderer.

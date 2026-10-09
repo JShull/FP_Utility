@@ -251,6 +251,28 @@ namespace FuzzPhyte.Utility.Editor
             Handles.EndGUI();
         }
 
+        /// <summary>Complete line topology for depth-tested preview rendering. Caller owns the returned mesh.</summary>
+        public static Mesh CreatePreviewWireMesh(Mesh source)
+        {
+            if (source == null || !source.isReadable) return null;
+            var lines = new System.Collections.Generic.List<int>();
+            var edges = new System.Collections.Generic.HashSet<ulong>();
+            for (int sub = 0; sub < source.subMeshCount; sub++)
+            {
+                if (source.GetTopology(sub) != MeshTopology.Triangles) continue;
+                var indices = source.GetIndices(sub);
+                for (int i = 0; i < indices.Length; i += 3) for (int e = 0; e < 3; e++)
+                {
+                    int a = indices[i+e], b = indices[i+(e+1)%3];
+                    ulong key = ((ulong)(uint)Mathf.Min(a,b) << 32) | (uint)Mathf.Max(a,b);
+                    if (edges.Add(key)) { lines.Add(a); lines.Add(b); }
+                }
+            }
+            var mesh = new Mesh { name = "Preview edges", hideFlags = HideFlags.HideAndDontSave, indexFormat = source.indexFormat };
+            mesh.vertices = source.vertices; mesh.SetIndices(lines.ToArray(), MeshTopology.Lines, 0); mesh.bounds = source.bounds;
+            return mesh;
+        }
+
         public static void DrawMeshEdgeOverlay(Camera camera, Rect previewRect, Mesh mesh, Matrix4x4 matrix, Color color, float thickness = 1.5f, int maxDrawnTriangles = 12000)
         {
             if (camera == null || mesh == null || !mesh.isReadable || Event.current.type != EventType.Repaint)
@@ -382,6 +404,34 @@ namespace FuzzPhyte.Utility.Editor
 
             string projectionLabel = projection == FPMeshPreviewProjection.Orthographic ? "<Ortho" : "<Persp";
             GUI.Label(new Rect(gizmoRect.x + 4f, gizmoRect.yMax - 18f, gizmoRect.width - 8f, 16f), projectionLabel, EditorStyles.centeredGreyMiniLabel);
+        }
+
+        /// <summary>Hit-tests the visible axis tips. Click again when aligned to see the opposite side.</summary>
+        public static bool TryGetSceneOrientationClick(Rect previewRect, Camera camera, Vector2 mouse, out Quaternion rotation)
+        {
+            rotation = Quaternion.identity;
+            if (camera == null) return false;
+            var panel = new Rect(previewRect.xMax - 104f, previewRect.y + 8f, 96f, 88f);
+            if (panel.x < previewRect.x + 8f || !panel.Contains(mouse)) return false;
+            Vector2 center = new Vector2(panel.center.x, panel.y + 38f);
+            Vector3 chosen = Vector3.zero;
+            float best = 100f, depth = float.NegativeInfinity;
+            foreach (var axis in new[] { Vector3.right, Vector3.up, Vector3.forward })
+            {
+                Vector3 local = camera.transform.InverseTransformDirection(axis);
+                Vector2 direction = new Vector2(local.x, -local.y);
+                float length = Mathf.Lerp(13f, 28f, Mathf.Clamp01(direction.magnitude));
+                if (direction.sqrMagnitude <= .0001f) direction = Vector2.up;
+                Vector2 tip = center + direction.normalized * length;
+                float distance = (mouse - tip).sqrMagnitude;
+                if (distance < best || (Mathf.Approximately(distance, best) && local.z > depth))
+                { best = distance; chosen = axis; depth = local.z; }
+            }
+            if (chosen == Vector3.zero) return false;
+            Vector3 forward = -chosen;
+            if (Vector3.Dot(camera.transform.forward, forward) > .999f) forward = chosen;
+            rotation = Quaternion.LookRotation(forward, Mathf.Abs(forward.y) > .99f ? Vector3.forward : Vector3.up);
+            return true;
         }
 
         private static void DrawOpaquePreviewPanel(Rect rect)

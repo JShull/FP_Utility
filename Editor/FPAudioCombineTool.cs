@@ -1147,9 +1147,7 @@ namespace FuzzPhyte.Utility.Editor
             }
             else if (entry.waveform != null && entry.waveform.min != null && entry.waveform.max != null)
             {
-                const float waveformScale = 1f;
                 float pad = 2f;
-                float half = (segRect.height * 0.5f) - pad;
 
                 for (int x = 0; x < entry.waveform.width && segRect.x + x < segRect.xMax; x++)
                 {
@@ -1157,12 +1155,7 @@ namespace FuzzPhyte.Utility.Editor
                     float fadeGain = CalculateFadeGain(entry, segmentTime);
                     float min = Mathf.Clamp(entry.waveform.min[x] * entry.gain * fadeGain, -1f, 1f);
                     float max = Mathf.Clamp(entry.waveform.max[x] * entry.gain * fadeGain, -1f, 1f);
-                    float yTop = segRect.center.y - (max * half * waveformScale);
-                    float yBottom = segRect.center.y - (min * half * waveformScale);
-                    yTop = Mathf.Clamp(yTop, segRect.y + pad, segRect.yMax - pad);
-                    yBottom = Mathf.Clamp(yBottom, segRect.y + pad, segRect.yMax - pad);
-                    float px = segRect.x + x;
-                    Handles.DrawLine(new Vector3(px, yTop), new Vector3(px, yBottom));
+                    FPAudioWaveformDrawing.DrawColumn(segRect, segRect.x + x, min, max, pad);
                 }
             }
 
