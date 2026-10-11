@@ -1105,3 +1105,9 @@ See [LICENSE.md](LICENSE.md) for details
 ### Additional Notes
 
 * Audio Files in the samples came from [FreeSound.org](https://freesound.org/)
+
+Mesh Vertex Painter: **Surface Preview** selects Shaded (default), Faceted, or Flat Color rendering in the tool viewport. Shading helps distinguish surface depth while retaining vertex/edge overlays and dimmed graph backgrounds. This is a preview setting; source meshes and materials are unchanged.
+
+For dense vegetation meshes, use **Preview Point Limit** (default 2,000 dots per mesh per overlay). It samples display dots only; all vertices remain paintable and saved. Brush drags save accumulated selections on mouse release, focus loss, or window close instead of rebuilding serialized records on every drag event. Lasso and initial clicks still save immediately. Use Shaded mode with Draw Edges off for a less crowded view.
+
+Mesh Vertex Painter **Draw Edges** uses cached, complete triangle edges with depth testing against the shaded surface. Hidden edges are occluded instead of drawn through the mesh. Readable source geometry is required; project changes and Use Selection refresh the edge cache.

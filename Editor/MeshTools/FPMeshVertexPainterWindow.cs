@@ -75,14 +75,29 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         private bool createGeneratedSurfaceSceneObject = true;
         private float vertexSize = 0.045f;
         private float previewSelectionRadius = 14f;
+        [SerializeField] private int previewPointBudget = 2000;
+        private bool pendingPaintWrite;
         private float leftPaneWidth = 280f;
         private float previewZoom = 1.35f;
         private Quaternion previewRotation = Quaternion.Euler(24f, -36f, 0f);
         private FPMeshPreviewProjection previewProjection;
         private PreviewRenderUtility previewUtility;
+        private enum SurfacePreview { Shaded, Faceted, FlatColor }
+        [SerializeField] private SurfacePreview surfacePreview;
         private Material activePreviewMaterial;
         private Material inactivePreviewMaterial;
         private Material dimPreviewMaterial;
+        private Material edgePreviewMaterial;
+        private readonly Dictionary<Mesh, Mesh> previewEdgeMeshes = new();
+
+        private void ClearPreviewEdges()
+        {
+            foreach (var mesh in previewEdgeMeshes.Values) if (mesh != null) DestroyImmediate(mesh);
+            previewEdgeMeshes.Clear();
+        }
+
+        private void OnProjectChange() { ClearPreviewEdges(); Repaint(); }
+
         private int activeOrbitAxis = -1;
         private int hoverViewportOrbitAxis = -1;
         private FPMeshSurfaceEdgeEndpoint pendingGeneratedEdgeStart;
@@ -163,13 +178,24 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
         {
         }
 
+        private void OnLostFocus() => FlushPendingPaint();
+
+        private void FlushPendingPaint()
+        {
+            if (!pendingPaintWrite) return;
+            pendingPaintWrite = false;
+            WriteToAuthoring();
+        }
+
         private void OnDisable()
         {
+            FlushPendingPaint();
             CleanupPreviewUtility();
         }
 
         private void OnGUI()
         {
+            if (Event.current.rawType == EventType.MouseUp || Event.current.type == EventType.Ignore) FlushPendingPaint();
             leftPaneWidth = Mathf.Clamp(leftPaneWidth, LeftPaneMinWidth, GetMaxLeftPaneWidth());
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -216,8 +242,11 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                     trianglePaintRemoves = false;
                     Repaint();
                 }
+                surfacePreview = (SurfacePreview)EditorGUILayout.EnumPopup("Surface Preview", surfacePreview);
                 drawEdges = EditorGUILayout.Toggle("Draw Edges", drawEdges);
                 drawPreviewVertices = EditorGUILayout.Toggle("Draw Vertices", drawPreviewVertices);
+                previewPointBudget = EditorGUILayout.IntSlider("Preview Point Limit", previewPointBudget, 250, 12000);
+                EditorGUILayout.HelpBox("Point limit affects display only; brush/lasso and saved bindings use every selected vertex. Brush changes save on release.", MessageType.None);
                 drawPreviewAllMeshes = EditorGUILayout.Toggle("Preview All Meshes", drawPreviewAllMeshes);
                 vertexSize = EditorGUILayout.Slider("Vertex Size", vertexSize, 0.01f, 0.25f);
                 previewSelectionRadius = EditorGUILayout.Slider("Preview Brush Radius", previewSelectionRadius, 4f, 48f);
@@ -837,7 +866,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private static Material CreatePreviewMaterial(Color color)
         {
-            Shader shader = Shader.Find("Hidden/Internal-Colored");
+            Shader shader = Shader.Find("Hidden/FuzzPhyte/MeshSurfacePreview");
+            if (shader == null) shader = Shader.Find("Hidden/Internal-Colored");
             Material material = new Material(shader)
             {
                 hideFlags = HideFlags.HideAndDontSave
@@ -853,6 +883,9 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private void CleanupPreviewUtility()
         {
+            ClearPreviewEdges();
+            if (edgePreviewMaterial != null) DestroyImmediate(edgePreviewMaterial);
+            edgePreviewMaterial = null;
             if (previewUtility != null)
             {
                 previewUtility.Cleanup();
@@ -918,11 +951,33 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
                 bool graphMode = mode == ToolMode.Edge || mode == ToolMode.Triangle;
                 Material material = graphMode ? dimPreviewMaterial : active ? activePreviewMaterial : inactivePreviewMaterial;
+                if (material.HasProperty("_Faceted"))
+                {
+                    material.SetFloat("_Faceted", surfacePreview == SurfacePreview.Faceted ? 1f : 0f);
+                    material.SetFloat("_Flat", surfacePreview == SurfacePreview.FlatColor ? 1f : 0f);
+                }
                 Mesh mesh = meshFilter.sharedMesh;
                 int subMeshCount = Mathf.Max(1, mesh.subMeshCount);
                 for (int subMesh = 0; subMesh < subMeshCount; subMesh++)
                 {
                     previewUtility.DrawMesh(mesh, meshFilter.transform.localToWorldMatrix, material, subMesh);
+                }
+                if (drawEdges && mesh.isReadable)
+                {
+                    if (!previewEdgeMeshes.TryGetValue(mesh, out var edges))
+                    {
+                        edges = FPMeshPreviewEditorUtility.CreatePreviewWireMesh(mesh);
+                        previewEdgeMeshes.Add(mesh, edges);
+                    }
+                    if (edgePreviewMaterial == null)
+                    {
+                        edgePreviewMaterial = CreatePreviewMaterial(new Color(.045f, .055f, .065f, 1f));
+                        edgePreviewMaterial.renderQueue = 2501;
+                        edgePreviewMaterial.SetFloat("_Flat", 1);
+                        edgePreviewMaterial.SetFloat("_ZWrite", 0);
+                        edgePreviewMaterial.SetFloat("_Offset", -1);
+                    }
+                    if (edges != null) previewUtility.DrawMesh(edges, meshFilter.transform.localToWorldMatrix, edgePreviewMaterial, 0);
                 }
             }
         }
@@ -956,22 +1011,13 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 }
 
                 Matrix4x4 matrix = meshFilter.transform.localToWorldMatrix;
-                if (drawEdges)
-                {
-                    bool graphMode = mode == ToolMode.Edge || mode == ToolMode.Triangle;
-                    Color edgeColor = graphMode
-                        ? new Color(1f, 1f, 1f, active ? 0.08f : 0.04f)
-                        : active ? FPMeshGraphPreview.EdgeColor : new Color(1f, 1f, 1f, 0.18f);
-                    FPMeshPreviewEditorUtility.DrawMeshEdgeOverlay(previewUtility.camera, rect, meshFilter.sharedMesh, matrix, edgeColor, graphMode ? 0.65f : active ? 1.4f : 0.8f);
-                }
-
                 if (drawPreviewVertices)
                 {
                     bool graphMode = mode == ToolMode.Edge || mode == ToolMode.Triangle;
                     Color vertexColor = graphMode
                         ? new Color(1f, 1f, 1f, active ? 0.1f : 0.05f)
                         : new Color(1f, 1f, 1f, active ? 0.35f : 0.18f);
-                    FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, meshFilter.sharedMesh, matrix, vertexColor, graphMode ? 1.2f : active ? 2.2f : 1.6f);
+                    FPMeshPreviewEditorUtility.DrawMeshVertexOverlay(previewUtility.camera, rect, meshFilter.sharedMesh, matrix, vertexColor, graphMode ? 1.2f : active ? 2.2f : 1.6f, previewPointBudget);
                 }
             }
 
@@ -1433,9 +1479,8 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
             {
                 if (TryPaintPreviewVertices(rect, current.mousePosition, previewSelectionRadius, previewSelectionRemoves))
                 {
-                    WriteToAuthoring();
+                    pendingPaintWrite = true;
                     Repaint();
-                    SceneView.RepaintAll();
                 }
 
                 current.Use();
@@ -2116,8 +2161,11 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
                 Color selectedColor = active ? FPMeshGraphPreview.ActiveVertexColor : FPMeshGraphPreview.StoredVertexColor;
                 Matrix4x4 matrix = meshFilter.transform.localToWorldMatrix;
                 Vector3[] vertices = meshFilter.sharedMesh.vertices;
+                int stride = Mathf.Max(1, Mathf.CeilToInt(selectedVertices.Count / (float)Mathf.Max(1, previewPointBudget)));
+                int ordinal = 0;
                 foreach (int vertexIndex in selectedVertices)
                 {
+                    if (ordinal++ % stride != 0) continue;
                     if (vertexIndex < 0 || vertexIndex >= vertices.Length)
                     {
                         continue;
@@ -5186,6 +5234,7 @@ namespace FuzzPhyte.Utility.Editor.MeshTools
 
         private void PullFromSelection()
         {
+            ClearPreviewEdges();
             sourceMeshes.Clear();
             selectedByMesh.Clear();
 

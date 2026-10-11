@@ -13,6 +13,44 @@ namespace FuzzPhyte.Utility.Editor.Tests
 
     public sealed class FPMeshPreviewEditorUtilityTests
     {
+        [Test]
+        public void PainterFlushPreservesDenseSelectionAndDoesNotResaveWithoutChanges()
+        {
+            System.Type painterType = null, authorType = null;
+            foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                painterType ??= assembly.GetType("FuzzPhyte.Utility.Editor.MeshTools.FPMeshVertexPainterWindow");
+                authorType ??= assembly.GetType("FuzzPhyte.Utility.MeshTools.FPMeshVertexPaintAuthoring");
+            }
+            Assert.That(painterType, Is.Not.Null);
+            Assert.That(authorType, Is.Not.Null);
+            var window = ScriptableObject.CreateInstance(painterType);
+            var go = new GameObject("Dense painter test");
+            var mesh = new Mesh();
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var type = window.GetType();
+            try
+            {
+                mesh.vertices = new Vector3[20000];
+                var filter = go.AddComponent<MeshFilter>(); filter.sharedMesh = mesh;
+                var author = go.AddComponent(authorType);
+                type.GetField("authoring", flags).SetValue(window, author);
+                ((System.Collections.Generic.List<MeshFilter>)type.GetField("sourceMeshes", flags).GetValue(window)).Add(filter);
+                var selected = new System.Collections.Generic.HashSet<int>();
+                for (int i = 0; i < 20000; i++) selected.Add(i);
+                ((System.Collections.Generic.Dictionary<int, System.Collections.Generic.HashSet<int>>)type.GetField("selectedByMesh", flags).GetValue(window)).Add(0, selected);
+                type.GetField("pendingPaintWrite", flags).SetValue(window, true);
+                type.GetMethod("FlushPendingPaint", flags).Invoke(window, null);
+                Assert.That(((System.Collections.ICollection)authorType.GetProperty("PaintedVertices").GetValue(author)).Count, Is.EqualTo(20000));
+                Assert.That((bool)type.GetField("pendingPaintWrite", flags).GetValue(window), Is.False);
+                selected.Clear();
+                type.GetMethod("FlushPendingPaint", flags).Invoke(window, null);
+                Assert.That(((System.Collections.ICollection)authorType.GetProperty("PaintedVertices").GetValue(author)).Count, Is.EqualTo(20000));
+                UnityEditor.Undo.ClearUndo(author);
+            }
+            finally { Object.DestroyImmediate(window); Object.DestroyImmediate(go); Object.DestroyImmediate(mesh); }
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void PanKeepsContentUnderPointerInEitherProjection(bool orthographic)
