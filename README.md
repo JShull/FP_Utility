@@ -885,6 +885,24 @@ A header is treated as valid when the GameObject name is all caps, the object is
 
 You can also use the `Header Options` window to apply the visual style from an `FP_HHeaderData` asset without creating new header GameObjects.
 
+#### Shared Icons, Styles, and Recovery
+
+Header Options stores the Alt-click palette's ordered texture GUIDs and each saved scene's selected style in `ProjectSettings/FPHeaderSettings.json`. Keep this file in the **host project's** version control alongside icon textures, style assets, saved scenes, and their original Unity-generated `.meta` files. This project-owned file survives FP Utility package updates and different checkout locations. New **Save Headers** assets go to `Assets/_FPUtility/HeaderStyles`; keep custom icons and styles outside the installed FP Utility package. Moving existing assets through Unity preserves their GUIDs.
+
+The first palette load migrates local EditorPrefs when no shared file exists. Scene styles migrate when read, using scene GUIDs instead of names. Local preferences remain available for recovery. Missing icon GUIDs are retained during add, remove, and reorder operations, and Header Options lists unresolved icons/styles. Restoring the original assets with their `.meta` files reconnects those references; recreating images without their original metadata does not.
+
+To recover from the original machine:
+
+1. Install this version of FP Utility there and open the original project at its original location. Save any scene edits.
+2. Open **FuzzPhyte > Header > Header Options** and press **Recover This Machine's Legacy Settings**. Recovery merges the local palette and scene style selections without replacing existing shared choices. Old style preferences used scene names; scenes with duplicate names are skipped and should have their style applied individually.
+3. Press **Export Settings & Assets...**. Keep the JSON file and its companion `.unitypackage` together. The package contains available palette textures, selected styles, and the styles' textures, including their Unity metadata. Install FP Utility on the destination first; a normal icon/style transfer leaves package scripts out. Unresolved references remain in the JSON. If there are no available assets, only JSON is produced.
+4. On the destination, import the `.unitypackage` through **Assets > Import Package > Custom Package**, review its asset list, then press **Merge Transferred Settings...** and select the JSON. Existing destination scene choices and palette order take priority; additional entries append. Use **Refresh Shared Settings** after restoring assets or pulling project changes.
+5. Commit the host project's settings and assets so other users receive them normally.
+
+Enable **Include Saved Scenes In Export** only when scene files also need transferring: it exports all saved scenes under `Assets` and their dependencies and can be large. Native GameObject icon assignments live in saved scenes, so transferring only palette settings does not transfer those assignments. Existing scenes in a shared project can instead sync through version control. Unsaved scenes must be saved before their style selection can be shared.
+
+Writes retain the previous settings as `FPHeaderSettings.json.bak` and use a temporary file before replacement. Only the `.json` belongs in version control; ignore the `.bak` and `.tmp` companions. Unsupported or corrupt settings are reported and preserved rather than overwritten. Foldout state, hidden-object state, and editor preference toggles remain local user preferences.
+
 #### Header Tool - Menu Options
 
 * `FuzzPhyte/Header/Enable FP_HHeader`

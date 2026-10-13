@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased] - Header Settings Persistence
+
+- Store the shared Alt-click icon palette and saved-scene header style selections in the host project's `ProjectSettings/FPHeaderSettings.json`, with legacy preference migration and GUID-based scene/style references.
+- Preserve and report missing references during palette edits; add legacy recovery and merge-based JSON transfer with companion Unity asset packages and optional saved-scene export.
+- Save new header style assets under `Assets/_FPUtility/HeaderStyles` outside the updatable package. Document version control, original metadata recovery, and transfer workflows.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

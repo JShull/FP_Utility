@@ -86,6 +86,11 @@ namespace FuzzPhyte.Utility.Editor
                     for (int iconIndex = index; iconIndex < rowEnd; iconIndex++)
                     {
                         Texture2D icon = icons[iconIndex];
+                        if (icon == null)
+                        {
+                            EditorGUILayout.LabelField("Missing", GUILayout.Width(IconSize), GUILayout.Height(IconSize));
+                            continue;
+                        }
                         var content = new GUIContent(icon, icon.name);
                         if (GUILayout.Button(content, GUILayout.Width(IconSize), GUILayout.Height(IconSize)))
                         {

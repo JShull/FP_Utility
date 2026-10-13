@@ -21,6 +21,7 @@ namespace FuzzPhyte.Utility.Editor
         [SerializeField] private Texture2D hierarchyIconOverride;
         [SerializeField] private bool includeChildren;
         [SerializeField] private bool hierarchyIconPaletteExpanded = true;
+        [SerializeField] private bool transferScenes;
 
         private Vector2 scrollPosition;
         private string statusMessage;
@@ -28,6 +29,7 @@ namespace FuzzPhyte.Utility.Editor
         [NonSerialized] private List<Texture2D> hierarchyIconPalette;
         [NonSerialized] private ReorderableList hierarchyIconPaletteList;
         private int requestedPaletteRemoval = -1;
+        private List<string> missingHeaderReferences = new();
 
         [MenuItem("FuzzPhyte/Header/Header Options", false, priority = FP_UtilityData.MENU_FUZZPHYTE_HEADER)]
         private static void OpenWindow()
@@ -39,14 +41,21 @@ namespace FuzzPhyte.Utility.Editor
 
         private void OnEnable()
         {
-            if (headerData == null)
+            try
             {
-                headerData = FP_HHeader.GetActiveHeaderDataAsset();
+                if (headerData == null)
+                {
+                    headerData = FP_HHeader.GetActiveHeaderDataAsset();
+                }
+                ReloadHierarchyIconPalette();
+            }
+            catch (Exception exception)
+            {
+                SetStatus(exception.Message, MessageType.Error);
             }
 
             Selection.selectionChanged -= Repaint;
             Selection.selectionChanged += Repaint;
-            ReloadHierarchyIconPalette();
         }
 
         private void OnDisable()
@@ -58,9 +67,22 @@ namespace FuzzPhyte.Utility.Editor
         {
             EditorGUILayout.LabelField("FP Header Options", EditorStyles.boldLabel);
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            DrawHeaderStylePanel();
-            EditorGUILayout.Space(6f);
-            DrawHierarchyIconPanel();
+            try
+            {
+                DrawHeaderStylePanel();
+                EditorGUILayout.Space(6f);
+                DrawHierarchyIconPanel();
+                EditorGUILayout.Space(6f);
+                DrawSharedSettingsPanel();
+            }
+            catch (IOException exception)
+            {
+                SetStatus(exception.Message, MessageType.Error);
+            }
+            catch (ArgumentException exception)
+            {
+                SetStatus(exception.Message, MessageType.Error);
+            }
 
             if (!string.IsNullOrWhiteSpace(statusMessage))
             {
@@ -120,6 +142,77 @@ namespace FuzzPhyte.Utility.Editor
                 {
                     EditorGUILayout.HelpBox("No FP_HHeaderData asset assigned.", MessageType.Warning);
                 }
+            }
+        }
+
+        private void DrawSharedSettingsPanel()
+        {
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField("Shared Settings & Transfer", EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox(
+                    "Palette order and saved-scene style selections are shared through ProjectSettings/FPHeaderSettings.json. " +
+                    "Commit that file, your icons/styles and their .meta files, and saved scenes. Keep custom assets outside the FP Utility package.",
+                    MessageType.Info);
+                if (missingHeaderReferences.Count > 0)
+                {
+                    EditorGUILayout.HelpBox("Missing references are retained until their original assets return:\n" +
+                        string.Join("\n", missingHeaderReferences), MessageType.Warning);
+                }
+                if (GUILayout.Button("Refresh Shared Settings"))
+                {
+                    RunSharedSettingsAction(() => "Reloaded shared settings.");
+                }
+                if (GUILayout.Button("Recover This Machine's Legacy Settings"))
+                {
+                    RunSharedSettingsAction(() => $"Recovered {FPHeaderProjectSettings.RecoverLocalSettings()} additional entries. " +
+                        "Existing shared entries take priority. Same-named scenes are skipped; apply their styles individually.");
+                }
+                transferScenes = EditorGUILayout.Toggle("Include Saved Scenes In Export", transferScenes);
+                EditorGUILayout.HelpBox(
+                    "Export produces a settings JSON and, when assets are available, a companion .unitypackage with dependencies. " +
+                    "Import the package through Assets > Import Package > Custom Package first, then merge its JSON here. " +
+                    "Scene export includes all saved project scenes and their dependencies; save your edits first.", MessageType.None);
+                if (GUILayout.Button("Export Settings & Assets..."))
+                {
+                    string path = EditorUtility.SaveFilePanel("Export FP Header Settings", "", "FPHeaderSettings", "json");
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        RunSharedSettingsAction(() =>
+                        {
+                            FPHeaderProjectSettings.Export(path, transferScenes);
+                            return $"Exported settings to {path}. Available assets are in the companion .unitypackage; missing references remain in JSON.";
+                        });
+                    }
+                }
+                if (GUILayout.Button("Merge Transferred Settings..."))
+                {
+                    string path = EditorUtility.OpenFilePanel("Merge FP Header Settings", "", "json");
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        RunSharedSettingsAction(() => $"Merged {FPHeaderProjectSettings.Import(path)} additional entries. Existing shared entries take priority.");
+                    }
+                }
+            }
+        }
+
+        private void RunSharedSettingsAction(Func<string> action)
+        {
+            try
+            {
+                string message = action();
+                ReloadHierarchyIconPalette();
+                headerData = FP_HHeader.GetActiveHeaderDataAsset();
+                if (headerData != null)
+                {
+                    FP_HHeader.ApplyHeaderVisuals(headerData);
+                }
+                EditorApplication.RepaintHierarchyWindow();
+                SetStatus(message, MessageType.Info);
+            }
+            catch (Exception exception)
+            {
+                SetStatus($"Shared settings action failed: {exception.Message}", MessageType.Error);
             }
         }
 
@@ -335,6 +428,7 @@ namespace FuzzPhyte.Utility.Editor
         private void ReloadHierarchyIconPalette()
         {
             hierarchyIconPalette = FPHierarchyIconUtility.GetPaletteIcons();
+            missingHeaderReferences = FPHeaderProjectSettings.GetMissingReferences();
             hierarchyIconPaletteList = new ReorderableList(
                 hierarchyIconPalette,
                 typeof(Texture2D),
@@ -367,6 +461,11 @@ namespace FuzzPhyte.Utility.Editor
             }
 
             Texture2D icon = hierarchyIconPalette[index];
+            if (icon == null)
+            {
+                EditorGUI.LabelField(rect, "Missing texture — use Refresh Shared Settings below.");
+                return;
+            }
             rect.y += 2f;
             rect.height = 30f;
             Rect iconRect = new Rect(rect.x + 16f, rect.y, 30f, 30f);

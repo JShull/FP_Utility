@@ -2,7 +2,7 @@
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &-6990227946095276774
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -16,7 +16,7 @@ MonoBehaviour:
   m_Shader: {fileID: 4800000, guid: 0f854b35a0cf61a429bd5dcfea30eddd, type: 3}
 --- !u!114 &-5324482889956476206
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -56,9 +56,10 @@ MonoBehaviour:
       restoreCamera: 1
       offset: {x: 0, y: 0, z: 0, w: 0}
       cameraFieldOfView: 60
+    depthInputAttachment: 0
 --- !u!114 &-2446556444777686079
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -77,7 +78,7 @@ MonoBehaviour:
     revealMaterial: {fileID: 2100000, guid: c03e1cbe72ed0df48a5e12862c40f5d8, type: 2}
 --- !u!114 &-1817281641349079765
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -104,7 +105,7 @@ MonoBehaviour:
   useRegisteredTargets: 1
 --- !u!114 &-487527310515065048
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -154,8 +155,7 @@ MonoBehaviour:
   - {fileID: -1817281641349079765}
   - {fileID: -5324482889956476206}
   - {fileID: -6990227946095276774}
-  m_RendererFeatureMap: 6e8958e3b7d8056f03a53e7719c4f03ec9db10046b3f722a1daacde52c5f0b6528af727e7ef43bf9c15b153ae0150cde2b9d8cbef9b7c7e6d2ba7f9b05a31bb61a8dfb05b8b8fd9e
-  m_UseNativeRenderPass: 0
+  m_RendererFeatureMap: 6e8958e3b7d8056f03a53e7719c4f03ec9db10046b3f722a1daacde52c5f0b6528af727e7ef43bf9c15b153ae0150cde2b9d8cbef9b7c7e6d2ba7f9b05a31bb61a8dfb05b8b8fd9el
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3
@@ -183,9 +183,10 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+  m_TileOnlyMode: 0
 --- !u!114 &3058576825800252361
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -201,7 +202,7 @@ MonoBehaviour:
     drawInSceneView: 0
 --- !u!114 &4535340438415910147
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -218,7 +219,7 @@ MonoBehaviour:
     gridMaterial: {fileID: 2100000, guid: bfef56d1315a03645aeb6df7dd57c470, type: 2}
 --- !u!114 &7281017869013199389
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -234,7 +235,7 @@ MonoBehaviour:
     drawInSceneView: 0
 --- !u!114 &8000038597398399342
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}

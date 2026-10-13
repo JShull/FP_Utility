@@ -1310,10 +1310,10 @@ namespace FuzzPhyte.Utility.Editor
         private static void LoadHeaderStyleFromFile()
         {
             Scene activeScene = SceneManager.GetActiveScene();
-            string savedHeaderFileLocation = EditorPrefs.GetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name);
             //attempt to load this asset into the scriptable object
             try
             {
+                string savedHeaderFileLocation = FPHeaderProjectSettings.GetStylePath(activeScene);
                 var theHeaderStyle = (FP_HHeaderData)AssetDatabase.LoadAssetAtPath(savedHeaderFileLocation, typeof(FP_HHeaderData));
                 //only load the style
                 if(theHeaderStyle == null)
@@ -1329,10 +1329,13 @@ namespace FuzzPhyte.Utility.Editor
                 hhSelectAllIcon = theHeaderStyle.SelectAllIcon;
                 hhSelectAllIconActive = theHeaderStyle.SelectAllIconActive;
             }
-            //catch(Exception ex)
-            finally
+            catch (IOException exception)
             {
-                //Debug.LogWarning($"FP_HHeader: Header Data Style file probably wasn't created yet - you can ignore this! {savedHeaderFileLocation} Log: {ex.Message}");
+                Debug.LogWarning($"FP Header shared style settings could not be read: {exception.Message}");
+            }
+            catch (ArgumentException exception)
+            {
+                Debug.LogWarning($"FP Header shared style settings could not be read: {exception.Message}");
             }
         }
         #endregion
@@ -1529,7 +1532,7 @@ namespace FuzzPhyte.Utility.Editor
             if (!string.IsNullOrEmpty(assetPath))
             {
                 Scene activeScene = SceneManager.GetActiveScene();
-                EditorPrefs.SetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name, assetPath);
+                FPHeaderProjectSettings.SetStyle(activeScene, assetPath);
             }
 
             FP_HHeaderMeshPickerCache.RequestCacheRefresh();
@@ -1565,7 +1568,7 @@ namespace FuzzPhyte.Utility.Editor
         internal static FP_HHeaderData GetActiveHeaderDataAsset()
         {
             Scene activeScene = SceneManager.GetActiveScene();
-            string assetPath = EditorPrefs.GetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name, string.Empty);
+            string assetPath = FPHeaderProjectSettings.GetStylePath(activeScene);
             if (string.IsNullOrEmpty(assetPath))
             {
                 return null;
@@ -1598,25 +1601,25 @@ namespace FuzzPhyte.Utility.Editor
             asset.SelectAllIcon = hhSelectAllIcon;
             asset.SelectAllIconActive = hhSelectAllIconActive;
             asset.UniqueID = System.DateTime.Now.ToLongTimeString()+"FPHeader_42"; 
-            var path = Path.Combine("Assets", "FP_Utility\\Editor\\FP_HHeader");
-            Log($"{Application.dataPath}");
+            const string path = "Assets/_FPUtility/HeaderStyles";
+            if (!AssetDatabase.IsValidFolder("Assets/_FPUtility"))
+            {
+                AssetDatabase.CreateFolder("Assets", "_FPUtility");
+            }
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                AssetDatabase.CreateFolder("Assets/_FPUtility", "HeaderStyles");
+            }
             var fileName = System.DateTime.Now.ToString("MMddyyyy_hhmmss") + "_FPHHeader.asset";
-            Log($"Local Path= {path}");
-            var items = FP_Utility_Editor.CreateAssetPath("FP_Utility\\Editor", "FP_HHeader");
-            var itemsCreatedPath = "";
-            if (items.Item1)
-            {
-                itemsCreatedPath = FP_Utility_Editor.CreateAssetAt(asset, Path.Combine(path, fileName));
-            }
-            else
-            {
-                LogWarning($"Didn't find the directory, created it for you {items.Item2}");
-                itemsCreatedPath = FP_Utility_Editor.CreateAssetAt(asset, Path.Combine(path, fileName));
-            }
+            string itemsCreatedPath = AssetDatabase.GenerateUniqueAssetPath(path + "/" + fileName);
+            AssetDatabase.CreateAsset(asset, itemsCreatedPath);
+            AssetDatabase.SaveAssets();
+            Undo.RegisterCreatedObjectUndo(asset, "Save FP Header Style");
+            EditorGUIUtility.PingObject(asset);
             LogWarning($"FP_HHeader: Asset Created at {itemsCreatedPath}");
             
             Scene activeScene = SceneManager.GetActiveScene();
-            EditorPrefs.SetString(FP_UtilityData.FP_HEADERSTYLE_VALUE + "_" + activeScene.name, itemsCreatedPath);
+            FPHeaderProjectSettings.SetStyle(activeScene, itemsCreatedPath);
         }
         private static void ClearFoldoutStatesFromPrefs()
         {

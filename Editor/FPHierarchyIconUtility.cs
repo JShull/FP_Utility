@@ -16,12 +16,6 @@ namespace FuzzPhyte.Utility.Editor
 
     internal static class FPHierarchyIconUtility
     {
-        [Serializable]
-        private sealed class IconPaletteData
-        {
-            public List<string> Guids = new();
-        }
-
         internal static List<GameObject> CollectSelectionTargets(
             bool includeChildren,
             out int skippedHeaderCount,
@@ -109,7 +103,7 @@ namespace FuzzPhyte.Utility.Editor
 
         internal static List<Texture2D> GetPaletteIcons()
         {
-            IconPaletteData data = LoadPaletteData();
+            FPHeaderProjectSettings.Data data = LoadPaletteData();
             var icons = new List<Texture2D>(data.Guids.Count);
             for (int i = 0; i < data.Guids.Count; i++)
             {
@@ -138,7 +132,7 @@ namespace FuzzPhyte.Utility.Editor
                 return false;
             }
 
-            IconPaletteData data = LoadPaletteData();
+            FPHeaderProjectSettings.Data data = LoadPaletteData();
             if (data.Guids.Contains(guid))
             {
                 return false;
@@ -156,7 +150,7 @@ namespace FuzzPhyte.Utility.Editor
                 return 0;
             }
 
-            IconPaletteData data = LoadPaletteData();
+            FPHeaderProjectSettings.Data data = LoadPaletteData();
             var uniqueGuids = new HashSet<string>(data.Guids);
             int addedCount = 0;
             for (int i = 0; i < objects.Count; i++)
@@ -185,7 +179,7 @@ namespace FuzzPhyte.Utility.Editor
                 return false;
             }
 
-            IconPaletteData data = LoadPaletteData();
+            FPHeaderProjectSettings.Data data = LoadPaletteData();
             if (!data.Guids.Remove(guid))
             {
                 return false;
@@ -211,7 +205,16 @@ namespace FuzzPhyte.Utility.Editor
                 }
             }
 
-            IconPaletteData currentData = LoadPaletteData();
+            FPHeaderProjectSettings.Data currentData = LoadPaletteData();
+            // The UI contains only resolved textures. Keep unresolved entries in their original slots.
+            for (int i = 0; i < currentData.Guids.Count; i++)
+            {
+                string guid = currentData.Guids[i];
+                if (AssetDatabase.LoadAssetAtPath<Texture2D>(AssetDatabase.GUIDToAssetPath(guid)) == null)
+                {
+                    orderedGuids.Insert(Math.Min(i, orderedGuids.Count), guid);
+                }
+            }
             if (ListsMatch(currentData.Guids, orderedGuids))
             {
                 return false;
@@ -302,39 +305,9 @@ namespace FuzzPhyte.Utility.Editor
             return changedTargets.Count;
         }
 
-        private static IconPaletteData LoadPaletteData()
-        {
-            string json = EditorPrefs.GetString(GetPaletteKey(), string.Empty);
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return new IconPaletteData();
-            }
+        private static FPHeaderProjectSettings.Data LoadPaletteData() => FPHeaderProjectSettings.Load();
 
-            IconPaletteData data = JsonUtility.FromJson<IconPaletteData>(json);
-            if (data == null || data.Guids == null)
-            {
-                return new IconPaletteData();
-            }
-
-            var uniqueGuids = new HashSet<string>();
-            var normalizedGuids = new List<string>(data.Guids.Count);
-            for (int i = 0; i < data.Guids.Count; i++)
-            {
-                string guid = data.Guids[i];
-                if (!string.IsNullOrWhiteSpace(guid) && uniqueGuids.Add(guid))
-                {
-                    normalizedGuids.Add(guid);
-                }
-            }
-
-            data.Guids = normalizedGuids;
-            return data;
-        }
-
-        private static void SavePaletteData(IconPaletteData data)
-        {
-            EditorPrefs.SetString(GetPaletteKey(), JsonUtility.ToJson(data));
-        }
+        private static void SavePaletteData(FPHeaderProjectSettings.Data data) => FPHeaderProjectSettings.Save(data);
 
         private static bool ListsMatch(IReadOnlyList<string> left, IReadOnlyList<string> right)
         {
