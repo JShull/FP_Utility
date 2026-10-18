@@ -17,10 +17,21 @@ namespace FuzzPhyte.Utility
     /// </summary>
     public class FP_LookAtLockAxis : FP_MotionBase
     {
+        private enum TargetMode
+        {
+            TargetPosition = 0,
+            TargetDirection = 1
+        }
+
         [Space]
         [Header("Look At Lock Axis Settings")]
         [SerializeField]
+        [Tooltip("The target to look toward in Target Position mode, or whose forward direction to follow in Target Direction mode.")]
         protected Transform targetAligned;
+
+        [SerializeField]
+        [Tooltip("Target Position aims at the target's location. Target Direction aims along the target's +Z direction. The driven aiming axis remains -Z, or +Y for Z-only rotation.")]
+        private TargetMode targetMode = TargetMode.TargetPosition;
 
         [SerializeField]
         [Tooltip("1 = allow rotation, 0 = lock relative to the starting pose. Z-only aims local up; other combinations aim local -Z.")]
@@ -68,8 +79,15 @@ namespace FuzzPhyte.Utility
             if(targetObject != null && targetAligned != null && UnityEditor.Selection.activeGameObject == this.gameObject)
             {
                 Gizmos.color = Color.red;
-                Gizmos.DrawLine(targetObject.position, targetAligned.position);
-                Gizmos.DrawWireSphere(targetAligned.position, 0.2f);
+                if (targetMode == TargetMode.TargetPosition)
+                {
+                    Gizmos.DrawLine(targetObject.position, targetAligned.position);
+                    Gizmos.DrawWireSphere(targetAligned.position, 0.2f);
+                }
+                else
+                {
+                    Gizmos.DrawRay(targetObject.position, targetAligned.forward);
+                }
             }
 #endif
         }
@@ -79,7 +97,9 @@ namespace FuzzPhyte.Utility
             {
                 if (!isPaused && targetObject != null && targetAligned != null)
                 {
-                    Vector3 direction = targetAligned.position - targetObject.position;
+                    Vector3 direction = targetMode == TargetMode.TargetPosition
+                        ? targetAligned.position - targetObject.position
+                        : targetAligned.forward;
                     if (direction.sqrMagnitude > 1e-12f)
                     {
                         targetObject.rotation = CalculateRotation(direction);

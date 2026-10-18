@@ -2,6 +2,8 @@
 
 ## [Unreleased] - Header Settings Persistence
 
+- Add `FP_LookAtLockAxis` Target Position / Target Direction Inspector modes, defaulting existing components to position tracking, with mode-specific gizmos and regression coverage.
+
 - Fix `FP_LookAtLockAxis` full-circle tracking with starting-pose axis constraints, all axis combinations, Z-only up-axis pointing, undefined-direction guards, and safe setup fallback. Replace world Euler masking; add rotation regressions and document the changed tilted-object behavior.
 
 - Store the shared Alt-click icon palette and saved-scene header style selections in the host project's `ProjectSettings/FPHeaderSettings.json`, with legacy preference migration and GUID-based scene/style references.

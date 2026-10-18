@@ -102,6 +102,44 @@ namespace FuzzPhyte.Utility.Editor.Tests
         }
 
         [Test]
+        public void TargetPosition_FollowsLocationAndIgnoresTargetRotation()
+        {
+            Vector3 direction = new Vector3(2, 1, -3).normalized;
+            target.transform.position = driver.transform.position + direction * 4;
+            IEnumerator routine = Routine();
+            routine.MoveNext();
+            Quaternion previous = driver.transform.rotation;
+            target.transform.rotation = Quaternion.Euler(84, 165, 32);
+            routine.MoveNext();
+            Assert.That(Vector3.Dot(-driver.transform.forward, direction), Is.GreaterThan(0.9999f));
+            Assert.That(Quaternion.Angle(previous, driver.transform.rotation), Is.LessThan(0.1f));
+
+            target.transform.position = driver.transform.position - direction * 4;
+            routine.MoveNext();
+            Assert.That(Vector3.Dot(-driver.transform.forward, -direction), Is.GreaterThan(0.9999f));
+        }
+
+        [Test]
+        public void TargetDirection_FollowsForwardAndIgnoresTargetPosition()
+        {
+            FieldInfo field = typeof(FP_LookAtLockAxis).GetField("targetMode", BindingFlags.Instance | BindingFlags.NonPublic);
+            field.SetValue(motion, System.Enum.Parse(field.FieldType, "TargetDirection"));
+            IEnumerator routine = Routine();
+            for (int angle = 0; angle <= 360; angle += 15)
+            {
+                target.transform.rotation = Quaternion.Euler(25, angle, 12);
+                // Direction mode must also work when both transforms occupy the same position.
+                target.transform.position = driver.transform.position;
+                routine.MoveNext();
+                Assert.That(Vector3.Dot(-driver.transform.forward, target.transform.forward), Is.GreaterThan(0.9999f));
+                Quaternion previous = driver.transform.rotation;
+                target.transform.position = new Vector3(angle, -15, 7);
+                routine.MoveNext();
+                Assert.That(Quaternion.Angle(previous, driver.transform.rotation), Is.LessThan(0.1f));
+            }
+        }
+
+        [Test]
         public void AllLocked_PreservesStartingPose()
         {
             SetField("_zeroOutAxis", Vector3.zero);
