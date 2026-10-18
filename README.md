@@ -30,6 +30,40 @@ and Utility runtime assemblies. Runtime LabelDisplay code remains under
 `Runtime/Design/LabelDisplay/Runtime`; `LabelJsonLine.cs` contains the related JSON
 data types `LabelJsonCollection`, `LabelJson`, and `LabelJsonLine`.
 
+### BlendShape Rename
+
+Open **FuzzPhyte > Utility > Mesh > BlendShape Rename** and assign an imported
+`.fbx` model (or choose it in the Project window and use **Use Selection**).
+The left panel lists every FBX blendshape channel, with its mesh/deformer context.
+Select the round toggle beside each name to edit; multiple names can be selected.
+Drag the divider beneath the blendshape list to resize its height, or click the
+**Blendshapes** header to collapse/expand it. Both choices persist across reloads.
+Use **Save Renamed FBX Copy…** to create a new `.fbx` inside `Assets`.
+The original file is never overwritten, and existing output files are rejected.
+
+The right panel previews the whole shaded model, with perspective/orthographic
+views, shared orbit/snap controls, camera-relative lighting, and **Frame Whole
+Model**. The preview material section lists the renderer, slot and original
+material from the FBX. Choose **All Slots** for one material across the model or
+**Individual Slots** to override selected slots independently, including slots
+sharing the same source material. Empty overrides use the original material.
+**Reset Material Overrides** clears both modes. Individual choices survive
+preview rebuilds/reloads for matching slots and clear when selecting another
+source. All overrides affect only the preview, not the FBX copy or source assets.
+
+The tool edits channel names in binary FBX 7.0–7.7 or UTF-8 ASCII FBX 7.x directly;
+it does not reconstruct/export Unity meshes and requires no FBX exporter package.
+All other source data stays unchanged, apart from binary lengths/offsets required
+by different-length names. Unity copies importer settings and creates a new asset
+GUID. Blank, duplicate names within a deformer, unsupported files, stale source
+data and overwrites are reported in the window. Names cannot contain colons,
+quotes, backslashes, line breaks or surrounding spaces.
+
+FBX animation connections retain their IDs. External Unity animation clips,
+scripts and other assets referring to old blendshape names are not rewritten.
+External texture files are not copied or embedded; the material override affects
+only the preview. Reload the FBX after changing it outside this window.
+
 ### Look At Lock Axis
 
 `FP_LookAtLockAxis` uses `_zeroOutAxis` values of 1 (enabled) or 0 (locked).

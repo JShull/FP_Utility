@@ -2,6 +2,10 @@
 
 ## [Unreleased] - Header Settings Persistence
 
+- Extend BlendShape Rename's preview with FBX renderer/material-slot discovery, all-slot or individual-slot overrides, original-material restoration, Undo and reset controls. Keep material choices preview-only and retain matching overrides across reloads.
+
+- Add **FuzzPhyte > Utility > Mesh > BlendShape Rename** with independently selectable rename rows, a whole-model shaded preview/material override using the shared mesh preview controls, and separate FBX-copy output. Preserve binary/ASCII FBX content and importer settings without adding an exporter dependency; validate names, stale sources, collisions and output paths, with Edit Mode regressions.
+
 - Add opt-in positive-Z facing for `FP_LookAtLockAxis` so forward-facing characters can look at marker locations while preserving legacy negative-Z defaults.
 
 - Add `FP_LookAtLockAxis` Target Position / Target Direction Inspector modes, defaulting existing components to position tracking, with mode-specific gizmos and regression coverage.
