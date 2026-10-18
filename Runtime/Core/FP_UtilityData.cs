@@ -58,6 +58,7 @@ namespace FuzzPhyte.Utility
         public const int MENU_UTILITY_DIALOGUE = MENU_FUZZPHYTE_UTILITY + 25;
         public const int MENU_UTILITY_RENDERING = MENU_FUZZPHYTE_UTILITY + 30;
         public const int MENU_UTILITY_MESH = MENU_FUZZPHYTE_UTILITY + 31;
+        public const int MENU_UTILITY_ANIMATION = MENU_FUZZPHYTE_UTILITY + 35;
         public const int MENU_UTILITY_SCENE = MENU_FUZZPHYTE_UTILITY + 40;
         public const int MENU_UTILITY_VIDEO = MENU_FUZZPHYTE_UTILITY + 50;
         public const int MENU_UTILITY_PACKAGES = MENU_FUZZPHYTE_UTILITY + 60;

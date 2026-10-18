@@ -30,6 +30,25 @@ and Utility runtime assemblies. Runtime LabelDisplay code remains under
 `Runtime/Design/LabelDisplay/Runtime`; `LabelJsonLine.cs` contains the related JSON
 data types `LabelJsonCollection`, `LabelJson`, and `LabelJsonLine`.
 
+### Animation Binding Rename
+
+Open **FuzzPhyte > Utility > Animation > Binding Rename**, assign an AnimationClip
+and select one property from the searchable list. For a blendshape, enter the new
+shape name (for example, `blendShape1.jawForward`); the tool retains Unity's
+`blendShape.` prefix. Other curve types expose their full property name.
+
+**Rename in Original (Undo)** updates and saves an editable standalone `.anim`
+while preserving its GUID and references. **Save Renamed Copy…** creates a new
+`.anim` without changing the source; use this for FBX/imported or read-only clips.
+Copies never overwrite existing assets. The renderer/object path, component type,
+curve keys/tangents/weights, other curves, events and clip settings are retained.
+Float, discrete and object-reference bindings are supported. Existing properties
+at the same path/type cannot be overwritten, and stale selections must be refreshed.
+
+This changes the animation's binding, not the model's blendshape name. The model
+must expose the corrected name for the animation to drive it. Use the separate
+BlendShape Rename tool when the mesh itself also needs renaming.
+
 ### BlendShape Rename
 
 Open **FuzzPhyte > Utility > Mesh > BlendShape Rename** and assign an imported

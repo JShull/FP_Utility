@@ -2,6 +2,8 @@
 
 ## [Unreleased] - Header Settings Persistence
 
+- Add **FuzzPhyte > Utility > Animation > Binding Rename** for selecting and renaming one animated property, including blendshape names. Support Undo-backed standalone `.anim` edits and separate copies for imported clips; preserve curve data, binding paths/types, events and settings, with collision validation and Editor regressions.
+
 - Extend BlendShape Rename's preview with FBX renderer/material-slot discovery, all-slot or individual-slot overrides, original-material restoration, Undo and reset controls. Keep material choices preview-only and retain matching overrides across reloads.
 
 - Add **FuzzPhyte > Utility > Mesh > BlendShape Rename** with independently selectable rename rows, a whole-model shaded preview/material override using the shared mesh preview controls, and separate FBX-copy output. Preserve binary/ASCII FBX content and importer settings without adding an exporter dependency; validate names, stale sources, collisions and output paths, with Edit Mode regressions.
