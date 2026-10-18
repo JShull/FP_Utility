@@ -30,11 +30,15 @@ namespace FuzzPhyte.Utility
         protected Transform targetAligned;
 
         [SerializeField]
-        [Tooltip("Target Position aims at the target's location. Target Direction aims along the target's +Z direction. The driven aiming axis remains -Z, or +Y for Z-only rotation.")]
+        [Tooltip("Target Position aims at the target's location. Target Direction aims along the target's +Z direction. Use Positive Z Forward selects the model's facing axis; Z-only pointers use +Y.")]
         private TargetMode targetMode = TargetMode.TargetPosition;
 
         [SerializeField]
-        [Tooltip("1 = allow rotation, 0 = lock relative to the starting pose. Z-only aims local up; other combinations aim local -Z.")]
+        [Tooltip("Enable for characters/models whose face points along local +Z. Disabled preserves legacy -Z facing. Z-only pointers continue to use local +Y.")]
+        private bool usePositiveZForward = false;
+
+        [SerializeField]
+        [Tooltip("1 = allow rotation, 0 = lock relative to the starting pose. Z-only aims local up; other combinations use the selected Z facing direction.")]
         private Vector3 _zeroOutAxis = new Vector3(1, 1, 1); // Controls which axes to zero out      
         private Quaternion _originalRot;
         private bool _hasStartingRotation;
@@ -100,6 +104,10 @@ namespace FuzzPhyte.Utility
                     Vector3 direction = targetMode == TargetMode.TargetPosition
                         ? targetAligned.position - targetObject.position
                         : targetAligned.forward;
+                    if (usePositiveZForward && !(_zeroOutAxis.x != 1 && _zeroOutAxis.y != 1 && _zeroOutAxis.z == 1))
+                    {
+                        direction = -direction;
+                    }
                     if (direction.sqrMagnitude > 1e-12f)
                     {
                         targetObject.rotation = CalculateRotation(direction);

@@ -140,6 +140,98 @@ namespace FuzzPhyte.Utility.Editor.Tests
         }
 
         [Test]
+        public void TargetPosition_ParentedAndUnparentedTargetsProduceSameRotation()
+        {
+            GameObject parent = new GameObject("Separate target parent");
+            try
+            {
+                parent.transform.SetPositionAndRotation(new Vector3(8, -3, 6), Quaternion.Euler(31, 137, -23));
+                parent.transform.localScale = new Vector3(2, 0.5f, 3);
+                target.transform.SetParent(parent.transform, false);
+                target.transform.localPosition = new Vector3(1, 2, -4);
+                IEnumerator routine = Routine();
+                routine.MoveNext();
+                Quaternion parentedRotation = driver.transform.rotation;
+                Vector3 worldPosition = target.transform.position;
+                Assert.That(Vector3.Dot(-driver.transform.forward,
+                    (worldPosition - driver.transform.position).normalized), Is.GreaterThan(0.9999f));
+
+                target.transform.SetParent(null, true);
+                driver.transform.rotation = original;
+                routine.MoveNext();
+                Assert.That(Quaternion.Angle(driver.transform.rotation, parentedRotation), Is.LessThan(0.1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent);
+            }
+        }
+
+        [Test]
+        public void TargetPosition_FollowsMovingSeparateParent()
+        {
+            GameObject parent = new GameObject("Moving target parent");
+            try
+            {
+                target.transform.SetParent(parent.transform, false);
+                target.transform.localPosition = new Vector3(1, 2, -4);
+                IEnumerator routine = Routine();
+                for (int angle = 0; angle <= 360; angle += 15)
+                {
+                    parent.transform.SetPositionAndRotation(new Vector3(3, 2, -5), Quaternion.Euler(17, angle, 24));
+                    routine.MoveNext();
+                    Vector3 direction = (target.transform.position - driver.transform.position).normalized;
+                    Assert.That(Vector3.Dot(-driver.transform.forward, direction), Is.GreaterThan(0.9999f));
+                }
+            }
+            finally
+            {
+                target.transform.SetParent(null, true);
+                Object.DestroyImmediate(parent);
+            }
+        }
+
+        [Test]
+        public void PositiveZForward_FacesMarkerLocationRegardlessOfMarkerRotation()
+        {
+            SetField("usePositiveZForward", true);
+            target.transform.position = new Vector3(-2, 1, 3);
+            IEnumerator routine = Routine();
+            routine.MoveNext();
+            Vector3 direction = (target.transform.position - driver.transform.position).normalized;
+            Assert.That(Vector3.Dot(driver.transform.forward, direction), Is.GreaterThan(0.9999f));
+            Quaternion previous = driver.transform.rotation;
+            target.transform.rotation = Quaternion.Euler(0, 180, 0);
+            routine.MoveNext();
+            Assert.That(Quaternion.Angle(previous, driver.transform.rotation), Is.LessThan(0.1f));
+            target.transform.position = -target.transform.position;
+            routine.MoveNext();
+            Assert.That(Vector3.Dot(driver.transform.forward,
+                (target.transform.position - driver.transform.position).normalized), Is.GreaterThan(0.9999f));
+        }
+
+        [TestCase(1, 0, 0)]
+        [TestCase(0, 1, 0)]
+        [TestCase(1, 1, 0)]
+        [TestCase(1, 0, 1)]
+        [TestCase(0, 1, 1)]
+        [TestCase(1, 1, 1)]
+        public void PositiveZForward_TracksFullCircleWithAxisConstraints(int x, int y, int z)
+        {
+            SetField("usePositiveZForward", true);
+            SetField("_zeroOutAxis", new Vector3(x, y, z));
+            Vector3 axis = x == 1 ? Vector3.right : Vector3.up;
+            IEnumerator routine = Routine();
+            for (int angle = 0; angle <= 360; angle += 5)
+            {
+                Vector3 direction = original * Quaternion.AngleAxis(angle, axis) * Vector3.forward;
+                target.transform.position = direction * 3;
+                routine.MoveNext();
+                Assert.That(Vector3.Dot(driver.transform.forward, direction), Is.GreaterThan(0.9999f), "Angle " + angle);
+            }
+        }
+
+        [Test]
         public void AllLocked_PreservesStartingPose()
         {
             SetField("_zeroOutAxis", Vector3.zero);

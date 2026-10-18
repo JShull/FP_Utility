@@ -33,11 +33,15 @@ data types `LabelJsonCollection`, `LabelJson`, and `LabelJsonLine`.
 ### Look At Lock Axis
 
 `FP_LookAtLockAxis` uses `_zeroOutAxis` values of 1 (enabled) or 0 (locked).
-Assign **Target Aligned** to the target Transform and set **Target Mode**:
+Assign **Target Aligned** to the target Transform and choose **Target Mode**.
+For a character facing local +Z, enable **Use Positive Z Forward** so its face
+points toward the marker in Target Position mode. Rotating the marker has no
+effect in that mode; moving it changes the look direction. The option defaults
+off to preserve existing -Z models and does not change Z-only +Y pointers.
 **Target Position** (default, including existing components) looks toward its world
 position; **Target Direction** aims along its local +Z/forward direction regardless
 of its position. Both modes use the same axis constraints and driven aiming axis
-(-Z, or +Y for Z-only). Enable `loop` and `PlayOnStart` for automatic continuous tracking;
+(-Z by default, +Z when enabled, or +Y for Z-only). Enable `loop` and `PlayOnStart` for automatic continuous tracking;
 **Target Object** is the object to rotate and defaults to this component's Transform during setup.
 Axes are relative to the world-space starting pose captured by `SetupMotion`,
 including any initial parent rotation; they do not follow later parent changes.

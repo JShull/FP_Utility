@@ -2,6 +2,8 @@
 
 ## [Unreleased] - Header Settings Persistence
 
+- Add opt-in positive-Z facing for `FP_LookAtLockAxis` so forward-facing characters can look at marker locations while preserving legacy negative-Z defaults.
+
 - Add `FP_LookAtLockAxis` Target Position / Target Direction Inspector modes, defaulting existing components to position tracking, with mode-specific gizmos and regression coverage.
 
 - Fix `FP_LookAtLockAxis` full-circle tracking with starting-pose axis constraints, all axis combinations, Z-only up-axis pointing, undefined-direction guards, and safe setup fallback. Replace world Euler masking; add rotation regressions and document the changed tilted-object behavior.
