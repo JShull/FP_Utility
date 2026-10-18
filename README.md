@@ -30,6 +30,23 @@ and Utility runtime assemblies. Runtime LabelDisplay code remains under
 `Runtime/Design/LabelDisplay/Runtime`; `LabelJsonLine.cs` contains the related JSON
 data types `LabelJsonCollection`, `LabelJson`, and `LabelJsonLine`.
 
+### Look At Lock Axis
+
+`FP_LookAtLockAxis` uses `_zeroOutAxis` values of 1 (enabled) or 0 (locked).
+Axes are relative to the world-space starting pose captured by `SetupMotion`,
+including any initial parent rotation; they do not follow later parent changes.
+This replaces the previous world Euler-component locking behavior for tilted objects.
+X-only and Y-only track local -Z around the enabled axis through a full circle.
+Z-only tracks local +Y, suitable for a planar pointer: rolling around Z cannot
+steer the forward axis. Two enabled axes track local -Z using a two-axis gimbal
+(XY: Y then X; XZ: Z then X; YZ: Z then Y). All three enabled axes track local
+-Z using the previous up direction to avoid world-up pole flips. All axes locked
+retain the starting pose. Coincident targets and single-axis targets along the
+rotation axis retain the last rotation because the desired angle is undefined.
+Two-axis gimbals still have poles where the outer angle is undefined; full
+directional coverage does not guarantee a unique roll or a smooth path for
+arbitrary target jumps. Set `loop` for continuous tracking.
+
 ### Runtime Articulation Grab Motion
 
 `FP_ArticulationGrabMotion` connects a tracked world-space pose to an
