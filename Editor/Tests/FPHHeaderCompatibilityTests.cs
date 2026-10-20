@@ -207,6 +207,39 @@ namespace FuzzPhyte.Utility.Editor.Tests
         }
 
         [Test]
+        public void NewHierarchy_RefreshRecognizesConvertedRowAndClearsDestroyedHeader()
+        {
+            testObject = CreateObject("Ordinary");
+            var item = (HierarchyViewItem)Activator.CreateInstance(typeof(HierarchyViewItem), true);
+            var row = new VisualElement();
+            row.AddToClassList("unity-multi-column-view__row-container");
+            row.Add(item);
+            var tracked = (Dictionary<HierarchyViewItem, GameObject>)typeof(FP_HHeader)
+                .GetField("boundNewHierarchyObjects", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            tracked[item] = testObject;
+            try
+            {
+                InvokeHierarchyMethod("RefreshNewHierarchyWindows");
+                Assert.That(item.Q<VisualElement>("fp-hheader-controls"), Is.Null);
+
+                testObject.name = "NEW HEADER";
+                testObject.SetActive(false);
+                InvokeHierarchyMethod("RefreshNewHierarchyWindows");
+                Assert.That(item.Q<VisualElement>("fp-hheader-controls"), Is.Not.Null);
+
+                UnityEngine.Object.DestroyImmediate(testObject);
+                InvokeHierarchyMethod("RefreshNewHierarchyWindows");
+                Assert.That(item.Q<VisualElement>("fp-hheader-controls"), Is.Null);
+                Assert.That(tracked.ContainsKey(item), Is.False);
+            }
+            finally
+            {
+                tracked.Remove(item);
+                InvokeHierarchyMethod("ResetNewHierarchyItem", item);
+            }
+        }
+
+        [Test]
         public void NewHierarchy_HeaderBackingIsBehindControlsAndDoesNotOwnPingBackground()
         {
             testObject = new GameObject("HEADER");

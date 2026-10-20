@@ -29,7 +29,7 @@ namespace FuzzPhyte.Utility.Editor
         private const float NewHierarchyControlSize = 15f;
         private const float NewHierarchyControlsWidth = 34f;
 
-        private static readonly Dictionary<HierarchyViewItem, GameObject> boundNewHierarchyHeaders = new();
+        private static readonly Dictionary<HierarchyViewItem, GameObject> boundNewHierarchyObjects = new();
         private static readonly Dictionary<HierarchyViewItem, NewHierarchyPaletteBinding> newHierarchyPaletteBindings = new();
 
         private sealed class NewHierarchyPaletteBinding
@@ -40,6 +40,8 @@ namespace FuzzPhyte.Utility.Editor
 
         private static void RegisterNewHierarchyCallbacks()
         {
+            EditorApplication.hierarchyChanged -= QueueNewHierarchyRefresh;
+            EditorApplication.hierarchyChanged += QueueNewHierarchyRefresh;
             HierarchyWindow.BindViewItem -= OnBindNewHierarchyItem;
             HierarchyWindow.BindViewItem += OnBindNewHierarchyItem;
             HierarchyWindow.UnbindViewItem -= OnUnbindNewHierarchyItem;
@@ -53,7 +55,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             UnregisterNewHierarchyPaletteBinding(item);
             ResetNewHierarchyItem(item);
-            boundNewHierarchyHeaders.Remove(item);
+            boundNewHierarchyObjects.Remove(item);
 
             if (item.Handler is not HierarchyGameObjectHandler gameObjectHandler)
             {
@@ -66,12 +68,13 @@ namespace FuzzPhyte.Utility.Editor
                 RegisterNewHierarchyPaletteBinding(item, gameObject);
             }
 
+            // Keep ordinary rows too: Unity may rename/deactivate them without rebinding.
+            boundNewHierarchyObjects[item] = gameObject;
             if (!IsEnabled || !IsHeaderObject(gameObject))
             {
                 return;
             }
 
-            boundNewHierarchyHeaders[item] = gameObject;
             ApplyNewHierarchyHeaderVisuals(item, gameObject);
         }
 
@@ -82,7 +85,7 @@ namespace FuzzPhyte.Utility.Editor
         {
             UnregisterNewHierarchyPaletteBinding(item);
             ResetNewHierarchyItem(item);
-            boundNewHierarchyHeaders.Remove(item);
+            boundNewHierarchyObjects.Remove(item);
         }
 
         private static void RegisterNewHierarchyPaletteBinding(HierarchyViewItem item, GameObject gameObject)
@@ -295,15 +298,22 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
+        private static void QueueNewHierarchyRefresh()
+        {
+            EditorApplication.delayCall -= RefreshNewHierarchyWindows;
+            EditorApplication.delayCall += RefreshNewHierarchyWindows;
+        }
+
         private static void RefreshNewHierarchyWindows()
         {
             var staleItems = new List<HierarchyViewItem>();
-            var boundItems = new List<KeyValuePair<HierarchyViewItem, GameObject>>(boundNewHierarchyHeaders);
+            var boundItems = new List<KeyValuePair<HierarchyViewItem, GameObject>>(boundNewHierarchyObjects);
             for (int i = 0; i < boundItems.Count; i++)
             {
                 KeyValuePair<HierarchyViewItem, GameObject> pair = boundItems[i];
                 if (pair.Key == null || pair.Value == null)
                 {
+                    if (pair.Key != null) ResetNewHierarchyItem(pair.Key);
                     staleItems.Add(pair.Key);
                     continue;
                 }
@@ -315,7 +325,7 @@ namespace FuzzPhyte.Utility.Editor
             {
                 if (staleItems[i] != null)
                 {
-                    boundNewHierarchyHeaders.Remove(staleItems[i]);
+                    boundNewHierarchyObjects.Remove(staleItems[i]);
                 }
             }
 
@@ -325,6 +335,12 @@ namespace FuzzPhyte.Utility.Editor
                 if (windows[i].View != null)
                 {
                     windows[i].View.Update();
+                    // Include rows bound before our callbacks were registered.
+                    var items = windows[i].View.Query<HierarchyViewItem>().ToList();
+                    for (int j = 0; j < items.Count; j++)
+                    {
+                        OnBindNewHierarchyItem(windows[i], windows[i].View, items[j]);
+                    }
                 }
 
                 windows[i].Repaint();

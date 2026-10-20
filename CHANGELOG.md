@@ -2,6 +2,8 @@
 
 ## [Unreleased] - Header Settings Persistence
 
+- Refresh New Hierarchy header visuals after hierarchy changes and scene transitions without requiring a Legacy Hierarchy toggle.
+
 - Add **FuzzPhyte > Utility > Animation > Binding Rename** for selecting and renaming one animated property, including blendshape names. Support Undo-backed standalone `.anim` edits and separate copies for imported clips; preserve curve data, binding paths/types, events and settings, with collision validation and Editor regressions.
 
 - Extend BlendShape Rename's preview with FBX renderer/material-slot discovery, all-slot or individual-slot overrides, original-material restoration, Undo and reset controls. Keep material choices preview-only and retain matching overrides across reloads.
