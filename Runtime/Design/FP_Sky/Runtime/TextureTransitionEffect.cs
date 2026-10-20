@@ -57,7 +57,16 @@ namespace FuzzPhyte.Utility
 
             ApplyMaterialValues();
         }
-
+        public virtual void UpdateTextureA(Texture UpdatedA)
+        {
+            textureA = UpdatedA;
+            ApplyMaterialValues();
+        }
+        public virtual void UpdateTextureB(Texture UpdatedB)
+        {
+            textureB = UpdatedB;
+            ApplyMaterialValues();
+        }
         [ContextMenu("Forward Transition")]
         public void TransitionTest()
         {
