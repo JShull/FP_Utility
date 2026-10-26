@@ -1,52 +1,47 @@
 # Changelog
 
-## [Unreleased] - Header Settings Persistence
-
-- Refresh New Hierarchy header visuals after hierarchy changes and scene transitions without requiring a Legacy Hierarchy toggle.
-
-- Add **FuzzPhyte > Utility > Animation > Binding Rename** for selecting and renaming one animated property, including blendshape names. Support Undo-backed standalone `.anim` edits and separate copies for imported clips; preserve curve data, binding paths/types, events and settings, with collision validation and Editor regressions.
-
-- Extend BlendShape Rename's preview with FBX renderer/material-slot discovery, all-slot or individual-slot overrides, original-material restoration, Undo and reset controls. Keep material choices preview-only and retain matching overrides across reloads.
-
-- Add **FuzzPhyte > Utility > Mesh > BlendShape Rename** with independently selectable rename rows, a whole-model shaded preview/material override using the shared mesh preview controls, and separate FBX-copy output. Preserve binary/ASCII FBX content and importer settings without adding an exporter dependency; validate names, stale sources, collisions and output paths, with Edit Mode regressions.
-
-- Add opt-in positive-Z facing for `FP_LookAtLockAxis` so forward-facing characters can look at marker locations while preserving legacy negative-Z defaults.
-
-- Add `FP_LookAtLockAxis` Target Position / Target Direction Inspector modes, defaulting existing components to position tracking, with mode-specific gizmos and regression coverage.
-
-- Fix `FP_LookAtLockAxis` full-circle tracking with starting-pose axis constraints, all axis combinations, Z-only up-axis pointing, undefined-direction guards, and safe setup fallback. Replace world Euler masking; add rotation regressions and document the changed tilted-object behavior.
-
-- Store the shared Alt-click icon palette and saved-scene header style selections in the host project's `ProjectSettings/FPHeaderSettings.json`, with legacy preference migration and GUID-based scene/style references.
-- Preserve and report missing references during palette edits; add legacy recovery and merge-based JSON transfer with companion Unity asset packages and optional saved-scene export.
-- Save new header style assets under `Assets/_FPUtility/HeaderStyles` outside the updatable package. Document version control, original metadata recovery, and transfer workflows.
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.1] - 2026-10-26
 
-### Added
+Lots of fixes and minor tweaks to existing motion based work, adjustments to blendshape renaming from the editor, and some Android APK launching ability
 
-- Shared preview pan and world-units-per-pixel calculations between the Mesh Vertex Painter and vegetation rig editor, with perspective/orthographic projection tests.
+- [@JShull](https://github.com/jshull)
+  - Add the optional **Android App Launcher** UPM sample, isolated from core assemblies. Launch installed applications by package identifier with structured results, versioned string/JSON handoff, a UnityEvent binder, examples, and sample-local Edit Mode tests.
+  - Document explicit manifest package visibility configuration, receiving Activity lifecycle limitations, and two-APK device validation. No manifest, native plugin, or dependency is installed automatically.
+  - Keep development on the existing `1.1.0` branch; retain the older version on `main`.
+  - Refresh New Hierarchy header visuals after hierarchy changes and scene transitions without requiring a Legacy Hierarchy toggle.
+  - Add **FuzzPhyte > Utility > Animation > Binding Rename** for selecting and renaming one animated property, including blendshape names. Support Undo-backed standalone `.anim` edits and separate copies for imported clips; preserve curve data, binding paths/types, events and settings, with collision validation and Editor regressions.
+  - Extend BlendShape Rename's preview with FBX renderer/material-slot discovery, all-slot or individual-slot overrides, original-material restoration, Undo and reset controls. Keep material choices preview-only and retain matching overrides across reloads.
+  - Add **FuzzPhyte > Utility > Mesh > BlendShape Rename** with independently selectable rename rows, a whole-model shaded preview/material override using the shared mesh preview controls, and separate FBX-copy output. Preserve binary/ASCII FBX content and importer settings without adding an exporter dependency; validate names, stale sources, collisions and output paths, with Edit Mode regressions.
+  - Add opt-in positive-Z facing for `FP_LookAtLockAxis` so forward-facing characters can look at marker locations while preserving legacy negative-Z defaults.
+  - Add `FP_LookAtLockAxis` Target Position / Target Direction Inspector modes, defaulting existing components to position tracking, with mode-specific gizmos and regression coverage.
+  - Fix `FP_LookAtLockAxis` full-circle tracking with starting-pose axis constraints, all axis combinations, Z-only up-axis pointing, undefined-direction guards, and safe setup fallback. Replace world Euler masking; add rotation regressions and document the changed tilted-object behavior.
+  - Store the shared Alt-click icon palette and saved-scene header style selections in the host project's `ProjectSettings/FPHeaderSettings.json`, with legacy preference migration and GUID-based scene/style references.
+  - Preserve and report missing references during palette edits; add legacy recovery and merge-based JSON transfer with companion Unity asset packages and optional saved-scene export.
+  - Save new header style assets under `Assets/_FPUtility/HeaderStyles` outside the updatable package. Document version control, original metadata recovery, and transfer workflows.
 
-- Added separate opaque/cutout PolySpatial surface candidates with seven procedural albedo patterns expressed in the documented MaterialX Custom Function subset, a desktop comparison and 12 additional regressions (176/176 package tests passed). Native lighting/shadows remain conventional. PolySpatial export, visionOS builds and headset performance are explicitly pending; no platform dependency was added.
+### [1.1.1] Added
 
-- Added the first custom-stamp slice to `FP_DitherLightingLit`: a calibrated lightning-bolt rank texture, shared sampling for albedo/light/shadow styling, standalone comparison scene, reproducible offline polygon-to-rank helper and GPU/render regressions. Added a sourced Vision Pro/Meta XR support matrix that separates Unity/Metal from PolySpatial/RealityKit and tracks remaining device acceptance.
+- [@JShull](https://github.com/jshull)
+  - Shared preview pan and world-units-per-pixel calculations between the Mesh Vertex Painter and vegetation rig editor, with perspective/orthographic projection tests.
+  - Added separate opaque/cutout PolySpatial surface candidates with seven procedural albedo patterns expressed in the documented MaterialX Custom Function subset, a desktop comparison and 12 additional regressions (176/176 package tests passed). Native lighting/shadows remain conventional. PolySpatial export, visionOS builds and headset performance are explicitly pending; no platform dependency was added.
+  - Added the first custom-stamp slice to `FP_DitherLightingLit`: a calibrated lightning-bolt rank texture, shared sampling for albedo/light/shadow styling, standalone comparison scene, reproducible offline polygon-to-rank helper and GPU/render regressions. Added a sourced Vision Pro/Meta XR support matrix that separates Unity/Metal from PolySpatial/RealityKit and tracks remaining device acceptance.
+  - Added opt-in `FP_DitherLightingLit` material lighting with independent albedo, direct diffuse and received-shadow strengths, shared analytic patterns, ordinary alpha cutout and URP pass integration. Added a mixed standard/stylized lighting example and render regression tests. Existing albedo Shader Graphs and project renderer settings are preserved; device profiling and orthographic screen-space-shadow validation remain pending.
+  - Expanded FP Dither with analytic square, dot, line, plus, diamond and five-point star patterns, a material dropdown, rotation, plus arm ratio, and derivative-based edge/minification filtering. Preserved Bayer defaults and existing property/subgraph IDs. Added a seven-pattern comparison scene, GPU tone/coverage/repetition regressions and a reproducible offline star-area helper. Headset performance remains pending; custom stamps are supplied separately on the lighting shader.
+  - Added `FP_Dither` URP Lit character/organic Shader Graphs and a texture-cutout foliage variant with a shared UV-space Bayer 4x4 core, independent quantization/dither controls, synthetic comparison materials/scene, and eleven Edit Mode/GPU contract checks. All 124 package Editor tests passed; a supplied tree rendered across four LODs with preserved cutouts and shadows. Representative character and headset validation/performance remain pending. See `Runtime/Design/FP_Dither/README.md`.
+  - Added `FPSceneViewGrid`, a disposable editor grid provider using an owned preview scene and explicit SceneView camera scope, for FP_Parametric and other authoring tools.
+  - Added Edit Mode grid registration and camera filtering; destroyed scoped cameras cannot expose their grid to other views.
+  - Grid Render Graph passes now snapshot per-grid property blocks, preserve the shared material, declare blend/depth access, and dispose owned quad meshes.
+  - Validated the grid integration in Unity 6000.6.0f1 / URP 17.6.0 with 10 focused Edit Mode tests and pixel comparisons confirming target-camera drawing, other-camera isolation, and unchanged material state.
+  - Added `FPFileShareException` with stable failure categories and HTTP status for runtime caller diagnostics, including blocked HTTP policy, token rejection, conflict, size/checksum rejection, timeout/connection failure and invalid receipts. Cancellation remains `OperationCanceledException`; no application security settings are changed.
+  - Added the optional FileShare runtime sender and Editor receiver window under FuzzPhyte > Utility > Editor > File Share, with manual pairing, streamed uploads, SHA-256 receipts, duplicate-safe transfer IDs, bounded uploads, cancellation cleanup, and explicit import of received data files. Includes loopback Edit Mode integration tests and setup documentation.
+  - Added bulk Project texture selection and drag-and-drop to the Header Options Alt-click icon palette, preserving existing order and skipping duplicates and non-texture items.
 
-- Added opt-in `FP_DitherLightingLit` material lighting with independent albedo, direct diffuse and received-shadow strengths, shared analytic patterns, ordinary alpha cutout and URP pass integration. Added a mixed standard/stylized lighting example and render regression tests. Existing albedo Shader Graphs and project renderer settings are preserved; device profiling and orthographic screen-space-shadow validation remain pending.
-- Expanded FP Dither with analytic square, dot, line, plus, diamond and five-point star patterns, a material dropdown, rotation, plus arm ratio, and derivative-based edge/minification filtering. Preserved Bayer defaults and existing property/subgraph IDs. Added a seven-pattern comparison scene, GPU tone/coverage/repetition regressions and a reproducible offline star-area helper. Headset performance remains pending; custom stamps are supplied separately on the lighting shader.
-- Added `FP_Dither` URP Lit character/organic Shader Graphs and a texture-cutout foliage variant with a shared UV-space Bayer 4x4 core, independent quantization/dither controls, synthetic comparison materials/scene, and eleven Edit Mode/GPU contract checks. All 124 package Editor tests passed; a supplied tree rendered across four LODs with preserved cutouts and shadows. Representative character and headset validation/performance remain pending. See `Runtime/Design/FP_Dither/README.md`.
-- Added `FPSceneViewGrid`, a disposable editor grid provider using an owned preview scene and explicit SceneView camera scope, for FP_Parametric and other authoring tools.
-- Added Edit Mode grid registration and camera filtering; destroyed scoped cameras cannot expose their grid to other views.
-- Grid Render Graph passes now snapshot per-grid property blocks, preserve the shared material, declare blend/depth access, and dispose owned quad meshes.
-- Validated the grid integration in Unity 6000.6.0f1 / URP 17.6.0 with 10 focused Edit Mode tests and pixel comparisons confirming target-camera drawing, other-camera isolation, and unchanged material state.
-- Added `FPFileShareException` with stable failure categories and HTTP status for runtime caller diagnostics, including blocked HTTP policy, token rejection, conflict, size/checksum rejection, timeout/connection failure and invalid receipts. Cancellation remains `OperationCanceledException`; no application security settings are changed.
-- Added the optional FileShare runtime sender and Editor receiver window under FuzzPhyte > Utility > Editor > File Share, with manual pairing, streamed uploads, SHA-256 receipts, duplicate-safe transfer IDs, bounded uploads, cancellation cleanup, and explicit import of received data files. Includes loopback Edit Mode integration tests and setup documentation.
-- Added bulk Project texture selection and drag-and-drop to the Header Options Alt-click icon palette, preserving existing order and skipping duplicates and non-texture items.
-
-### Changed
+### [1.1.1] Changed
 
 - Shortened FileShare receiver tokens to 12 unambiguous random characters, accepting lowercase and optional spaces/dashes for manual entry while retaining legacy token compatibility. Throttle invalid-token responses; tokens still rotate on receiver restart.
 - Resolve the New Hierarchy stylesheet by its Unity asset GUID so header backgrounds load from both Assets checkouts and installed UPM packages without relying on package-location detection.

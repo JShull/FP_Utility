@@ -1,6 +1,6 @@
 {
     "name": "com.fuzzphyte.utility",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "displayName": "FP Utility",
     "description": "FP Utility is a collection of useful utilities for Unity that are generally base classes for other repositories to inherit/utilize.",
     "unity": "6000.3",
@@ -22,6 +22,11 @@
       "com.unity.entities.graphics":"6.4.0"
     },
     "samples": [
+        {
+            "displayName": "Android App Launcher",
+            "description": "Optional Android application launching and versioned cross-APK data handoff. Requires explicitly installed destination apps and package visibility configuration.",
+            "path": "Samples~/AndroidAppLauncher"
+        },
         {
             "displayName": "Utility Samples",
             "description": "Includes some examples of the different ScriptableObject based use cases and other misc. scripts for how you can utilize some of these base classes. Audio Example for ramping audio in and out as well. Spline Timeline follower example here as well.",

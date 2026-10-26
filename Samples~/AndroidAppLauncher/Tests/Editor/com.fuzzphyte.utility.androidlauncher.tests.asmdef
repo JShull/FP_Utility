@@ -1,0 +1,7 @@
+{
+    "name": "com.fuzzphyte.utility.androidlauncher.tests",
+    "references": ["com.fuzzphyte.utility.androidlauncher.sample"],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": false,
+    "optionalUnityReferences": ["TestAssemblies"]
+}

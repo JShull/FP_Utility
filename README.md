@@ -2,7 +2,11 @@
 
 ## Utility
 
-Version: **1.1.0**
+Version: **1.1.1**
+
+### Android App Launcher Sample
+
+Import **Android App Launcher** through Package Manager > FP Utility > Samples to launch independently installed Android APKs by package identifier, optionally passing versioned string/JSON data. All implementation and tests are opt-in under [`Samples~/AndroidAppLauncher`](Samples~/AndroidAppLauncher/README.md); core assemblies remain platform-agnostic. The sample does not install APKs or modify manifests. See its README for package visibility, Activity lifecycle limits, examples, and device validation steps. Native calls only run in Android players.
 
 FP_Utility is designed and built to be a simple set of base classes to be used in almost all future FuzzPhyte packages. There is an element of Scriptable Object and an element of just simple input/output functions as well as some core scripts timed to timers etc. There are a lot of static functions to help with file management and Unity Editor management. Please see the FP_UtilityData class as well as the FP_Utility_Editor class for a lot of these functions/enums/structs etc.
 

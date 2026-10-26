@@ -1,0 +1,19 @@
+{
+    "name": "com.fuzzphyte.utility.androidlauncher.examples",
+    "rootNamespace": "",
+    "references": [
+        "com.fuzzphyte.utility.androidlauncher.sample"
+    ],
+    "includePlatforms": [
+        "Android",
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
