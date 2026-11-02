@@ -179,15 +179,94 @@ namespace FuzzPhyte.Utility.Editor.Tests
         public void Outgoing_ScalarsAndExistingSlots_AreOptInAndNeverCopyEventListeners()
         {
             oldOwner.Target = outside; oldOwner.Items.Add(outside); newOwner.Items.Add(null);
+            newOwner.Target = outside.transform;
+            oldOwner.ConfigurationValue = 10; newOwner.ConfigurationValue = 20;
             UnityEventTools.AddPersistentListener(oldOwner.Callback, outside.Receive);
+            UnityEventTools.AddPersistentListener(newOwner.Callback, newOwner.Receive);
             var plan = Preview(true);
             Assert.That(plan.Edits.Where(e => e.Transfer).All(e => !e.Selected), Is.True);
+            Assert.That(plan.Edits.Single(e => e.Transfer && e.Source.Path == "Target").Expected, Is.EqualTo(outside.transform));
             var eventEdit = plan.Edits.Single(e => e.Source.EventInfo != null);
             Assert.That(eventEdit.Blocker, Does.Contain("Manual Transfer Required"));
             foreach (var edit in plan.Edits.Where(e => e.Transfer && e.Ready)) edit.Selected = true;
             Assert.That(FPSceneReferenceApply.Apply(plan, out var result), Is.True, result);
             Assert.That(newOwner.Target, Is.EqualTo(outside)); Assert.That(newOwner.Items[0], Is.EqualTo(outside));
-            Assert.That(newOwner.Callback.GetPersistentEventCount(), Is.Zero);
+            Assert.That(newOwner.ConfigurationValue, Is.EqualTo(20));
+            Assert.That(newOwner.Callback.GetPersistentEventCount(), Is.EqualTo(1));
+            Assert.That(newOwner.Callback.GetPersistentTarget(0), Is.EqualTo(newOwner));
+        }
+
+        [Test]
+        public void Outgoing_AlreadyMatchingSelection_DoesNotDirtySceneOrCreateUndoGroup()
+        {
+            oldOwner.Target = outside; newOwner.Target = outside;
+            Assert.That(EditorSceneManager.SaveScene(scene), Is.True);
+            var plan = Preview(true);
+            plan.Edits.Single(e => e.Transfer).Selected = true;
+            int group = Undo.GetCurrentGroup();
+            Assert.That(FPSceneReferenceApply.Apply(plan, out var result), Is.True, result);
+            Assert.That(result, Does.Contain("Changed 0; skipped 1"));
+            Assert.That(scene.isDirty, Is.False);
+            Assert.That(Undo.GetCurrentGroup(), Is.EqualTo(group));
+        }
+
+        [Test]
+        public void Incoming_ManualRepeatedComponentMapping_ChoosesExplicitInstance()
+        {
+            oldRoot.AddComponent<BoxCollider>();
+            var oldSecond = oldRoot.AddComponent<BoxCollider>();
+            var newFirst = newRoot.AddComponent<BoxCollider>();
+            newRoot.AddComponent<BoxCollider>();
+            outside.ColliderTarget = oldSecond;
+            var plan = Preview();
+            Assert.That(plan.Edits.Single().Ready, Is.False);
+            var mapping = plan.Mappings.Single(m => m.Old == oldSecond);
+            mapping.New = newFirst; mapping.Manual = true;
+            FPSceneReferencePlanner.BuildPreview(plan, false);
+            Assert.That(FPSceneReferenceApply.Apply(plan, out var result), Is.True, result);
+            Assert.That(outside.ColliderTarget, Is.EqualTo(newFirst));
+        }
+
+        [Test]
+        public void ActiveSceneScope_LeavesOtherLoadedSceneReferencesUntouched()
+        {
+            string path = folder + "/Other.unity";
+            var fixture = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("FPSceneReferenceEmpty t:Scene").Single());
+            Assert.That(AssetDatabase.CopyAsset(fixture, path), Is.True);
+            var otherScene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
+            try
+            {
+                var foreign = Create("Foreign").AddComponent<FPSceneReferenceTestOwner>();
+                SceneManager.MoveGameObjectToScene(foreign.gameObject, otherScene);
+                foreign.Target = oldOwner;
+                outside.Target = oldOwner;
+                SceneManager.SetActiveScene(scene);
+                var plan = Preview();
+                Assert.That(plan.Links.All(l => l.Owner != foreign), Is.True);
+                Assert.That(FPSceneReferenceApply.Apply(plan, out var result), Is.True, result);
+                Assert.That(outside.Target, Is.EqualTo(newOwner));
+                Assert.That(foreign.Target, Is.EqualTo(oldOwner));
+                Assert.That(FPSceneReferencePlanner.ValidateRoots(oldRoot, foreign.gameObject, true), Is.Not.Null);
+            }
+            finally { EditorSceneManager.CloseScene(otherScene, true); }
+        }
+
+        [Test]
+        public void Menu_OpensWithoutSelection()
+        {
+            var selected = Selection.objects;
+            var existing = Resources.FindObjectsOfTypeAll<FPSceneReferenceReplaceEditorWindow>();
+            try
+            {
+                Selection.objects = new Object[0];
+                Assert.That(EditorApplication.ExecuteMenuItem("FuzzPhyte/Utility/Scene/Scene Reference Replacer"), Is.True);
+                Assert.That(Resources.FindObjectsOfTypeAll<FPSceneReferenceReplaceEditorWindow>().Length, Is.GreaterThan(0));
+            }
+            finally
+            {
+                foreach (var window in Resources.FindObjectsOfTypeAll<FPSceneReferenceReplaceEditorWindow>().Except(existing)) window.Close();
+                Selection.objects = selected;
+            }
         }
 
         [Test]
@@ -196,6 +275,103 @@ namespace FuzzPhyte.Utility.Editor.Tests
             oldOwner.Items.Add(outside); oldOwner.Items.Add(outside); newOwner.Items.Add(null);
             var plan = Preview(true);
             Assert.That(plan.Edits.Where(e => e.Transfer).All(e => !e.Ready), Is.True);
+        }
+
+        [Test]
+        public void Outgoing_ManyOwnersToOneDestination_BlocksCollidingSelection()
+        {
+            var other = Create("Other", oldRoot).AddComponent<FPSceneReferenceTestOwner>();
+            oldOwner.Target = outside;
+            other.Target = outside.gameObject;
+            outside.HiddenTarget = oldRoot;
+            var plan = Preview(true);
+            var mapping = plan.Mappings.Single(m => m.Old == other);
+            mapping.New = newOwner; mapping.Manual = true; mapping.ReviewManyToOne = true;
+            plan.Mappings.Single(m => m.Old == oldOwner).ReviewManyToOne = true;
+            FPSceneReferencePlanner.BuildPreview(plan, true);
+            foreach (var edit in plan.Edits.Where(e => e.Transfer)) edit.Selected = true;
+            Assert.That(FPSceneReferenceApply.Apply(plan, out var result), Is.False);
+            Assert.That(result, Does.Contain("same destination"));
+            Assert.That(newOwner.Target, Is.Null);
+            Assert.That(outside.HiddenTarget, Is.EqualTo(oldRoot), "Atomic preflight must also preserve incoming fields.");
+            plan.Edits.Single(e => e.Transfer && e.Source.Owner == other).Selected = false;
+            Assert.That(FPSceneReferenceApply.Apply(plan, out result), Is.True, result);
+            Assert.That(newOwner.Target, Is.EqualTo(outside));
+        }
+
+        [Test]
+        public void Outgoing_ChangedCollectionTypeWithEqualSize_IsUnresolved()
+        {
+            oldOwner.Items.Add(outside);
+            var arrayOwner = newRoot.AddComponent<FPSceneReferenceArrayTestOwner>();
+            arrayOwner.Items = new Object[1];
+            var plan = Preview(true);
+            var mapping = plan.Mappings.Single(m => m.Old == oldOwner);
+            mapping.New = arrayOwner; mapping.Manual = true;
+            FPSceneReferencePlanner.BuildPreview(plan, true);
+            Assert.That(plan.Edits.Single(e => e.Transfer).Ready, Is.False);
+            Assert.That(arrayOwner.Items[0], Is.Null);
+        }
+
+        [Test]
+        public void Outgoing_UnknownEmptyNativeField_DoesNotAssumeSourceType()
+        {
+            oldOwner.m_ConnectedBody = outside;
+            var joint = newRoot.AddComponent<FixedJoint>();
+            var plan = Preview(true);
+            var mapping = plan.Mappings.Single(m => m.Old == oldOwner);
+            mapping.New = joint; mapping.Manual = true;
+            FPSceneReferencePlanner.BuildPreview(plan, true);
+            Assert.That(plan.Edits.Single(e => e.Transfer).Ready, Is.False);
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public void Apply_CallbackChangingAnotherSelectedField_RollsBack(bool changeEarlierField)
+        {
+            outside.Target = oldOwner; outside.HiddenTarget = oldRoot;
+            var plan = Preview();
+            var first = plan.Edits.First(e => e.Selected);
+            var second = plan.Edits.Last(e => e.Selected);
+            Assert.That(FPSceneReferenceApply.Apply(plan, out var result, count =>
+            {
+                if (count != (changeEarlierField ? 2 : 1)) return;
+                var edit = changeEarlierField ? first : second;
+                using (var so = new SerializedObject(edit.Owner))
+                {
+                    so.FindProperty(edit.Source.Path).objectReferenceValue = newRoot;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }), Is.False);
+            Assert.That(result, Does.Contain("Rolled back"));
+            Assert.That(outside.Target, Is.EqualTo(oldOwner));
+            Assert.That(outside.HiddenTarget, Is.EqualTo(oldRoot));
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public void Outgoing_TimelineTransfersOnlyIdenticalPlayableAsset(bool differentAsset)
+        {
+            var key = ScriptableObject.CreateInstance<FPSceneReferenceTestPlayable>(); temporary.Add(key);
+            var asset = ScriptableObject.CreateInstance<FPSceneReferenceTestPlayable>(); temporary.Add(asset); asset.Key = key;
+            var oldDirector = oldRoot.AddComponent<PlayableDirector>(); oldDirector.playableAsset = asset;
+            var newDirector = newRoot.AddComponent<PlayableDirector>(); newDirector.playableAsset = asset;
+            if (differentAsset)
+            {
+                var otherAsset = ScriptableObject.CreateInstance<FPSceneReferenceTestPlayable>(); temporary.Add(otherAsset);
+                otherAsset.Key = key; newDirector.playableAsset = otherAsset;
+            }
+            oldDirector.SetGenericBinding(key, outside.gameObject);
+            newDirector.SetGenericBinding(key, newRoot);
+            var plan = Preview(true);
+            var edit = plan.Edits.Single(e => e.Transfer);
+            Assert.That(edit.Ready, Is.EqualTo(!differentAsset));
+            Assert.That(edit.Selected, Is.False);
+            if (differentAsset) return;
+            edit.Selected = true;
+            Assert.That(FPSceneReferenceApply.Apply(plan, out var result), Is.True, result);
+            Assert.That(newDirector.GetGenericBinding(key), Is.EqualTo(outside.gameObject));
+            Assert.That(oldDirector.GetGenericBinding(key), Is.EqualTo(outside.gameObject));
+            Undo.PerformUndo(); Assert.That(newDirector.GetGenericBinding(key), Is.EqualTo(newRoot));
+            Undo.PerformRedo(); Assert.That(newDirector.GetGenericBinding(key), Is.EqualTo(outside.gameObject));
         }
 
         [Test]
@@ -242,6 +418,21 @@ namespace FuzzPhyte.Utility.Editor.Tests
             Assert.That(FPSceneReferenceApply.Apply(plan, out var result), Is.True, result);
             Assert.That(director.GetGenericBinding(key), Is.EqualTo(newRoot));
             Undo.PerformUndo(); Assert.That(director.GetGenericBinding(key), Is.EqualTo(oldRoot));
+        }
+
+        [Test]
+        public void Timeline_ChangedAssetOutputs_AreRevalidatedAtApply()
+        {
+            var key = ScriptableObject.CreateInstance<FPSceneReferenceTestPlayable>(); temporary.Add(key);
+            var asset = ScriptableObject.CreateInstance<FPSceneReferenceTestPlayable>(); temporary.Add(asset); asset.Key = key;
+            var director = outside.gameObject.AddComponent<PlayableDirector>(); director.playableAsset = asset;
+            director.SetGenericBinding(key, oldRoot);
+            outside.Target = oldOwner;
+            var plan = Preview();
+            asset.Key = null;
+            Assert.That(FPSceneReferenceApply.Apply(plan, out _), Is.False);
+            Assert.That(director.GetGenericBinding(key), Is.EqualTo(oldRoot));
+            Assert.That(outside.Target, Is.EqualTo(oldOwner));
         }
 
         [Test]

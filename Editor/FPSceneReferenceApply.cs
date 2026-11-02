@@ -24,6 +24,8 @@ namespace FuzzPhyte.Utility.Editor
             if (error != null) return error;
             var selected = plan.Edits.Where(e => e.Selected).ToArray();
             if (selected.Length == 0) return "Select at least one edit.";
+            if (selected.GroupBy(e => (e.Owner, e.Source.BindingKey, Path: e.Source.IsBinding ? null : e.Source.Path)).Any(g => g.Count() > 1))
+                return "Several selected proposals write to the same destination. Select only one per field or binding.";
             foreach (var edit in selected)
             {
                 error = edit.Blocker ?? FPSceneReferencePlanner.MappingError(plan, edit.Mapping);
@@ -51,10 +53,18 @@ namespace FuzzPhyte.Utility.Editor
 
         internal static bool Apply(FPSceneReferencePlan plan, out string result, Action<int> afterWrite = null)
         {
-            string error = Preflight(plan);
+            string error;
+            try { error = Preflight(plan); }
+            catch (Exception ex) { result = "Changed 0; preflight failed: " + ex.Message; return false; }
             if (error != null) { result = "Changed 0; preflight blocked: " + error; return false; }
             var selected = plan.Edits.Where(e => e.Selected).ToArray();
             int changed = 0, skipped = 0;
+            if (selected.All(e => e.Expected == e.Proposed))
+            {
+                plan.HasPreview = false;
+                result = "Changed 0; skipped " + selected.Length + "; failed 0. Selected references already match; scene has not been saved.";
+                return true;
+            }
             Undo.IncrementCurrentGroup();
             int group = Undo.GetCurrentGroup();
             Undo.SetCurrentGroupName("Replace Scene References");
@@ -63,6 +73,9 @@ namespace FuzzPhyte.Utility.Editor
                 foreach (var owner in selected.Select(e => e.Owner).Distinct()) Undo.RegisterCompleteObjectUndo(owner, "Replace Scene References");
                 foreach (var edit in selected)
                 {
+                    if (ReadCurrent(edit) != edit.Expected) throw new InvalidOperationException("A selected destination changed during apply; rebuild the preview.");
+                    error = FPSceneReferencePlanner.Compatibility(edit);
+                    if (error != null) throw new InvalidOperationException(error);
                     if (edit.Expected == edit.Proposed) { skipped++; continue; }
                     if (edit.Source.IsBinding) ((PlayableDirector)edit.Owner).SetGenericBinding(edit.Source.BindingKey, edit.Proposed);
                     else using (var so = new SerializedObject(edit.Owner))
@@ -75,16 +88,18 @@ namespace FuzzPhyte.Utility.Editor
                         }
                         if (!so.ApplyModifiedPropertiesWithoutUndo()) throw new InvalidOperationException("Unity did not accept the serialized assignment.");
                     }
-                    if (edit.Source.IsBinding)
-                    {
-                        if (((PlayableDirector)edit.Owner).GetGenericBinding(edit.Source.BindingKey) != edit.Proposed) throw new InvalidOperationException("Binding assignment was rejected.");
-                    }
-                    else using (var so = new SerializedObject(edit.Owner))
-                        if (so.FindProperty(edit.Source.Path)?.objectReferenceValue != edit.Proposed) throw new InvalidOperationException("Reference assignment was rejected.");
+                    if (ReadCurrent(edit) != edit.Proposed) throw new InvalidOperationException("Reference or binding assignment was rejected.");
                     PrefabUtility.RecordPrefabInstancePropertyModifications(edit.Owner);
                     EditorUtility.SetDirty(edit.Owner);
                     changed++;
                     afterWrite?.Invoke(changed);
+                }
+                // A later OnValidate callback may have altered a previously written field.
+                foreach (var edit in selected)
+                {
+                    if (ReadCurrent(edit) != edit.Proposed) throw new InvalidOperationException("A selected destination changed after its assignment.");
+                    error = FPSceneReferencePlanner.Compatibility(edit);
+                    if (error != null) throw new InvalidOperationException(error);
                 }
                 Undo.FlushUndoRecordObjects(); Undo.CollapseUndoOperations(group);
                 if (changed > 0) EditorSceneManager.MarkSceneDirty(plan.Scene);
@@ -98,6 +113,22 @@ namespace FuzzPhyte.Utility.Editor
                 plan.HasPreview = false;
                 result = "Changed 0; skipped " + skipped + "; failed 1. Rolled back " + changed + " write(s): " + ex.Message;
                 return false;
+            }
+        }
+
+        private static UnityEngine.Object ReadCurrent(FPSceneReferenceEdit edit)
+        {
+            if (edit.Source.IsBinding)
+            {
+                var director = edit.Owner as PlayableDirector;
+                if (!FPSceneReferencePlanner.BindingMatches(director, edit.Source)) throw new InvalidOperationException("Timeline output changed during apply.");
+                return director.GetGenericBinding(edit.Source.BindingKey);
+            }
+            using (var so = new SerializedObject(edit.Owner))
+            {
+                var property = so.FindProperty(edit.Source.Path);
+                if (property == null || property.propertyType != SerializedPropertyType.ObjectReference) throw new InvalidOperationException("Serialized destination disappeared during apply.");
+                return property.objectReferenceValue;
             }
         }
     }

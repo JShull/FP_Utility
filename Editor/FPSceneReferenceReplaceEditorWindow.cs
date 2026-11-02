@@ -206,6 +206,7 @@ namespace FuzzPhyte.Utility.Editor
                         ObjectRow("Owner", edit.Owner); ObjectRow("Expected current", edit.Expected); ObjectRow("Proposed", edit.Proposed);
                         if (edit.Source.IsBinding) ObjectRow("Binding key", edit.Source.BindingKey);
                         EditorGUILayout.LabelField(edit.Blocker ?? (edit.Transfer ? "Ready - explicit review required" : "Ready"), EditorStyles.wordWrappedLabel);
+                        if (!string.IsNullOrEmpty(edit.ReviewReason)) EditorGUILayout.HelpBox(edit.ReviewReason, MessageType.Warning);
                         if (edit.Transfer && edit.Expected != null && edit.Expected != edit.Proposed) EditorGUILayout.LabelField("Conflict: destination is populated.", EditorStyles.boldLabel);
                         EditorGUILayout.LabelField(edit.Mapping?.Reason ?? "Unmapped", EditorStyles.miniLabel);
                     }

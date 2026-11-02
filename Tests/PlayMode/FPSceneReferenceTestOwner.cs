@@ -8,7 +8,9 @@ namespace FuzzPhyte.Utility.Tests
     public sealed class FPSceneReferenceTestOwner : MonoBehaviour
     {
         public UnityEngine.Object Target;
+        public int ConfigurationValue;
         public BoxCollider ColliderTarget;
+        public UnityEngine.Object m_ConnectedBody;
         [HideInInspector] public UnityEngine.Object HiddenTarget;
         public List<UnityEngine.Object> Items = new List<UnityEngine.Object>();
         public UnityEvent Callback = new UnityEvent();

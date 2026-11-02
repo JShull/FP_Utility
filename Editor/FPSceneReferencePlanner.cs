@@ -40,7 +40,7 @@ namespace FuzzPhyte.Utility.Editor
         internal FPSceneLink Source;
         internal Object Owner, Expected, Proposed;
         internal FPSceneObjectMapping Mapping;
-        internal string Blocker;
+        internal string Blocker, ReviewReason;
         internal bool Selected, Transfer;
         internal bool Ready => string.IsNullOrEmpty(Blocker);
     }
@@ -228,11 +228,12 @@ namespace FuzzPhyte.Utility.Editor
             string error = ValidateRoots(plan.OldRoot, plan.NewRoot, true);
             if (error != null) throw new InvalidOperationException(error);
             plan.Edits.Clear(); plan.HasPreview = true; plan.Transfers = transfers;
+            var mappings = plan.Mappings.ToDictionary(m => m.Old);
             foreach (var link in plan.Links)
             {
                 bool transfer = link.Category == FPSceneLinkCategory.Outgoing;
                 if (link.Category != FPSceneLinkCategory.Incoming && link.Category != FPSceneLinkCategory.ReplacementToOld && !(transfer && transfers)) continue;
-                var mapping = plan.Mappings.FirstOrDefault(m => m.Old == (transfer ? link.Owner : link.Target));
+                mappings.TryGetValue(transfer ? link.Owner : link.Target, out var mapping);
                 var edit = new FPSceneReferenceEdit { Source = link, Mapping = mapping, Transfer = transfer,
                     Owner = transfer ? mapping?.New : link.Owner, Proposed = transfer ? link.Target : mapping?.New,
                     Expected = transfer ? null : link.Target };
@@ -261,13 +262,19 @@ namespace FuzzPhyte.Utility.Editor
                 edit.Selected = edit.Ready && !transfer && link.Category == FPSceneLinkCategory.Incoming;
                 plan.Edits.Add(edit);
             }
+            foreach (var group in plan.Edits.Where(e => e.Owner != null).GroupBy(e => (e.Owner, e.Source.BindingKey, Path: e.Source.IsBinding ? null : e.Source.Path)).Where(g => g.Count() > 1))
+                foreach (var edit in group) edit.ReviewReason = "Multiple proposals target the same destination. Select only one proposal for this field or binding.";
         }
 
         internal static string Compatibility(FPSceneReferenceEdit edit)
         {
             if (edit.Owner == null || edit.Proposed == null || EditorUtility.IsPersistent(edit.Owner)) return "Missing scene owner or proposed value.";
             if (edit.Source.IsBinding)
+            {
+                if (edit.Transfer && (!(edit.Source.Owner is PlayableDirector source) || !(edit.Owner is PlayableDirector destination) || source.playableAsset != destination.playableAsset))
+                    return "Different playable assets require manual binding transfer.";
                 return edit.Owner is PlayableDirector director && BindingMatches(director, edit.Source) && edit.Source.BindingType != null && edit.Source.BindingType.IsInstanceOfType(edit.Proposed) ? null : "Incompatible, ambiguous or unknown Timeline output binding type.";
+            }
             using (var so = new SerializedObject(edit.Owner))
             {
                 var p = so.FindProperty(edit.Source.Path);
@@ -277,12 +284,12 @@ namespace FuzzPhyte.Utility.Editor
                 if (type == null)
                 {
                     // Native/managed-reference layouts without accessible field metadata are deliberately conservative.
-                    var baseline = edit.Transfer ? edit.Source.Target : edit.Expected;
+                    var baseline = edit.Expected;
                     if (baseline == null || !baseline.GetType().IsInstanceOfType(edit.Proposed)) return "Cannot establish receiving property type compatibility.";
                 }
                 else if (!type.IsInstanceOfType(edit.Proposed)) return "Replacement is incompatible with the receiving field type.";
-                if (edit.Transfer && p.propertyPath.Contains(".Array.data[") && !SameCollectionSizes(edit))
-                    return "Collection sizes/layouts differ; transfer manually.";
+                if (edit.Transfer && p.propertyPath.Contains(".Array.data[") && !SameCollectionLayout(edit))
+                    return "Collection types, sizes or layouts differ or cannot be verified; transfer manually.";
                 return ValidateEvent(so, p.propertyPath, edit.Proposed);
             }
         }
@@ -294,7 +301,7 @@ namespace FuzzPhyte.Utility.Editor
             return outputs.Length == 1 && outputs[0].outputTargetType == link.BindingType;
         }
 
-        private static bool SameCollectionSizes(FPSceneReferenceEdit edit)
+        private static bool SameCollectionLayout(FPSceneReferenceEdit edit)
         {
             using (var source = new SerializedObject(edit.Source.Owner))
             using (var dest = new SerializedObject(edit.Owner))
@@ -306,6 +313,9 @@ namespace FuzzPhyte.Utility.Editor
                     string prefix = path.Substring(0, index);
                     var a = source.FindProperty(prefix); var b = dest.FindProperty(prefix);
                     if (a == null || b == null || !a.isArray || !b.isArray || a.arraySize != b.arraySize) return false;
+                    var sourceType = PropertyType(edit.Source.Owner.GetType(), prefix);
+                    var destinationType = PropertyType(edit.Owner.GetType(), prefix);
+                    if (sourceType == null || sourceType != destinationType || a.arrayElementType != b.arrayElementType) return false;
                     index += 12;
                 }
                 return true;
@@ -429,7 +439,7 @@ namespace FuzzPhyte.Utility.Editor
             report.AppendLine("\n## Proposed edits\n");
             foreach (var edit in plan.Edits)
                 report.AppendLine("- " + (edit.Selected ? "[x] " : "[ ] ") + Describe(edit.Owner) + " / `" + edit.Source.Path + "`: " +
-                    Describe(edit.Expected) + " → " + Describe(edit.Proposed) + " | " + (edit.Blocker ?? "Ready") + " | " + edit.Mapping?.Reason);
+                    Describe(edit.Expected) + " → " + Describe(edit.Proposed) + " | " + (edit.Blocker ?? "Ready") + " | " + edit.Mapping?.Reason + " | " + edit.ReviewReason);
             return report.ToString();
         }
     }

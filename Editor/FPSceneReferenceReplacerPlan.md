@@ -2,6 +2,10 @@
 
 Status: phases 1–3 implemented following the user's update request on November 1, 2026. See `FPSceneReferenceReplacer.md` for delivered coverage and limitations. No authored scene migration has been performed.
 
+Phase 2–3 completion audit: collision preflight, callback-aware selected-destination verification, conservative destination type checks, collection layout checks, identical-asset outgoing bindings, and additional acceptance tests are included. Event/list structural migration remains phase 4.
+
+Validation: Unity 6000.6.7f1 compilation completed with zero errors/warnings; all 29 focused Edit Mode cases passed. The outgoing conflict preview was visually reviewed. No authored scene migration or package publication was performed; project-specific runtime acceptance remains separate.
+
 Prepared: November 1, 2026.
 
 ## Purpose
