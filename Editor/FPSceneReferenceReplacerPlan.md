@@ -4,9 +4,13 @@ Status: phases 1–3 implemented following the user's update request on November
 
 Phase 2–3 completion audit: collision preflight, callback-aware selected-destination verification, conservative destination type checks, collection layout checks, identical-asset outgoing bindings, and additional acceptance tests are included. Event/list structural migration remains phase 4.
 
-Validation: Unity 6000.6.7f1 compilation completed with zero errors/warnings; all 29 focused Edit Mode cases passed. The outgoing conflict preview was visually reviewed. No authored scene migration or package publication was performed; project-specific runtime acceptance remains separate.
+Validation after the review/preservation extension: Unity 6000.6.7f1 compilation completed with zero errors/warnings; all 42 focused Edit Mode cases passed. Outgoing conflict, Suggestions and Keep Objects previews were visually reviewed. No authored scene migration or package publication was performed; project-specific runtime acceptance remains separate.
 
 Prepared: November 1, 2026.
+
+## Approved review and preservation extension
+
+The follow-up request authorizes missing-match diagnostics, reviewed candidate suggestions and a separate scene-specific preservation operation. Reference replacement retains the original read-only preview boundary. **Keep Objects** adds an explicitly previewed, separately applied subtree move outside the retiring hierarchy; it never automatically decides what content is scene-specific, unpacks prefabs, rewrites callbacks, changes activation or saves the scene. Candidate compatibility is evidence about fields/methods rather than semantic equivalence. See `FPSceneReferenceReplacer.md` for the workflow, safeguards and validation.
 
 ## Purpose
 
@@ -63,7 +67,7 @@ An owner is the object that stores a serialized field or binding. A target is th
 - Exclude both supplied hierarchies from the surrounding-scene incoming-owner set. Report replacement-to-old links separately because they also prevent retirement of the old hierarchy.
 - Do not open unloaded scenes, traverse the project, or modify assets during a scene operation.
 - Block writes in Play Mode, during compilation/import, or in Prefab Mode for the initial release.
-- Do not instantiate, delete, reparent, rename, activate, deactivate, or save either hierarchy automatically.
+- Do not instantiate, delete, reparent, rename, activate, deactivate, or save either hierarchy automatically. The approved **Keep Objects** extension permits only separately previewed and explicitly applied descendant reparenting with Undo and fresh dependency auditing.
 
 Keeping both hierarchies present is a preparation state. Runtime acceptance happens after the user deliberately retires the old system and resolves any duplicate managers or startup logic.
 

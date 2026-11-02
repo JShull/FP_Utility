@@ -6,5 +6,6 @@ namespace FuzzPhyte.Utility.Tests
     public sealed class FPSceneReferenceArrayTestOwner : MonoBehaviour
     {
         public Object[] Items = new Object[0];
+        public void Receive() { }
     }
 }

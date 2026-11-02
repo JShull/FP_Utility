@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add Scene Reference Replacer missing-type/path diagnostics, blocked-only filtering, reviewed type/callback-compatible candidate suggestions, and a separate Keep Objects preservation preview/apply workflow. Explicit subtree moves retain references, use Undo and stale preflight, report dependencies back to the retiring hierarchy, and block unsupported prefab/activation changes. No scene migration is performed automatically.
+
 - Harden Scene Reference Replacer phases 2–3: block colliding destination selections, unverified empty destination types, changed collection layouts and outgoing bindings across different playable assets. Revalidate selected destinations during/after apply to catch callback changes and roll back. Already-matching outgoing selections skip without dirtying the scene or adding Undo history. Expand focused acceptance tests.
 
 - Extend Scene Reference Replacer with hierarchy inventory and boundary tracing, unique/manual mappings, per-edit previews, event/Timeline compatibility checks, atomic preflight and Undo rollback, prefab overrides, opt-in outgoing field/collection-slot transfers, post-apply audits and Markdown reports. Preserve object-pair mode. Event-list migration and exposed-reference tables remain manual; see `Editor/FPSceneReferenceReplacer.md`.

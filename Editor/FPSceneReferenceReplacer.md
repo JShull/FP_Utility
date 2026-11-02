@@ -4,6 +4,27 @@ Open **FuzzPhyte > Utility > Scene > Scene Reference Replacer**.
 
 The tool inspects the active loaded scene, including inactive objects and disabled components. It does not open other scenes, change assets, save scenes, add missing components, or retire either hierarchy.
 
+## Resolving missing targets
+
+In **Preview**, enable **Show blocked edits only**. Missing mapping diagnostics distinguish an absent component type from types that exist elsewhere under the replacement root. Each affected connection retains its property path and persistent callback details.
+
+Click **Review candidates** on a blocked row or mapping to open **Suggestions**. The tool searches the replacement hierarchy and checks each candidate against all supported incoming fields, Timeline bindings and persisted callbacks for that target. Components of a different type are considered when persisted callbacks are present and compatible; GameObject suggestions require an exact name. Incompatible exact-type matches explain their blocker. Searching does not assign a mapping or dirty the scene.
+
+Check the candidate's purpose: a breakfast objective and a jeans objective can share a script and method without serving the same role. **Use this reviewed mapping** assigns only the mapping. Rebuild the replacement preview, review resulting edits and resolve many-to-one conflicts before applying references.
+
+## Keeping scene-specific objects
+
+When an old objective/action belongs to the authored scene rather than the shared replacement system, use **Queue object to keep** on its mapping/blocked row, or select an old descendant in the Hierarchy and queue it from **Keep Objects**.
+
+1. Review the explicitly queued GameObject subtrees. Queuing a component queues its entire GameObject and descendants, including every other attached component.
+2. Choose a destination parent outside both system hierarchies in the same scene, or leave it empty to make the queued objects scene roots. No container is created automatically.
+3. Click **Build Preservation Preview**. The preview lists source/destination parents, subtree sizes, effective activation, and supported links back to the part of the old hierarchy that will remain. A selected ancestor includes its selected descendants in one move.
+4. Resolve blockers. The old system root itself and objects outside it cannot be queued for a move. Children inside prefab instances require manual unpacking first; eligible outermost prefab instance roots can move without unpacking. Destination parents must be outside prefab instances. Moves that would change effective activation are blocked until you deliberately adjust source/destination activation and rebuild.
+5. Click **Apply Preservation Moves**. This is separate from **Apply Selected Changes**. It moves only the previewed subtrees, retains their identity and existing reference assignments, uses one Undo group, checks for stale state, and rolls back tool moves on unexpected failure. World position/rotation are retained; review nonuniform scale/shear inherited from different parents. No activation changes, deletion, copying, component creation or scene saving is performed.
+6. Read the fresh audit and rebuild replacement mappings. Preserved owners that still reference the old system now appear as incoming links. Preservation does not automatically remove those dependencies or establish that it is safe to retire the old system.
+
+Preservation queues can survive a window reload; preservation previews and candidate searches must be rebuilt. **Copy preservation report** captures the move preview for review. Test project-specific initialization and transform callbacks: arbitrary callback side effects outside tool-owned hierarchy moves are outside this operation's Undo contract. No TellVR objects are preserved automatically.
+
 ## Workflow
 
 1. Choose **Hierarchy**, assign an **Old Root**, and click **Trace Scene Links**. A replacement is optional for tracing.
@@ -41,8 +62,10 @@ Scene/project changes and Undo/Redo invalidate the transient preview. Apply also
 
 `FPSceneReferencePlannerTests` uses a Unity-created empty scene fixture copied into disposable test folders, leaving existing open scenes unsaved and intact. Focused Edit Mode coverage includes hidden/managed-reference fields, inactive content, boundary categories, unique/ambiguous mappings, changed-type compatibility, many-to-one review, stale selection, rollback, opt-in outgoing fields/slots, UnityEvents, explicit generic Timeline bindings, Undo/Redo, cancellation, and prefab overrides through scene save/reload.
 
-Validated November 1, 2026 in the connected FPLibraries Unity 6000.6.7f1 Editor: compilation completed with zero errors/warnings, and all 29 focused Edit Mode cases passed. Five new regression cases reproduced failures before the phase 2–3 completion fixes. Coverage now also checks destination collisions, unknown empty native destinations, changed collection types, callbacks changing earlier/later selected fields, outgoing Timeline compatibility and Undo/Redo, matching-value skips, repeated-component manual assignments, other loaded scenes, changed asset outputs and opening the menu without a selection. Existing replacement configuration and persistent callbacks are preserved during outgoing field transfers.
+Validated November 1, 2026 in the connected FPLibraries Unity 6000.6.7f1 Editor: compilation completed with zero errors/warnings, and all 42 focused Edit Mode cases passed. Five regression cases reproduced failures before the phase 2–3 completion fixes. Coverage checks destination collisions, unknown empty native destinations, changed collection types, callbacks changing earlier/later selected fields, outgoing Timeline compatibility and Undo/Redo, matching-value skips, repeated-component manual assignments, other loaded scenes, changed asset outputs and opening the menu without a selection. Existing replacement configuration and persistent callbacks are preserved during outgoing field transfers.
 
-Empty, populated and conflicting-outgoing preview layouts were visually inspected using disposable scene content. The package-wide test suite and project-specific runtime acceptance were not run. These changes are in the Utility source checkout; publishing a package release and refreshing consuming projects are separate steps.
+Review/preservation tests cover moved and absent types, same-role uncertainty, changed-type callback candidates, incompatible methods, duplicate GameObject names, read-only candidate searches/previews, subtree normalization, retained pose/reference assignments, fresh dependency audits, Undo/Redo, stale previews, failure rollback, prefab boundaries, inherited activation, cancellation and retaining unrelated manual mappings after preservation.
+
+Empty, populated, conflicting-outgoing, Suggestions and Keep Objects layouts were visually inspected using disposable scene content. The package-wide test suite and project-specific runtime acceptance were not run. These changes are in the Utility source checkout; publishing a package release and refreshing consuming projects are separate steps.
 
 Project-specific runtime acceptance, very large list responsiveness, missing-script repair, and broader event/list migrations are separate work. See [the design plan](FPSceneReferenceReplacerPlan.md) for acceptance scenarios and deferred extensions.

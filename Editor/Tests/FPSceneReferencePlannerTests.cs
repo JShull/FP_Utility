@@ -470,6 +470,182 @@ namespace FuzzPhyte.Utility.Editor.Tests
             var restored = scene.GetRootGameObjects().Single(g => PrefabUtility.IsPartOfPrefabInstance(g)).GetComponent<FPSceneReferenceTestOwner>();
             Assert.That(((Component)restored.Target).gameObject.name, Is.EqualTo("New"));
         }
+
+        [Test]
+        public void MappingReview_MovedComponentAndDifferentTypeCallbacks_AreSuggestionsOnly()
+        {
+            var source = Create("OldSceneObjective", oldRoot).AddComponent<FPSceneReferenceTestOwner>();
+            var moved = Create("DifferentObjectiveRole", newRoot).AddComponent<FPSceneReferenceTestOwner>();
+            var alternate = newRoot.AddComponent<FPSceneReferenceArrayTestOwner>();
+            UnityEventTools.AddPersistentListener(outside.Callback, source.Receive);
+            var plan = Preview();
+            var mapping = plan.Mappings.Single(m => m.Old == source);
+            bool wasDirty = scene.isDirty;
+            Assert.That(FPSceneMappingReview.Diagnosis(plan, mapping), Does.Contain("exist elsewhere"));
+            var candidates = FPSceneMappingReview.FindCandidates(plan, mapping);
+            Assert.That(candidates.Any(c => c.Target == moved && c.Blocker == null), Is.True);
+            Assert.That(candidates.Any(c => c.Target == alternate && c.Blocker == null), Is.True);
+            Assert.That(mapping.New, Is.Null, "A signature match must not silently assign a semantic role.");
+            Assert.That(outside.Callback.GetPersistentTarget(0), Is.EqualTo(source));
+            Assert.That(scene.isDirty, Is.EqualTo(wasDirty));
+            mapping.New = alternate; mapping.Manual = true;
+            FPSceneReferencePlanner.BuildPreview(plan, false);
+            Assert.That(FPSceneReferenceApply.Apply(plan, out var result), Is.True, result);
+            Assert.That(outside.Callback.GetPersistentTarget(0), Is.EqualTo(alternate));
+        }
+
+        [Test]
+        public void MappingReview_AbsentTypeAndIncompatibleCallbacks_AreExplained()
+        {
+            var source = Create("OldSceneObjective", oldRoot).AddComponent<FPSceneReferenceTestOwner>();
+            var alternate = newRoot.AddComponent<FPSceneReferenceArrayTestOwner>();
+            UnityEventTools.AddObjectPersistentListener(outside.ObjectCallback, source.ReceiveObject, outside);
+            var absent = oldRoot.AddComponent<BoxCollider>(); outside.ColliderTarget = absent;
+            var plan = Preview();
+            var mapping = plan.Mappings.Single(m => m.Old == source);
+            Assert.That(FPSceneMappingReview.FindCandidates(plan, mapping).Any(c => c.Target == alternate), Is.False);
+            Assert.That(FPSceneMappingReview.Diagnosis(plan, plan.Mappings.Single(m => m.Old == absent)), Does.Contain("absent"));
+            Assert.That(plan.Edits.Single(e => e.Source.Path == "ColliderTarget").Blocker, Does.Contain("absent"));
+        }
+
+        [Test]
+        public void MappingReview_MovedGameObjects_UseExactNameAndNeverSiblingOrder()
+        {
+            var source = Create("Specific", oldRoot);
+            var parent = Create("Moved", newRoot);
+            var a = Create("Specific", parent); var b = Create("Specific", parent);
+            outside.Target = source;
+            var plan = Preview();
+            var mapping = plan.Mappings.Single(m => m.Old == source);
+            var candidates = FPSceneMappingReview.FindCandidates(plan, mapping);
+            Assert.That(candidates.Select(c => c.Target), Is.EquivalentTo(new Object[] { a, b }));
+            Assert.That(mapping.New, Is.Null);
+        }
+
+        [Test]
+        public void Preserve_SubtreeRetainsPoseReferencesAndUndoRedo_ThenAuditsOldDependencies()
+        {
+            var root = Create("SceneObjective", oldRoot);
+            var child = Create("SceneAction", root);
+            var owner = root.AddComponent<FPSceneReferenceTestOwner>();
+            owner.Target = oldOwner; owner.HiddenTarget = child;
+            outside.Target = owner; oldOwner.Target = owner;
+            oldRoot.transform.SetPositionAndRotation(new Vector3(10, 3, 4), Quaternion.Euler(0, 25, 0));
+            root.transform.localPosition = new Vector3(2, 1, 3);
+            var destination = Create("SceneSpecific"); destination.transform.position = new Vector3(-5, 1, 3);
+            Vector3 world = root.transform.position; Quaternion rotation = root.transform.rotation;
+            bool wasDirty = scene.isDirty;
+            var preservation = FPSceneObjectPreservation.Build(oldRoot, newRoot, new[] { root, child }, destination);
+            Assert.That(preservation.Rows.Count, Is.EqualTo(1));
+            Assert.That(preservation.Rows[0].ReferencesToRemainingOld, Is.EqualTo(1));
+            Assert.That(root.transform.parent, Is.EqualTo(oldRoot.transform));
+            Assert.That(scene.isDirty, Is.EqualTo(wasDirty), "Building preservation preview must remain read-only.");
+            Assert.That(FPSceneObjectPreservation.Report(preservation), Does.Contain("references to remaining old hierarchy: 1"));
+            Assert.That(FPSceneObjectPreservation.Apply(preservation, out var result), Is.True, result);
+            Assert.That(root.transform.parent, Is.EqualTo(destination.transform));
+            Assert.That(Vector3.Distance(root.transform.position, world), Is.LessThan(0.001f));
+            Assert.That(Quaternion.Angle(root.transform.rotation, rotation), Is.LessThan(0.01f));
+            Assert.That(child.transform.parent, Is.EqualTo(root.transform));
+            Assert.That(outside.Target, Is.EqualTo(owner)); Assert.That(oldOwner.Target, Is.EqualTo(owner));
+            Assert.That(owner.Target, Is.EqualTo(oldOwner)); Assert.That(owner.HiddenTarget, Is.EqualTo(child));
+            var audit = FPSceneReferencePlanner.Trace(oldRoot, newRoot);
+            Assert.That(audit.Links.Any(l => l.Owner == owner && l.Target == oldOwner && l.Category == FPSceneLinkCategory.Incoming), Is.True);
+            Undo.PerformUndo(); Assert.That(root.transform.parent, Is.EqualTo(oldRoot.transform));
+            Undo.PerformRedo(); Assert.That(root.transform.parent, Is.EqualTo(destination.transform));
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public void Preserve_StalePreviewOrWriteFailure_LeavesParentsUnchanged(bool failDuringMove)
+        {
+            var a = Create("A", oldRoot); var b = Create("B", oldRoot);
+            var preservation = FPSceneObjectPreservation.Build(oldRoot, newRoot, new[] { a, b }, null);
+            if (!failDuringMove) outside.ConfigurationValue++;
+            Assert.That(FPSceneObjectPreservation.Apply(preservation, out var result,
+                failDuringMove ? count => throw new InvalidOperationException("injected failure") : (Action<int>)null), Is.False);
+            Assert.That(a.transform.parent, Is.EqualTo(oldRoot.transform));
+            Assert.That(b.transform.parent, Is.EqualTo(oldRoot.transform));
+            Assert.That(result, Does.Contain(failDuringMove ? "rolled back" : "preflight blocked"));
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public void Preserve_PrefabChildBlocksButOutermostInstanceCanMove(bool preserveChild)
+        {
+            var template = Create("Prefab"); Create("AuthoredChild", template);
+            var asset = PrefabUtility.SaveAsPrefabAsset(template, folder + "/Preserve.prefab");
+            Object.DestroyImmediate(template);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(asset, scene);
+            instance.transform.SetParent(oldRoot.transform);
+            var root = preserveChild ? instance.transform.GetChild(0).gameObject : instance;
+            var preservation = FPSceneObjectPreservation.Build(oldRoot, newRoot, new[] { root }, null);
+            Assert.That(preservation.Rows[0].Blocker == null, Is.EqualTo(!preserveChild));
+            if (preserveChild)
+            {
+                Assert.That(FPSceneObjectPreservation.Apply(preservation, out _), Is.False);
+                Assert.That(root.transform.parent, Is.EqualTo(instance.transform));
+                return;
+            }
+            Assert.That(FPSceneObjectPreservation.Apply(preservation, out var result), Is.True, result);
+            Assert.That(instance.transform.parent, Is.Null);
+            Assert.That(PrefabUtility.IsPartOfPrefabInstance(instance), Is.True);
+            Undo.PerformUndo(); Assert.That(instance.transform.parent, Is.EqualTo(oldRoot.transform));
+        }
+
+        [TestCase(false)] [TestCase(true)]
+        public void Preserve_ActivationInheritanceChangesBlock_ButInactiveRootsCanMove(bool activeSelf)
+        {
+            var root = Create("SceneSpecific", oldRoot); root.SetActive(activeSelf); oldRoot.SetActive(false);
+            var preservation = FPSceneObjectPreservation.Build(oldRoot, newRoot, new[] { root }, null);
+            Assert.That(preservation.Rows[0].Blocker == null, Is.EqualTo(!activeSelf));
+            Assert.That(FPSceneObjectPreservation.Apply(preservation, out _), Is.EqualTo(!activeSelf));
+            Assert.That(root.activeInHierarchy, Is.False);
+            Assert.That(root.activeSelf, Is.EqualTo(activeSelf));
+        }
+
+        [Test]
+        public void Preserve_InvalidRootsAndDestinations_AreBlocked()
+        {
+            var root = Create("SceneSpecific", oldRoot);
+            foreach (var invalid in new[] { oldRoot, outside.gameObject })
+                Assert.That(FPSceneObjectPreservation.Build(oldRoot, newRoot, new[] { invalid }, null).Rows[0].Blocker, Is.Not.Null);
+            foreach (var parent in new[] { oldRoot, newRoot, root })
+                Assert.That(FPSceneObjectPreservation.Build(oldRoot, newRoot, new[] { root }, parent).Rows[0].Blocker, Is.Not.Null);
+        }
+
+        [Test]
+        public void Preserve_CancelledScanCannotMoveObjects()
+        {
+            var root = Create("SceneSpecific", oldRoot);
+            var preservation = FPSceneObjectPreservation.Build(oldRoot, newRoot, new[] { root }, null, () => true);
+            Assert.That(preservation.Trace.Complete, Is.False);
+            Assert.That(FPSceneObjectPreservation.Apply(preservation, out _), Is.False);
+            Assert.That(root.transform.parent, Is.EqualTo(oldRoot.transform));
+        }
+
+        [Test]
+        public void Window_RescanRetainsUnrelatedManualMappingsAfterPreservation()
+        {
+            var source = Create("OldName", oldRoot).AddComponent<BoxCollider>();
+            var candidate = Create("NewName", newRoot).AddComponent<BoxCollider>();
+            var keep = Create("SceneSpecific", oldRoot);
+            var plan = Preview();
+            var mapping = plan.Mappings.Single(m => m.Old == source);
+            mapping.New = candidate; mapping.Manual = true; mapping.Reason = "Manually Assigned";
+            var window = ScriptableObject.CreateInstance<FPSceneReferenceReplaceEditorWindow>();
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            try
+            {
+                typeof(FPSceneReferenceReplaceEditorWindow).GetField("oldGameObject", flags).SetValue(window, oldRoot);
+                typeof(FPSceneReferenceReplaceEditorWindow).GetField("newGameObject", flags).SetValue(window, newRoot);
+                typeof(FPSceneReferenceReplaceEditorWindow).GetField("plan", flags).SetValue(window, plan);
+                var preservation = FPSceneObjectPreservation.Build(oldRoot, newRoot, new[] { keep }, null);
+                Assert.That(FPSceneObjectPreservation.Apply(preservation, out var result), Is.True, result);
+                typeof(FPSceneReferenceReplaceEditorWindow).GetMethod("Trace", flags).Invoke(window, new object[] { false });
+                var refreshed = (FPSceneReferencePlan)typeof(FPSceneReferenceReplaceEditorWindow).GetField("plan", flags).GetValue(window);
+                Assert.That(refreshed.Mappings.Single(m => m.Old == source).New, Is.EqualTo(candidate));
+                Assert.That(refreshed.Inventory, Has.No.Member(keep));
+            }
+            finally { Object.DestroyImmediate(window); }
+        }
     }
 
     public sealed class FPSceneReferenceTestPlayable : PlayableAsset

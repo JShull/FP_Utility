@@ -54,6 +54,7 @@ namespace FuzzPhyte.Utility.Editor
         internal readonly List<FPSceneLink> Links = new List<FPSceneLink>();
         internal readonly List<string> Warnings = new List<string>();
         internal readonly List<FPSceneObjectMapping> Mappings = new List<FPSceneObjectMapping>();
+        internal readonly Dictionary<Type, int> NewComponentTypeCounts = new Dictionary<Type, int>();
         internal readonly List<FPSceneReferenceEdit> Edits = new List<FPSceneReferenceEdit>();
         internal readonly List<(Object Owner, string Json)> Snapshot = new List<(Object, string)>();
     }
@@ -104,6 +105,12 @@ namespace FuzzPhyte.Utility.Editor
             {
                 if (cancelled != null && cancelled()) { plan.Complete = false; plan.Warnings.Add("Scan cancelled; results are incomplete."); break; }
                 if (Inside(owner, oldRoot)) plan.Inventory.Add(owner);
+                if (owner is Component && Inside(owner, newRoot))
+                {
+                    var type = owner.GetType();
+                    plan.NewComponentTypeCounts.TryGetValue(type, out int count);
+                    plan.NewComponentTypeCounts[type] = count + 1;
+                }
                 if (owner is GameObject go && go.GetComponents<Component>().Any(c => c == null))
                     plan.Warnings.Add("Missing script: " + Describe(go));
                 try
@@ -238,6 +245,8 @@ namespace FuzzPhyte.Utility.Editor
                     Owner = transfer ? mapping?.New : link.Owner, Proposed = transfer ? link.Target : mapping?.New,
                     Expected = transfer ? null : link.Target };
                 edit.Blocker = MappingError(plan, mapping);
+                if (mapping != null && !mapping.Ignored && mapping.New == null)
+                    edit.Blocker = FPSceneMappingReview.Diagnosis(plan, mapping);
                 if (edit.Blocker == null)
                 {
                     if (transfer && link.EventInfo != null) edit.Blocker = "Manual Transfer Required: UnityEvents need structural listener migration.";
