@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Extend Scene Reference Replacer with hierarchy inventory and boundary tracing, unique/manual mappings, per-edit previews, event/Timeline compatibility checks, atomic preflight and Undo rollback, prefab overrides, opt-in outgoing field/collection-slot transfers, post-apply audits and Markdown reports. Preserve object-pair mode. Event-list migration and exposed-reference tables remain manual; see `Editor/FPSceneReferenceReplacer.md`.
+
+- Share Audio Combine's ruler, time mapping and playhead rendering with Motion Studio through an internal Editor helper. Audio editing and playback behavior are preserved; no public API or package dependency was added.
+
 ## [1.1.1] - 2026-10-26
 
 Lots of fixes and minor tweaks to existing motion based work, adjustments to blendshape renaming from the editor, and some Android APK launching ability

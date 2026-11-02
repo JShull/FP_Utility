@@ -3,6 +3,7 @@
     "rootNamespace": "FuzzPhyte.Utility.Editor.Tests",
     "references": [
         "com.fuzzphyte.utility.editor",
+        "com.fuzzphyte.utility.tests.playmode",
         "com.fuzzphyte.utility",
         "Unity.TextMeshPro",
         "Unity.RenderPipelines.Universal.Runtime"

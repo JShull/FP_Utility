@@ -516,21 +516,7 @@ namespace FuzzPhyte.Utility.Editor
         private void DrawTimelineRuler(float timelineLength)
         {
             Rect fullRect = GUILayoutUtility.GetRect(10f, 10000f, 22f, 22f);
-            EditorGUI.DrawRect(fullRect, new Color(0.10f, 0.10f, 0.10f));
-            Rect rulerRect = ReserveViewerScrollbarGutter(fullRect);
-
-            Handles.BeginGUI();
-            Handles.color = new Color(1f, 1f, 1f, 0.18f);
-            int majorTicks = Mathf.Clamp(Mathf.CeilToInt(timelineLength), 1, 16);
-            for (int i = 0; i <= majorTicks; i++)
-            {
-                float time = timelineLength * (i / (float)majorTicks);
-                float x = Mathf.Lerp(rulerRect.x, rulerRect.xMax, i / (float)majorTicks);
-                Handles.DrawLine(new Vector3(x, rulerRect.yMax - 10f), new Vector3(x, rulerRect.yMax));
-                GUI.Label(new Rect(x + 3f, rulerRect.y + 1f, 54f, 16f), $"{time:F1}", EditorStyles.miniLabel);
-            }
-
-            Handles.EndGUI();
+            FPTimelineViewUtility.DrawRuler(ReserveViewerScrollbarGutter(fullRect), timelineLength);
         }
 
         private void DrawToolbar()
@@ -1464,18 +1450,7 @@ namespace FuzzPhyte.Utility.Editor
 
         private void DrawPlayheadLine(Rect r, float timelineLength, bool drawHandle = false)
         {
-            float xHead = Mathf.Lerp(r.x, r.xMax, timelineLength > 0f ? Mathf.Clamp01(playhead / timelineLength) : 0f);
-            if (drawHandle)
-            {
-                Rect lineRect = new Rect(xHead - 1.5f, r.y, 3f, r.height);
-                Rect capRect = new Rect(xHead - 6f, r.y, 12f, 7f);
-                Handles.DrawSolidRectangleWithOutline(lineRect, kPlayheadColor, new Color(0f, 0f, 0f, 0f));
-                Handles.DrawSolidRectangleWithOutline(capRect, Color.Lerp(kPlayheadColor, Color.white, 0.18f), new Color(0f, 0f, 0f, 0.35f));
-                return;
-            }
-
-            Handles.color = kPlayheadColor;
-            Handles.DrawLine(new Vector3(xHead, r.y), new Vector3(xHead, r.yMax));
+            FPTimelineViewUtility.DrawPlayhead(r, playhead, timelineLength, kPlayheadColor, drawHandle);
         }
 
         private void DrawExportStartLine(Rect r, float timelineLength)

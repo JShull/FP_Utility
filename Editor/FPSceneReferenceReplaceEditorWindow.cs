@@ -1,559 +1,261 @@
 // Copyright (c) 2026 John B. Shull.
 // FuzzPhyte LLC is a company associated with John B. Shull
-//
-// Public license: GNU GPLv3-or-later.
+// Public license: GNU GPLv3-or-later. See LICENSE.md.
 // Commercial/proprietary use requires a separate license from John B. Shull.
-//
-// See LICENSE.md.
-
 namespace FuzzPhyte.Utility.Editor
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
     using UnityEditor;
-    using UnityEditor.SceneManagement;
     using UnityEngine;
-    using UnityEngine.Playables;
-    using UnityEngine.SceneManagement;
-    using UnityEngine.Timeline;
-    public class FPSceneReferenceReplaceEditorWindow:EditorWindow
+    using Object = UnityEngine.Object;
+
+    public class FPSceneReferenceReplaceEditorWindow : EditorWindow
     {
-        private GameObject oldGameObject;
-        private GameObject newGameObject;
-
-        private MonoScript componentScript;
-
-        private bool replaceGameObjectReferences = true;
-        private bool replaceSpecificComponentReferences = true;
-        private bool includeInactiveObjects = true;
-        private bool includePlayableDirectorBindings = true;
-        private bool logPlayableDirectorBindings = true;
-
-        private Vector2 scroll;
+        [SerializeField] private GameObject oldGameObject, newGameObject;
+        [SerializeField] private MonoScript componentScript;
+        [SerializeField] private bool hierarchyMode = true, replaceGameObjectReferences = true, replaceSpecificComponentReferences = true;
+        [SerializeField] private bool transferOutgoing;
+        [SerializeField] private string filter = "";
+        [SerializeField] private int tab;
+        [SerializeField] private FPSceneLinkCategory category = FPSceneLinkCategory.Incoming;
+        private FPSceneReferencePlan plan;
+        private Vector2 controlsScroll, resultsScroll;
+        private string status = "Trace an old root to inspect scene connections. Plans are cleared after domain reload.";
+        private bool stale;
+        private int page;
 
         [MenuItem("FuzzPhyte/Utility/Scene/Scene Reference Replacer", priority = FP_UtilityData.MENU_UTILITY_SCENE + 12)]
         public static void Open()
         {
             var window = GetWindow<FPSceneReferenceReplaceEditorWindow>();
             window.titleContent = new GUIContent("Scene Ref Replacer");
+            window.minSize = new Vector2(860, 520);
             window.Show();
         }
-
+        private void OnEnable()
+        {
+            plan = null;
+            EditorApplication.hierarchyChanged += Invalidate;
+            EditorApplication.projectChanged += Invalidate;
+            Undo.undoRedoPerformed += Invalidate;
+            ObjectChangeEvents.changesPublished += ObjectsChanged;
+        }
+        private void OnDisable()
+        {
+            EditorApplication.hierarchyChanged -= Invalidate;
+            EditorApplication.projectChanged -= Invalidate;
+            Undo.undoRedoPerformed -= Invalidate;
+            ObjectChangeEvents.changesPublished -= ObjectsChanged;
+        }
+        private void ObjectsChanged(ref ObjectChangeEventStream stream) => Invalidate();
+        private void Invalidate() { if (plan != null) stale = true; Repaint(); }
         private void OnGUI()
         {
-            scroll = EditorGUILayout.BeginScrollView(scroll);
-
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.Width(300))) DrawControls();
+                GUILayout.Space(6);
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox)) DrawResults();
+            }
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.MinHeight(70)))
+            {
+                EditorGUILayout.LabelField("Status", EditorStyles.boldLabel);
+                if (FPSceneReferenceApply.WriteBlocker != null) EditorGUILayout.HelpBox(FPSceneReferenceApply.WriteBlocker, MessageType.Warning);
+                if (stale) EditorGUILayout.HelpBox("Scene or project changed. Rebuild Preview before applying; manual mappings are retained.", MessageType.Warning);
+                EditorGUILayout.HelpBox(status, MessageType.Info);
+            }
+        }
+        private void DrawControls()
+        {
+            controlsScroll = EditorGUILayout.BeginScrollView(controlsScroll);
             EditorGUILayout.LabelField("Scene Reference Replacer", EditorStyles.boldLabel);
-            EditorGUILayout.Space();
-
-            EditorGUILayout.HelpBox(
-                "Replaces references in the active scene only. Select an old GameObject, a new GameObject, and optionally a specific component script such as TVModuleManager.cs.",
-                MessageType.Info
-            );
-
-            oldGameObject = (GameObject)EditorGUILayout.ObjectField(
-                "Old GameObject",
-                oldGameObject,
-                typeof(GameObject),
-                true
-            );
-
-            newGameObject = (GameObject)EditorGUILayout.ObjectField(
-                "New GameObject",
-                newGameObject,
-                typeof(GameObject),
-                true
-            );
-
-            componentScript = (MonoScript)EditorGUILayout.ObjectField(
-                "Specific Component Script",
-                componentScript,
-                typeof(MonoScript),
-                false
-            );
-
-            EditorGUILayout.Space();
-
-            replaceGameObjectReferences = EditorGUILayout.ToggleLeft(
-                "Replace GameObject references",
-                replaceGameObjectReferences
-            );
-
-            replaceSpecificComponentReferences = EditorGUILayout.ToggleLeft(
-                "Replace references to matching component type",
-                replaceSpecificComponentReferences
-            );
-
-            includeInactiveObjects = EditorGUILayout.ToggleLeft(
-                "Include inactive objects",
-                includeInactiveObjects
-            );
-            
-            includePlayableDirectorBindings = EditorGUILayout.ToggleLeft(
-                "Include PlayableDirector / Timeline bindings",
-                includePlayableDirectorBindings
-            );
-            if (includePlayableDirectorBindings)
+            EditorGUI.BeginChangeCheck();
+            hierarchyMode = GUILayout.Toolbar(hierarchyMode ? 1 : 0, new[] { "Object Pair", "Hierarchy" }) == 1;
+            oldGameObject = RootField("Old Root", oldGameObject);
+            newGameObject = RootField("New Root", newGameObject);
+            if (!hierarchyMode)
             {
-                logPlayableDirectorBindings = EditorGUILayout.ToggleLeft(
-                "Log PlayableDirector / Timeline bindings before replacement",
-                logPlayableDirectorBindings
-                );
+                componentScript = (MonoScript)EditorGUILayout.ObjectField("Component Script", componentScript, typeof(MonoScript), false);
+                replaceGameObjectReferences = EditorGUILayout.ToggleLeft("Replace GameObject references", replaceGameObjectReferences);
+                replaceSpecificComponentReferences = EditorGUILayout.ToggleLeft("Replace selected component type", replaceSpecificComponentReferences);
             }
-            else
+            if (EditorGUI.EndChangeCheck()) { plan = null; stale = false; }
+            EditorGUILayout.HelpBox("Active scene only, including inactive objects and Timeline generic bindings. Trace and preview are read-only.", MessageType.Info);
+            string traceError = FPSceneReferencePlanner.ValidateRoots(oldGameObject, newGameObject, false);
+            if (traceError != null) EditorGUILayout.HelpBox(traceError, MessageType.Warning);
+            using (new EditorGUI.DisabledScope(traceError != null || EditorApplication.isCompiling || EditorApplication.isUpdating))
+                if (GUILayout.Button("Trace Scene Links")) Trace(false);
+            bool nextTransfers = EditorGUILayout.ToggleLeft("Transfer outgoing scene links (opt-in)", transferOutgoing);
+            if (nextTransfers != transferOutgoing) { transferOutgoing = nextTransfers; if (plan != null) plan.HasPreview = false; }
+            string previewError = FPSceneReferencePlanner.ValidateRoots(oldGameObject, newGameObject, true);
+            using (new EditorGUI.DisabledScope(previewError != null || EditorApplication.isCompiling || EditorApplication.isUpdating))
+                if (GUILayout.Button(plan == null ? "Build Replacement Preview" : "Rebuild Preview", GUILayout.Height(30))) Trace(true);
+            if (plan != null)
             {
-                logPlayableDirectorBindings = false;
-            }
-            EditorGUILayout.Space();
-
-            using (new EditorGUI.DisabledScope(!CanRun()))
-            {
-                if (GUILayout.Button("Replace References In Active Scene", GUILayout.Height(32)))
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Scope: " + plan.Scene.name);
+                EditorGUILayout.LabelField("Inventory: " + plan.Inventory.Count + " objects/components");
+                EditorGUILayout.LabelField("Discovered links: " + plan.Links.Count);
+                EditorGUILayout.LabelField("Eligible: " + plan.Edits.Count(e => e.Ready) + " / Selected: " + plan.Edits.Count(e => e.Selected));
+                EditorGUILayout.LabelField("Unmapped objects: " + plan.Mappings.Count(m => !m.Ignored && m.New == null));
+                EditorGUILayout.LabelField("Blocked edits: " + plan.Edits.Count(e => !e.Ready));
+                var color = GUI.backgroundColor;
+                GUI.backgroundColor = FP_Utility_Editor.OkayColor;
+                using (new EditorGUI.DisabledScope(stale || !plan.Complete || !plan.HasPreview || !plan.Edits.Any(e => e.Selected) || FPSceneReferenceApply.WriteBlocker != null))
+                    if (GUILayout.Button("Apply Selected Changes", GUILayout.Height(32))) Apply();
+                GUI.backgroundColor = color;
+                if (GUILayout.Button("Copy Markdown Report")) EditorGUIUtility.systemCopyBuffer = FPSceneReferencePlanner.Report(plan);
+                if (GUILayout.Button("Export Markdown Report"))
                 {
-                    ReplaceReferencesInActiveScene();
+                    string path = EditorUtility.SaveFilePanel("Export scene reference audit", "", "SceneReferenceAudit", "md");
+                    if (!string.IsNullOrEmpty(path)) File.WriteAllText(path, FPSceneReferencePlanner.Report(plan));
                 }
             }
-
             EditorGUILayout.EndScrollView();
         }
-
-        private bool CanRun()
+        private static GameObject RootField(string label, GameObject value)
         {
-            if (oldGameObject == null || newGameObject == null)
-            {
-                return false;
-            }
-
-            if (oldGameObject == newGameObject)
-            {
-                return false;
-            }
-
-            if (replaceSpecificComponentReferences && componentScript == null)
-            {
-                return false;
-            }
-
-            return true;
+            float labelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 70;
+            value = (GameObject)EditorGUILayout.ObjectField(label, value, typeof(GameObject), true);
+            EditorGUIUtility.labelWidth = labelWidth;
+            if (GUILayout.Button("Use Selection for " + label)) value = Selection.activeGameObject;
+            return value;
         }
-
-        private void ReplaceReferencesInActiveScene()
+        private void Trace(bool preview)
         {
-            var activeScene = SceneManager.GetActiveScene();
-
-            if (!activeScene.IsValid() || !activeScene.isLoaded)
-            {
-                Debug.LogWarning("No valid active scene found.");
-                return;
-            }
-
-            Type componentType = null;
-
-            if (replaceSpecificComponentReferences)
-            {
-                componentType = componentScript.GetClass();
-
-                if (componentType == null)
-                {
-                    Debug.LogWarning("Selected script does not resolve to a valid class.");
-                    return;
-                }
-
-                if (!typeof(Component).IsAssignableFrom(componentType))
-                {
-                    Debug.LogWarning("Selected script is not a Component type.");
-                    return;
-                }
-            }
-
-            var oldComponent = componentType == null
-                ? null
-                : oldGameObject.GetComponent(componentType);
-
-            var newComponent = componentType == null
-                ? null
-                : newGameObject.GetComponent(componentType);
-
-            if (replaceSpecificComponentReferences)
-            {
-                if (oldComponent == null)
-                {
-                    Debug.LogWarning($"Old GameObject does not have component: {componentType.Name}");
-                    return;
-                }
-
-                if (newComponent == null)
-                {
-                    Debug.LogWarning($"New GameObject does not have component: {componentType.Name}");
-                    return;
-                }
-            }
-
-            var replacementMap = new Dictionary<UnityEngine.Object, UnityEngine.Object>();
-
-            if (replaceGameObjectReferences)
-            {
-                replacementMap[oldGameObject] = newGameObject;
-            }
-
-            if (replaceSpecificComponentReferences && oldComponent != null && newComponent != null)
-            {
-                replacementMap[oldComponent] = newComponent;
-            }
-
-            var allSceneObjects = GetAllObjectsInScene(activeScene, includeInactiveObjects);
-
-            int changedObjectCount = 0;
-            int changedReferenceCount = 0;
-
-            Undo.IncrementCurrentGroup();
-            int undoGroup = Undo.GetCurrentGroup();
-            Undo.SetCurrentGroupName("Replace Scene References");
-
-            foreach (var sceneObject in allSceneObjects)
-            {
-                if (sceneObject == null)
-                {
-                    continue;
-                }
-
-                var result = ReplaceObjectReferences(sceneObject, replacementMap);
-
-                if (result.changed)
-                {
-                    changedObjectCount++;
-                    changedReferenceCount += result.referenceCount;
-                }
-            }
-
-            if (includePlayableDirectorBindings)
-            {
-                foreach (var director in FindObjectsInScene<PlayableDirector>(activeScene, includeInactiveObjects))
-                {
-                    DebugPlayableDirectorBindings(director);
-                    var result = ReplacePlayableDirectorBindings(director, oldGameObject, newGameObject,replacementMap);
-
-                    if (result.changed)
-                    {
-                        changedObjectCount++;
-                        changedReferenceCount += result.referenceCount;
-                    }
-                }
-            }
-
-            Undo.CollapseUndoOperations(undoGroup);
-
-            if (changedReferenceCount > 0)
-            {
-                EditorSceneManager.MarkSceneDirty(activeScene);
-            }
-
-            Debug.Log(
-                $"Reference replacement complete in scene '{activeScene.name}'. " +
-                $"Changed {changedReferenceCount} reference(s) across {changedObjectCount} object(s)."
-            );
-        }
-
-        private static List<UnityEngine.Object> GetAllObjectsInScene(Scene scene, bool includeInactive)
-        {
-            var results = new List<UnityEngine.Object>();
-
-            foreach (var root in scene.GetRootGameObjects())
-            {
-                if (root == null)
-                {
-                    continue;
-                }
-
-                results.Add(root);
-
-                var transforms = root.GetComponentsInChildren<Transform>(includeInactive);
-
-                foreach (var transform in transforms)
-                {
-                    if (transform == null)
-                    {
-                        continue;
-                    }
-
-                    var gameObject = transform.gameObject;
-
-                    if (gameObject == null)
-                    {
-                        continue;
-                    }
-
-                    if (!results.Contains(gameObject))
-                    {
-                        results.Add(gameObject);
-                    }
-
-                    var components = gameObject.GetComponents<Component>();
-
-                    foreach (var component in components)
-                    {
-                        if (component == null)
-                        {
-                            continue;
-                        }
-
-                        results.Add(component);
-                    }
-                }
-            }
-
-            return results;
-        }
-
-        private static IEnumerable<T> FindObjectsInScene<T>(Scene scene, bool includeInactive)
-            where T : Component
-        {
-            foreach (var root in scene.GetRootGameObjects())
-            {
-                var components = root.GetComponentsInChildren<T>(includeInactive);
-
-                foreach (var component in components)
-                {
-                    if (component != null)
-                    {
-                        yield return component;
-                    }
-                }
-            }
-        }
-
-        private static (bool changed, int referenceCount) ReplaceObjectReferences(
-            UnityEngine.Object targetObject,
-            Dictionary<UnityEngine.Object, UnityEngine.Object> replacementMap
-        )
-        {
-            if (targetObject == null)
-            {
-                return (false, 0);
-            }
-
-            SerializedObject serializedObject;
-
             try
             {
-                serializedObject = new SerializedObject(targetObject);
-            }
-            catch
-            {
-                return (false, 0);
-            }
-
-            bool changed = false;
-            int referenceCount = 0;
-
-            var property = serializedObject.GetIterator();
-
-            bool enterChildren = true;
-
-            while (property.NextVisible(enterChildren))
-            {
-                enterChildren = true;
-
-                if (property.propertyType != SerializedPropertyType.ObjectReference)
+                var previous = plan;
+                plan = FPSceneReferencePlanner.Trace(oldGameObject, newGameObject,
+                    () => EditorUtility.DisplayCancelableProgressBar("Scene Reference Replacer", "Scanning active scene", 0.5f));
+                if (preview && plan.Complete)
                 {
-                    continue;
+                    if (previous != null && previous.OldRoot == plan.OldRoot && previous.NewRoot == plan.NewRoot)
+                        foreach (var mapping in plan.Mappings)
+                        {
+                            var old = previous.Mappings.FirstOrDefault(m => m.Old == mapping.Old && (m.Manual || m.Ignored));
+                            if (old != null) { mapping.New = old.New; mapping.Manual = old.Manual; mapping.Ignored = old.Ignored; mapping.Reason = old.Reason; mapping.ReviewManyToOne = old.ReviewManyToOne; }
+                        }
+                    if (!hierarchyMode) ConfigurePair();
+                    FPSceneReferencePlanner.BuildPreview(plan, transferOutgoing);
                 }
-
-                var currentReference = property.objectReferenceValue;
-
-                if (currentReference == null)
-                {
-                    continue;
-                }
-
-                if (!replacementMap.TryGetValue(currentReference, out var replacement))
-                {
-                    continue;
-                }
-
-                Undo.RecordObject(targetObject, "Replace Object Reference");
-
-                property.objectReferenceValue = replacement;
-                changed = true;
-                referenceCount++;
-
-                Debug.Log(
-                    $"Replaced reference on {targetObject.name} property '{property.propertyPath}': " +
-                    $"{currentReference.name} -> {replacement.name}",
-                    targetObject
-                );
+                stale = false;
+                page = 0;
+                status = plan.Complete ? preview ? "Preview ready. Review mappings and selected edits before applying." : "Read-only trace completed." : "Scan incomplete. Apply is blocked.";
             }
-
-            if (changed)
-            {
-                serializedObject.ApplyModifiedProperties();
-                EditorUtility.SetDirty(targetObject);
-            }
-
-            return (changed, referenceCount);
+            catch (Exception ex) { status = ex.Message; plan = null; }
+            finally { EditorUtility.ClearProgressBar(); }
         }
-
-        private static (bool changed, int referenceCount) ReplacePlayableDirectorBindings(
-            PlayableDirector director,
-            GameObject oldGameObject,
-            GameObject newGameObject,
-            Dictionary<UnityEngine.Object, UnityEngine.Object> replacementMap
-        )
+        private void ConfigurePair()
         {
-            if (director == null || director.playableAsset == null)
-            {
-                return (false, 0);
-            }
-
-            bool changed = false;
-            int referenceCount = 0;
-
-            foreach (var output in director.playableAsset.outputs)
-            {
-                var sourceObject = output.sourceObject;
-
-                if (sourceObject == null)
-                {
-                    continue;
-                }
-
-                var currentBinding = director.GetGenericBinding(sourceObject);
-
-                if (currentBinding == null)
-                {
-                    continue;
-                }
-
-                UnityEngine.Object replacement = null;
-
-                // Normal binding replacement:
-                // old GameObject -> new GameObject
-                // old component -> new component
-                if (replacementMap.TryGetValue(currentBinding, out var mappedReplacement))
-                {
-                    replacement = mappedReplacement;
-                }
-
-                // Signal Track-specific fallback.
-                // Signal tracks may appear as GameObject bindings or SignalReceiver bindings.
-                if (replacement == null && sourceObject is SignalTrack)
-                {
-                    replacement = GetSignalTrackReplacement(
-                        currentBinding,
-                        oldGameObject,
-                        newGameObject
-                    );
-                }
-
-                if (replacement == null || replacement == currentBinding)
-                {
-                    continue;
-                }
-
-                Undo.RecordObject(director, "Replace Timeline Binding");
-
-                director.SetGenericBinding(sourceObject, replacement);
-
-                changed = true;
-                referenceCount++;
-
-                Debug.Log(
-                    $"Replaced Timeline binding on '{director.name}' / '{sourceObject.name}': " +
-                    $"{currentBinding.name} -> {replacement.name}",
-                    director
-                );
-            }
-
-            if (changed)
-            {
-                EditorUtility.SetDirty(director);
-            }
-
-            return (changed, referenceCount);
+            var type = componentScript == null ? null : componentScript.GetClass();
+            if (replaceSpecificComponentReferences && (type == null || !typeof(Component).IsAssignableFrom(type))) throw new InvalidOperationException("Choose a Component script or disable component replacement.");
+            foreach (var mapping in plan.Mappings)
+                mapping.Ignored = !(mapping.Old == oldGameObject && replaceGameObjectReferences) &&
+                    !(replaceSpecificComponentReferences && mapping.Old is Component c && c.gameObject == oldGameObject && c.GetType() == type);
         }
-        private static UnityEngine.Object GetSignalTrackReplacement(
-            UnityEngine.Object currentBinding,
-            GameObject oldGameObject,
-            GameObject newGameObject
-)
+        private void Apply()
         {
-            if (currentBinding == null || oldGameObject == null || newGameObject == null)
-            {
-                return null;
-            }
-
-            // Case 1:
-            // The Signal Track is bound directly to the old GameObject.
-            if (currentBinding == oldGameObject)
-            {
-                return newGameObject;
-            }
-
-            // Case 2:
-            // The Signal Track is bound to a SignalReceiver component on the old GameObject.
-            if (currentBinding is SignalReceiver oldSignalReceiver)
-            {
-                if (oldSignalReceiver.gameObject != oldGameObject)
-                {
-                    return null;
-                }
-
-                var newSignalReceiver = newGameObject.GetComponent<SignalReceiver>();
-
-                if (newSignalReceiver != null)
-                {
-                    return newSignalReceiver;
-                }
-
-                // Optional: auto-add SignalReceiver if the old object had one.
-                newSignalReceiver = Undo.AddComponent<SignalReceiver>(newGameObject);
-                EditorUtility.SetDirty(newGameObject);
-
-                return newSignalReceiver;
-            }
-
-            // Case 3:
-            // Some Timeline bindings are stored as components.
-            // If the bound component belongs to the old object, try to find
-            // a matching component type on the new object.
-            if (currentBinding is Component oldComponent)
-            {
-                if (oldComponent.gameObject != oldGameObject)
-                {
-                    return null;
-                }
-
-                var newComponent = newGameObject.GetComponent(oldComponent.GetType());
-
-                if (newComponent != null)
-                {
-                    return newComponent;
-                }
-            }
-
-            return null;
+            if (!FPSceneReferenceApply.Apply(plan, out status)) { stale = true; return; }
+            string applied = status;
+            plan = FPSceneReferencePlanner.Trace(oldGameObject, newGameObject);
+            int incoming = plan.Links.Count(l => l.Category == FPSceneLinkCategory.Incoming);
+            int replacement = plan.Links.Count(l => l.Category == FPSceneLinkCategory.ReplacementToOld);
+            status = applied + " Audit: " + incoming + " surrounding-scene links and " + replacement + " replacement-to-old links remain. Retire the old hierarchy manually and validate runtime behavior.";
+            stale = false;
         }
-        private static void DebugPlayableDirectorBindings(PlayableDirector director)
+        private bool Matches(string text) => string.IsNullOrEmpty(filter) || text.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
+        private bool Matches(FPSceneReferenceEdit e) => Matches(FPSceneReferencePlanner.Describe(e.Owner) + " " + e.Source.Path + " " + e.Blocker + " " + FPSceneReferencePlanner.Describe(e.Expected) + " " + FPSceneReferencePlanner.Describe(e.Proposed));
+        private void DrawResults()
         {
-            if (director == null || director.playableAsset == null)
+            EditorGUI.BeginChangeCheck();
+            tab = GUILayout.Toolbar(tab, new[] { "Inventory", "Connections", "Mappings", "Preview", "Warnings" });
+            filter = EditorGUILayout.TextField("Filter (display only)", filter);
+            if (EditorGUI.EndChangeCheck()) { page = 0; resultsScroll = Vector2.zero; }
+            if (plan == null) { EditorGUILayout.HelpBox("Choose roots and trace scene links to begin.", MessageType.Info); return; }
+            if (tab == 1) category = (FPSceneLinkCategory)EditorGUILayout.EnumPopup("Connection group", category);
+            if (tab == 3)
             {
-                return;
+                EditorGUILayout.HelpBox("Incoming edits start selected. Transfers, collection slots and replacement-to-old edits require individual selection. Bulk actions affect all filtered rows across pages; selection includes only ready incoming rows.", MessageType.Info);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Select filtered incoming")) foreach (var e in plan.Edits.Where(e => e.Ready && !e.Transfer && e.Source.Category == FPSceneLinkCategory.Incoming && Matches(e))) e.Selected = true;
+                    if (GUILayout.Button("Deselect filtered")) foreach (var e in plan.Edits.Where(Matches)) e.Selected = false;
+                }
             }
-
-            foreach (var output in director.playableAsset.outputs)
+            resultsScroll = EditorGUILayout.BeginScrollView(resultsScroll);
+            if (tab == 0) foreach (var item in PageRows(plan.Inventory.Where(o => Matches(FPSceneReferencePlanner.Describe(o))))) ObjectRow("Inventory", item);
+            if (tab == 1)
+                foreach (var link in PageRows(plan.Links.Where(l => l.Category == category && Matches(FPSceneReferencePlanner.Describe(l.Owner) + " " + l.Path + " " + FPSceneReferencePlanner.Describe(l.Target)))))
+                    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                    {
+                        ObjectRow("Owner", link.Owner); EditorGUILayout.LabelField(link.IsBinding ? "Timeline: " + link.Path : link.Path, EditorStyles.wordWrappedLabel);
+                        if (link.IsBinding) ObjectRow("Binding key", link.BindingKey);
+                        ObjectRow("Target", link.Target); if (link.EventInfo != null) EditorGUILayout.LabelField(link.EventInfo, EditorStyles.wordWrappedLabel);
+                    }
+            if (tab == 2) DrawMappings();
+            if (tab == 3)
+                foreach (var edit in PageRows(plan.Edits.Where(Matches)))
+                    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                    {
+                        using (new EditorGUI.DisabledScope(!edit.Ready || !plan.HasPreview || stale)) edit.Selected = EditorGUILayout.ToggleLeft((edit.Transfer ? "Outgoing transfer" : edit.Source.Category.ToString()) + " / " + edit.Source.Path, edit.Selected);
+                        ObjectRow("Owner", edit.Owner); ObjectRow("Expected current", edit.Expected); ObjectRow("Proposed", edit.Proposed);
+                        if (edit.Source.IsBinding) ObjectRow("Binding key", edit.Source.BindingKey);
+                        EditorGUILayout.LabelField(edit.Blocker ?? (edit.Transfer ? "Ready - explicit review required" : "Ready"), EditorStyles.wordWrappedLabel);
+                        if (edit.Transfer && edit.Expected != null && edit.Expected != edit.Proposed) EditorGUILayout.LabelField("Conflict: destination is populated.", EditorStyles.boldLabel);
+                        EditorGUILayout.LabelField(edit.Mapping?.Reason ?? "Unmapped", EditorStyles.miniLabel);
+                    }
+            if (tab == 4) foreach (string warning in plan.Warnings.Where(Matches)) EditorGUILayout.HelpBox(warning, MessageType.Warning);
+            EditorGUILayout.EndScrollView();
+        }
+        private void DrawMappings()
+        {
+            foreach (var mapping in PageRows(plan.Mappings.Where(m => Matches(FPSceneReferencePlanner.Describe(m.Old) + " " + FPSceneReferencePlanner.Describe(m.New) + " " + m.Reason))))
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    ObjectRow("Old", mapping.Old);
+                    EditorGUI.BeginChangeCheck();
+                    var proposed = EditorGUILayout.ObjectField("New member", mapping.New, typeof(Object), true);
+                    bool ignored = EditorGUILayout.Toggle("Ignore mapping", mapping.Ignored);
+                    bool reviewed = EditorGUILayout.Toggle("Reviewed many-to-one", mapping.ReviewManyToOne);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        mapping.New = proposed; mapping.Ignored = ignored; mapping.ReviewManyToOne = reviewed;
+                        mapping.Manual = true; mapping.Reason = "Manually Assigned"; plan.HasPreview = false;
+                    }
+                    EditorGUILayout.LabelField(FPSceneReferencePlanner.MappingError(plan, mapping) ?? mapping.Reason, EditorStyles.wordWrappedLabel);
+                }
+        }
+        private IEnumerable<T> PageRows<T>(IEnumerable<T> source)
+        {
+            const int pageSize = 100;
+            var rows = source.ToArray();
+            int lastPage = Mathf.Max(0, (rows.Length - 1) / pageSize);
+            page = Mathf.Clamp(page, 0, lastPage);
+            using (new EditorGUILayout.HorizontalScope())
             {
-                var sourceObject = output.sourceObject;
-                var binding = director.GetGenericBinding(sourceObject);
-
-                Debug.Log(
-                    $"Director: {director.name} | " +
-                    $"Track: {sourceObject?.name ?? "NULL"} | " +
-                    $"Track Type: {sourceObject?.GetType().Name ?? "NULL"} | " +
-                    $"Binding: {(binding == null ? "NULL" : binding.name)} | " +
-                    $"Binding Type: {(binding == null ? "NULL" : binding.GetType().Name)}",
-                    director
-                );
+                using (new EditorGUI.DisabledScope(page == 0)) if (GUILayout.Button("Previous", GUILayout.Width(70))) { page--; resultsScroll = Vector2.zero; }
+                GUILayout.Label(rows.Length + " filtered rows | Page " + (page + 1) + " / " + (lastPage + 1), EditorStyles.miniLabel);
+                using (new EditorGUI.DisabledScope(page == lastPage)) if (GUILayout.Button("Next", GUILayout.Width(50))) { page++; resultsScroll = Vector2.zero; }
             }
+            return rows.Skip(page * pageSize).Take(pageSize);
+        }
+        private static void ObjectRow(string label, Object value)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(true)) EditorGUILayout.ObjectField(label, value, typeof(Object), true);
+                using (new EditorGUI.DisabledScope(value == null))
+                {
+                    if (GUILayout.Button("Select", GUILayout.Width(48))) Selection.activeObject = value;
+                    if (GUILayout.Button("Ping", GUILayout.Width(38))) EditorGUIUtility.PingObject(value);
+                }
+            }
+            EditorGUILayout.LabelField(FPSceneReferencePlanner.Describe(value), EditorStyles.wordWrappedMiniLabel);
         }
     }
 }
