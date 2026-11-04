@@ -22,6 +22,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             public uint frameRateNumerator, frameRateDenominator;
             public bool includesAudio;
             public string audioTrimMethod;
+            public string sourceDecodePrecision, processingPrecision, outputPrecision;
             public long audioSeekSampleFrame;
             public double audioPrerollSeconds;
             public string stitching;
@@ -185,13 +186,16 @@ namespace FuzzPhyte.Utility.Editor.Video
                 sourceInSeconds = firstFrame / info.FrameRate, sourceOutSeconds = endFrame / info.FrameRate,
                 frames = endFrame - firstFrame, frameRateNumerator = info.RateNumerator, frameRateDenominator = info.RateDenominator,
                 includesAudio = audio, audioSampleFrames = writtenSampleFrames,
+                sourceDecodePrecision = "8-bit native video decode",
+                processingPrecision = FPVideoUnwrapRenderer.SupportsHighPrecision ? "FP16 linear RGB" : "8-bit SDR fallback",
+                outputPrecision = "8-bit H.264 SDR",
                 audioTrimMethod = AudioTrimMethod, audioSeekSampleFrame = audio ? audioStartSample / info.AudioChannels : 0,
                 audioPrerollSeconds = audio ? (firstSample - audioStartSample) / (double)(info.AudioSampleRate * info.AudioChannels) : 0,
                 flowMethod = settings.opticalFlow ? FPVideoFarneback.MethodVersion : "Disabled",
                 temporalMethod = settings.opticalFlow && settings.flowTemporalSmoothing ? "Confidence-gated vector EMA v1; reset at export In" : "Disabled",
                 colorMethod = settings.colorTuning ? "SDR output grade v3; creative curve " + settings.colorCurve : "Disabled",
                 stitching = (settings.sourceProjection == FPVideoSourceProjection.Equirectangular ? "Equirectangular reprojection without lens stitching" :
-                    "Equidistant lenses with " + (settings.useDirectionalSeam ? "directional seam blending" : "angular edge-feather blending")) +
+                    (settings.useFactoryCalibration ? "Experimental X6 v6 unified-sphere lenses at infinity; translation not applied; " : "Equidistant lenses with ") + (settings.useDirectionalSeam ? "directional seam blending" : "angular edge-feather blending")) +
                     (settings.opticalFlow ? "; experimental bidirectional polynomial flow" : "; no optical flow") + "; no gyro stabilization. MP4 spherical metadata is not injected.",
                 video = new FPVideoManifestItem { id = Path.GetFileNameWithoutExtension(OutputPath), version = "1.0.0", fileName = Path.GetFileName(OutputPath),
                     sha256 = Hash, contentLength = new FileInfo(temporaryPath).Length, downloadUrl = "" }

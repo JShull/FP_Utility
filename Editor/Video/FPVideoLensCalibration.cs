@@ -11,7 +11,9 @@ namespace FuzzPhyte.Utility.Editor.Video
     {
         [Serializable] private sealed class Header { public string format; public int version; }
         public string format = "FPVideoLensCalibration";
-        public int version = 3;
+        public int version = 4;
+        public bool useFactoryCalibration;
+        public FPVideoFactoryCalibration factoryCalibration;
         public string name;
         public float lensFov, rightLensFov, blendDegrees, seamYaw, seamWidth;
         public Vector2 leftCenter, rightCenter, lensRadius, rightLensRadius;
@@ -30,6 +32,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             return new FPVideoLensCalibration
             {
                 name = s.calibrationName, lensFov = s.lensFov, rightLensFov = s.rightLensFov, blendDegrees = s.blendDegrees,
+                useFactoryCalibration = s.useFactoryCalibration, factoryCalibration = s.factoryCalibration?.Snapshot(),
                 seamYaw = s.seamYaw, seamWidth = s.seamWidth, leftCenter = s.leftCenter, rightCenter = s.rightCenter,
                 lensRadius = s.lensRadius, rightLensRadius = s.rightLensRadius, leftRotation = s.leftRotation, rightRotation = s.rightRotation,
                 independentRightLens = s.independentRightLens, useDirectionalSeam = s.useDirectionalSeam, flipX = s.flipX, flipY = s.flipY,
@@ -41,8 +44,8 @@ namespace FuzzPhyte.Utility.Editor.Video
         internal static FPVideoLensCalibration Parse(string json)
         {
             var header = JsonUtility.FromJson<Header>(json);
-            if (header == null || header.format != "FPVideoLensCalibration" || header.version < 1 || header.version > 3)
-                throw new InvalidDataException("Choose a version 1, 2 or 3 FP Video lens calibration JSON file.");
+            if (header == null || header.format != "FPVideoLensCalibration" || header.version < 1 || header.version > 4)
+                throw new InvalidDataException("Choose a version 1–4 FP Video lens calibration JSON file.");
             var calibration = JsonUtility.FromJson<FPVideoLensCalibration>(json);
             if (calibration == null) throw new InvalidDataException("Empty calibration file.");
             calibration.Apply(new FPVideoUnwrapSettings());
@@ -50,13 +53,17 @@ namespace FuzzPhyte.Utility.Editor.Video
         }
         internal void Apply(FPVideoUnwrapSettings settings)
         {
-            if (format != "FPVideoLensCalibration" || version < 1 || version > 3) throw new InvalidDataException("Unsupported calibration format/version.");
+            if (format != "FPVideoLensCalibration" || version < 1 || version > 4) throw new InvalidDataException("Unsupported calibration format/version.");
+            if (version >= 4 && useFactoryCalibration && (factoryCalibration == null || factoryCalibration.packedFlags == 0)) throw new InvalidDataException("Factory calibration data is missing.");
+            if (version >= 4 && factoryCalibration != null && (useFactoryCalibration || factoryCalibration.packedFlags != 0)) factoryCalibration.Validate();
             if (opticalFlow && (version < 2 || flowMethod != FPVideoFarneback.MethodVersion)) throw new InvalidDataException("Unsupported flow method/version.");
             var candidate = settings.Snapshot(); Write(candidate); candidate.Validate(); Write(settings);
         }
         private void Write(FPVideoUnwrapSettings s)
         {
             s.calibrationName = name; s.lensFov = lensFov; s.rightLensFov = rightLensFov; s.blendDegrees = blendDegrees;
+            s.useFactoryCalibration = version >= 4 && useFactoryCalibration;
+            if (version >= 4) s.factoryCalibration = factoryCalibration?.Snapshot();
             s.seamYaw = seamYaw; s.seamWidth = seamWidth; s.leftCenter = leftCenter; s.rightCenter = rightCenter;
             s.lensRadius = lensRadius; s.rightLensRadius = rightLensRadius; s.leftRotation = leftRotation; s.rightRotation = rightRotation;
             s.independentRightLens = independentRightLens; s.useDirectionalSeam = useDirectionalSeam; s.flipX = flipX; s.flipY = flipY;

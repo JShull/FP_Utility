@@ -7,17 +7,24 @@ namespace FuzzPhyte.Utility.Editor.Video
     internal sealed class FPVideoUnwrapRenderer : IDisposable
     {
         private readonly Material material;
+        private readonly Material resolve;
         private FPVideoFarneback flow;
         private FPVideoUnwrapSettings historySettings;
         internal void ResetTemporal() => flow?.ResetTemporal();
         internal const float FlowBandDegrees = 32, FlowVerticalDegrees = 160;
         internal RenderTexture Output { get; private set; }
+        internal RenderTexture Working { get; private set; }
+        internal static bool SupportsHighPrecision => SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf);
+        internal string WorkingPrecision => Working != null ? "FP16 linear RGB" : "8-bit SDR fallback";
         internal RenderTexture FlowField => flow?.Result;
         internal FPVideoUnwrapRenderer()
         {
             var shader = Shader.Find("Hidden/FuzzPhyte/VideoUnwrap");
             if (shader == null || !shader.isSupported) throw new NotSupportedException("Video unwrap shader is missing or unsupported on this graphics device.");
             material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            var resolveShader = Shader.Find("Hidden/FuzzPhyte/VideoColorResolve");
+            if (resolveShader == null || !resolveShader.isSupported) { UnityEngine.Object.DestroyImmediate(material); throw new NotSupportedException("Video color resolve shader is missing or unsupported."); }
+            resolve = new Material(resolveShader) { hideFlags = HideFlags.HideAndDontSave };
         }
         internal void Render(Texture source, FPVideoUnwrapSettings settings, int width, int height,
             FPVideoCalibrationView view = FPVideoCalibrationView.Composite, float overlayMix = .5f, float differenceGain = 4,
@@ -28,7 +35,13 @@ namespace FuzzPhyte.Utility.Editor.Video
                 ReleaseOutput();
                 Output = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB) { hideFlags = HideFlags.HideAndDontSave };
                 Output.Create();
+                if (SupportsHighPrecision)
+                {
+                    Working = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear) { hideFlags = HideFlags.HideAndDontSave };
+                    if (!Working.Create()) { ReleaseOutput(); throw new NotSupportedException("FP16 video working texture allocation failed."); }
+                }
             }
+            material.SetFloat("_LinearOutput", Working != null ? 1 : 0);
             material.SetFloat("_SourceProjection", (int)settings.sourceProjection);
             material.SetFloat("_Projection", (int)settings.projection);
             material.SetFloat("_Aspect", (float)settings.width / settings.height);
@@ -50,6 +63,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             material.SetMatrix("_ViewRotation", Matrix4x4.Rotate(Quaternion.Euler(settings.rotation)));
             material.SetMatrix("_LeftRotation", Matrix4x4.Rotate(Quaternion.Inverse(Quaternion.Euler(settings.leftRotation))));
             material.SetMatrix("_RightRotation", Matrix4x4.Rotate(Quaternion.Inverse(Quaternion.Euler(settings.rightRotation))));
+            FPVideoFactoryCalibration.Bind(material, settings);
             material.SetFloat("_FlipX", settings.flipX ? 1 : 0); material.SetFloat("_FlipY", settings.flipY ? 1 : 0);
             bool grade = settings.colorTuning && view == FPVideoCalibrationView.Composite &&
                 (settings.colorExposure != 0 || settings.colorTemperature != 0 || settings.colorTint != 0 || settings.colorContrast != 1 || settings.colorSaturation != 1 ||
@@ -91,7 +105,16 @@ namespace FuzzPhyte.Utility.Editor.Video
             }
             else ResetTemporal();
             bool previous = GL.sRGBWrite;
-            try { GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear; Graphics.Blit(source, Output, material); }
+            try
+            {
+                GL.sRGBWrite = Working == null && QualitySettings.activeColorSpace == ColorSpace.Linear;
+                Graphics.Blit(source, Working != null ? Working : Output, material);
+                if (Working != null)
+                {
+                    GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
+                    Graphics.Blit(Working, Output, resolve);
+                }
+            }
             finally { GL.sRGBWrite = previous; }
         }
         internal void ReadBack(Texture2D destination, bool uploadToGpu = true)
@@ -106,7 +129,20 @@ namespace FuzzPhyte.Utility.Editor.Video
             }
             finally { RenderTexture.active = previous; }
         }
-        private void ReleaseOutput() { if (Output == null) return; Output.Release(); UnityEngine.Object.DestroyImmediate(Output); Output = null; }
-        public void Dispose() { flow?.Dispose(); flow = null; ReleaseOutput(); UnityEngine.Object.DestroyImmediate(material); }
+        internal void ReadWorking(Texture2D destination)
+        {
+            if (Working == null) throw new NotSupportedException("FP16 video processing is unavailable on this graphics device.");
+            if (destination == null || destination.format != TextureFormat.RGBAHalf || destination.width != Working.width || destination.height != Working.height)
+                throw new ArgumentException("Working readback requires a matching, linear RGBAHalf texture.");
+            var previous = RenderTexture.active;
+            try { RenderTexture.active = Working; destination.ReadPixels(new Rect(0, 0, Working.width, Working.height), 0, 0, false); }
+            finally { RenderTexture.active = previous; }
+        }
+        private void ReleaseOutput()
+        {
+            if (Working != null) { Working.Release(); UnityEngine.Object.DestroyImmediate(Working); Working = null; }
+            if (Output != null) { Output.Release(); UnityEngine.Object.DestroyImmediate(Output); Output = null; }
+        }
+        public void Dispose() { flow?.Dispose(); flow = null; ReleaseOutput(); UnityEngine.Object.DestroyImmediate(material); UnityEngine.Object.DestroyImmediate(resolve); }
     }
 }

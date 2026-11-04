@@ -10,6 +10,7 @@ namespace FuzzPhyte.Utility.Editor.Video
     {
         [SerializeField] private string sourcePath = "";
         [SerializeField] private string exportPath = "";
+        [SerializeField] private string exrPath = "";
         [SerializeField] private FPVideoUnwrapSettings settings = new FPVideoUnwrapSettings();
         [SerializeField] private double playhead, exportIn, exportOut, viewStart, viewEnd;
         [SerializeField] private bool includeAudio = true, lensExpanded, sourceVisible = true, colorExpanded;
@@ -23,6 +24,8 @@ namespace FuzzPhyte.Utility.Editor.Video
         [SerializeField] private bool calibrationGrid;
         private Vector2 parameterScroll;
         private FPVideoNativeSource source;
+        private FPVideoCameraMetadata cameraMetadata;
+        private string metadataNotice;
         private FPVideoUnwrapPreview preview;
         private FPVideoUnwrapRenderer renderer;
         private FPVideoUnwrapExport export;
@@ -59,6 +62,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         private void UndoChanged() { dirty = true; playing = false; Repaint(); }
         private void ReleaseSource()
         {
+            cameraMetadata = null; metadataNotice = null;
             playing = false; preview?.Dispose(); preview = null; renderer?.Dispose(); renderer = null; source?.Dispose(); source = null;
         }
         private void LoadSource()
@@ -68,6 +72,13 @@ namespace FuzzPhyte.Utility.Editor.Video
             {
                 if (!FPVideoNativeDecoder.Available) throw new NotSupportedException("Native Editor decoder unavailable in this Unity version.");
                 source = new FPVideoNativeSource(sourcePath);
+                if (string.Equals(Path.GetExtension(sourcePath), ".insv", StringComparison.OrdinalIgnoreCase))
+                {
+                    try { cameraMetadata = FPVideoCameraMetadata.Read(source.OriginalPath); }
+                    catch (Exception e) when (e is IOException || e is ArgumentException || e is OverflowException) { metadataNotice = "Factory metadata unavailable: " + e.Message; }
+                }
+                if (settings.useFactoryCalibration && (cameraMetadata?.Factory == null || settings.factoryCalibration?.fingerprint != cameraMetadata.Factory.fingerprint))
+                    settings.useFactoryCalibration = false;
                 if (reloadRange || exportOut <= 0 || exportOut > Duration) { exportIn = playhead = viewStart = 0; exportOut = viewEnd = Duration; }
                 reloadRange = false; dirty = true; notice = "Preparing native source…";
             }
@@ -170,6 +181,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 var data = serialized.FindProperty("settings");
                 EditorGUI.BeginChangeCheck();
                 EditorGUILayout.PropertyField(data.FindPropertyRelative("sourceProjection"), new GUIContent("Source layout"));
+                if (data.FindPropertyRelative("sourceProjection").enumValueIndex != (int)FPVideoSourceProjection.DualFisheye) data.FindPropertyRelative("useFactoryCalibration").boolValue = false;
                 EditorGUILayout.PropertyField(data.FindPropertyRelative("projection"), new GUIContent("Output view"));
                 EditorGUILayout.PropertyField(data.FindPropertyRelative("width")); EditorGUILayout.PropertyField(data.FindPropertyRelative("height"));
                 EditorGUILayout.PropertyField(data.FindPropertyRelative("videoBitrateMbps"), new GUIContent("Export bitrate (Mbps)"));
@@ -220,9 +232,14 @@ namespace FuzzPhyte.Utility.Editor.Video
                 lensExpanded = EditorGUILayout.Foldout(lensExpanded, "Lens calibration", true);
                 if (lensExpanded && settings.sourceProjection == FPVideoSourceProjection.DualFisheye)
                 {
-                    EditorGUILayout.PropertyField(data.FindPropertyRelative("calibrationName"), new GUIContent("Calibration name"));
-                    EditorGUILayout.PropertyField(data.FindPropertyRelative("lensFov"), new GUIContent("A / shared full FOV"));
+                    DrawFactoryCalibration(serialized, data);
+                    bool factoryActive = data.FindPropertyRelative("useFactoryCalibration").boolValue;
+                    using (new EditorGUI.DisabledScope(factoryActive))
+                    EditorGUILayout.PropertyField(data.FindPropertyRelative("calibrationName"), new GUIContent(factoryActive ? "Manual calibration name" : "Calibration name"));
+                    EditorGUILayout.PropertyField(data.FindPropertyRelative("lensFov"), new GUIContent(factoryActive ? "Coverage full FOV (°)" : "A / shared full FOV"));
                     EditorGUILayout.PropertyField(data.FindPropertyRelative("blendDegrees"), new GUIContent("Legacy edge feather (°)"));
+                    using (new EditorGUI.DisabledScope(factoryActive))
+                    {
                     EditorGUILayout.PropertyField(data.FindPropertyRelative("leftCenter"), new GUIContent("Lens A center")); EditorGUILayout.PropertyField(data.FindPropertyRelative("rightCenter"), new GUIContent("Lens B center"));
                     EditorGUILayout.PropertyField(data.FindPropertyRelative("lensRadius"), new GUIContent("A / shared radius"));
                     EditorGUILayout.PropertyField(data.FindPropertyRelative("leftRotation"), new GUIContent("Lens A rotation")); EditorGUILayout.PropertyField(data.FindPropertyRelative("rightRotation"), new GUIContent("Lens B rotation"));
@@ -231,6 +248,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                     {
                         EditorGUILayout.PropertyField(data.FindPropertyRelative("rightLensFov"), new GUIContent("Lens B full FOV"));
                         EditorGUILayout.PropertyField(data.FindPropertyRelative("rightLensRadius"), new GUIContent("Lens B radius"));
+                    }
                     }
                     EditorGUILayout.Space(4); GUILayout.Label("Seam placement", EditorStyles.boldLabel);
                     EditorGUILayout.PropertyField(data.FindPropertyRelative("useDirectionalSeam"), new GUIContent("Directional seam"));
@@ -294,6 +312,38 @@ namespace FuzzPhyte.Utility.Editor.Video
             EditorGUILayout.HelpBox("Geometric lens calibration is required. GPU seam flow is experimental and opt-in; gyro stabilization and spherical MP4 tags are not applied.", MessageType.Info);
             if (source != null && !source.Info.ConstantFrameRate) EditorGUILayout.HelpBox("Variable frame timing detected. Export is disabled.", MessageType.Warning);
         }
+        private void DrawFactoryCalibration(SerializedObject serialized, SerializedProperty data)
+        {
+            if (cameraMetadata != null)
+            {
+                EditorGUILayout.LabelField(cameraMetadata.Camera + " • gamma " + cameraMetadata.Gamma, EditorStyles.miniLabel);
+                EditorGUILayout.LabelField(cameraMetadata.HasImu ? "IMU data present • stabilization not applied" : "No IMU record identified", EditorStyles.miniLabel);
+            }
+            if (metadataNotice != null) EditorGUILayout.HelpBox(metadataNotice, MessageType.Info);
+            if (cameraMetadata?.Factory != null && source?.SecondDecodePath != null)
+            {
+                var factory = cameraMetadata.Factory;
+                var a = factory.lenses[0].values; var b = factory.lenses[1].values;
+                double baseline = Math.Sqrt(Math.Pow(a[8] - b[8], 2) + Math.Pow(a[9] - b[9], 2) + Math.Pow(a[10] - b[10], 2));
+                EditorGUILayout.LabelField($"Factory v6 • 2 measured lenses • baseline {baseline * 1000:F1} mm", EditorStyles.miniLabel);
+                if (GUILayout.Button("Load embedded factory calibration"))
+                {
+                    serialized.ApplyModifiedProperties(); Undo.RecordObject(this, "Load X6 factory calibration");
+                    settings.factoryCalibration = factory.Snapshot(); settings.useFactoryCalibration = true;
+                    playing = false; preview?.Pause(); renderer?.ResetTemporal(); dirty = true; error = null;
+                    serialized.Update();
+                }
+            }
+            if (settings.factoryCalibration != null && settings.factoryCalibration.packedFlags != 0)
+            {
+                EditorGUILayout.PropertyField(data.FindPropertyRelative("useFactoryCalibration"), new GUIContent("Factory projection", "Experimental X6 v6 geometry. Turn off to compare with your unchanged manual calibration."));
+                if (data.FindPropertyRelative("useFactoryCalibration").boolValue)
+                {
+                    EditorGUILayout.PropertyField(data.FindPropertyRelative("factoryCalibration").FindPropertyRelative("reverseTracks"), new GUIContent("Reverse lens/track order", "The X6 declares reversed tracks. Override only after comparing the two hemispheres."));
+                    EditorGUILayout.HelpBox("Experimental factory geometry at infinity. FOV limits coverage; manual centers, radii and rotations are bypassed. Seam and grade controls remain active. Lens translation and gyro stabilization are not applied; nearby objects can retain parallax.", MessageType.Info);
+                }
+            }
+        }
         private string ValidationError()
         {
             try
@@ -318,10 +368,36 @@ namespace FuzzPhyte.Utility.Editor.Video
                 if (GUILayout.Button("Export selected range…", GUILayout.Height(30))) StartExport(false);
                 GUI.backgroundColor = previous;
                 if (GUILayout.Button("Export 2-second test at playhead…")) StartExport(true);
+                EditorGUI.BeginChangeCheck();
+                string nextExr = EditorGUILayout.TextField(new GUIContent("Output EXR", "Full path for one processed half-float frame. If empty, a frame filename is derived from Output MP4. Native video decode remains 8-bit."), exrPath);
+                if (EditorGUI.EndChangeCheck()) { Undo.RecordObject(this, "Change EXR output path"); exrPath = nextExr; }
+                using (new EditorGUI.DisabledScope(preview?.Texture == null || !FPVideoUnwrapRenderer.SupportsHighPrecision))
+                    if (GUILayout.Button("Export current frame (16-bit EXR)…")) ExportExrFrame();
             }
             if (Busy && GUILayout.Button("Cancel export")) { export.Dispose(); export = null; notice = "Export cancelled; partial files removed."; }
             using (new EditorGUI.DisabledScope(export == null || !export.Succeeded))
                 if (GUILayout.Button("Reveal completed output")) EditorUtility.RevealInFinder(export.OutputPath);
+        }
+        private void ExportExrFrame()
+        {
+            playing = false; preview?.Pause(); error = null;
+            try
+            {
+                double seconds = preview.PresentedSeconds;
+                string path = exrPath.Trim();
+                if (string.IsNullOrEmpty(path) && !string.IsNullOrWhiteSpace(exportPath))
+                {
+                    long frame = (long)Math.Round(seconds * source.Info.FrameRate);
+                    path = Path.Combine(Path.GetDirectoryName(exportPath), Path.GetFileNameWithoutExtension(exportPath) + "_frame" + frame.ToString("D8") + ".exr");
+                }
+                if (string.IsNullOrEmpty(path)) path = EditorUtility.SaveFilePanel("Export processed EXR frame", Path.GetDirectoryName(source.OriginalPath), "VideoFrame", "exr");
+                if (string.IsNullOrEmpty(path)) { notice = "No output selected. Enter a full Output EXR path if the Save dialog is unavailable."; return; }
+                EditorUtility.DisplayProgressBar("Export EXR frame", "Decoding the full-resolution displayed source frame and processing in FP16…", .5f);
+                FPVideoExrExport.Write(source, settings, seconds, path);
+                notice = "Saved " + path + " • FP16 linear processing/output; native video decode remains 8-bit.";
+            }
+            catch (Exception e) { error = e.Message; }
+            finally { EditorUtility.ClearProgressBar(); }
         }
         private void StartExport(bool test)
         {
@@ -536,6 +612,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         }
         private void DrawStatus()
         {
+            GUILayout.Label("Precision: native decode 8-bit • processing " + (renderer?.WorkingPrecision ?? "pending") + " • MP4 8-bit • EXR FP16", EditorStyles.wordWrappedMiniLabel);
             if (Busy) { Rect rect = GUILayoutUtility.GetRect(100, 20, GUILayout.ExpandWidth(true)); EditorGUI.ProgressBar(rect, export.Progress, export.Status); }
             if (calibrationView >= FPVideoCalibrationView.FlowVectors && !settings.opticalFlow)
                 EditorGUILayout.HelpBox("Enable Farnebäck correction to inspect flow diagnostics. Warped Difference uses magenta for rejected overlap matches; inspect Flow Confidence alongside it.",MessageType.Info);

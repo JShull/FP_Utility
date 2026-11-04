@@ -21,6 +21,10 @@ Shader "Hidden/FuzzPhyte/VideoUnwrap"
             float _FlowChartInput, _FlowChartLens, _FlowEnabled, _FlowBand, _FlowVertical, _SeamYaw, _FlowStrength, _FlowThreshold;
             float4 _FlowAtlas;
             float _GradeEnabled;
+            float _LinearOutput;
+            float _FactoryEnabled;
+            float4 _FactoryAI, _FactoryAC, _FactoryAD0, _FactoryAD1, _FactoryAD2, _FactoryAD3;
+            float4 _FactoryBI, _FactoryBC, _FactoryBD0, _FactoryBD1, _FactoryBD2, _FactoryBD3;
             float4 _GradeParams, _GradeBalance, _GradeCurve;
             #define PI 3.141592653589793
 
@@ -97,16 +101,39 @@ Shader "Hidden/FuzzPhyte/VideoUnwrap"
                 }
                 return mul((float3x3)_ViewRotation, ray);
             }
-            float4 lens(float3 ray, float2 center, float lensFov, float2 radius, out float valid)
+            float2 factoryUv(float3 ray, float4 intr, float4 center, float4 d0, float4 d1, float4 d2, float4 d3, out float inside)
+            {
+                float denominator=ray.z+intr.x;
+                float2 m=float2(ray.x,-ray.y)/max(denominator,.000001);
+                float r2=dot(m,m),r4=r2*r2;
+                float radial=1+r2*(d0.x+r2*(d0.y+r2*(d0.z+r2*(d0.w+r2*d1.x))));
+                float tx=d1.y+d1.w*r2,ty=d1.z+d2.x*r2;
+                float2 p=m*radial;
+                p.x+=(r2+2*m.x*m.x)*tx+2*m.x*m.y*ty+d2.y*r2+d2.w*r4;
+                p.y+=(r2+2*m.y*m.y)*ty+2*m.x*m.y*tx+d2.z*r2+d3.x*r4;
+                p.x*=intr.w;
+                float2 local=float2(p.x*intr.y+center.x,1-(p.y*intr.z+center.y));
+                inside=step(.000001,denominator)*step(0,local.x)*step(local.x,1)*step(0,local.y)*step(local.y,1);
+                return float2(center.z+local.x*center.w,local.y);
+            }
+            float4 lens(float3 ray, float2 center, float lensFov, float2 radius, float lensIndex, out float valid)
             {
                 float angle = acos(clamp(ray.z, -1, 1));
                 float halfFov = lensFov * PI / 360;
+                if (_FactoryEnabled>.5 && angle>halfFov) { valid=0; return float4(0,0,0,0); }
                 float2 radial = ray.xy / max(length(ray.xy), .000001);
                 float2 uv = center + radial * (angle / halfFov) * radius;
+                float factoryValid=1;
+                if (_FactoryEnabled>.5)
+                {
+                    if (lensIndex<.5) uv=factoryUv(ray,_FactoryAI,_FactoryAC,_FactoryAD0,_FactoryAD1,_FactoryAD2,_FactoryAD3,factoryValid);
+                    else uv=factoryUv(ray,_FactoryBI,_FactoryBC,_FactoryBD0,_FactoryBD1,_FactoryBD2,_FactoryBD3,factoryValid);
+                }
                 if (_FlipX > .5) uv.x = 1 - uv.x;
                 if (_FlipY > .5) uv.y = 1 - uv.y;
                 float weight = 1 - smoothstep(halfFov - _Blend * PI / 180, halfFov, angle);
                 valid = step(angle, halfFov) * step(0, uv.x) * step(uv.x, 1) * step(0, uv.y) * step(uv.y, 1);
+                valid*=factoryValid;
                 weight *= valid;
                 return float4(tex2D(_MainTex, saturate(uv)).rgb, weight);
             }
@@ -127,14 +154,14 @@ Shader "Hidden/FuzzPhyte/VideoUnwrap"
                 uv=float2(chart*.5+.25+delta/(_FlowBand*2),.5+latitude/_FlowVertical);
                 return abs(delta)<_FlowBand*.5 && abs(latitude)<_FlowVertical*.5 ? 1 : 0;
             }
-            float4 frag(v2f_img i) : SV_Target
+            float4 unwrap(v2f_img i)
             {
                 if (_FlowChartInput > .5)
                 {
                     float valid; float3 r=chartRay(i.uv);
                     float4 color;
-                    if (_FlowChartLens < .5) color=lens(mul((float3x3)_LeftRotation,r),_LeftCenter.xy,_LensFov,_LensRadius.xy,valid);
-                    else color=lens(mul((float3x3)_RightRotation,r),_RightCenter.xy,_RightLensFov,_RightLensRadius.xy,valid);
+                    if (_FlowChartLens < .5) color=lens(mul((float3x3)_LeftRotation,r),_LeftCenter.xy,_LensFov,_LensRadius.xy,0,valid);
+                    else color=lens(mul((float3x3)_RightRotation,r),_RightCenter.xy,_RightLensFov,_RightLensRadius.xy,1,valid);
                     return float4(color.rgb,valid);
                 }
                 float3 ray = direction(i.uv);
@@ -146,8 +173,8 @@ Shader "Hidden/FuzzPhyte/VideoUnwrap"
                     return float4(grade(tex2D(_MainTex, uv).rgb), 1);
                 }
                 float va, vb;
-                float4 a = lens(mul((float3x3)_LeftRotation, ray), _LeftCenter.xy, _LensFov, _LensRadius.xy, va);
-                float4 b = lens(mul((float3x3)_RightRotation, ray), _RightCenter.xy, _RightLensFov, _RightLensRadius.xy, vb);
+                float4 a = lens(mul((float3x3)_LeftRotation, ray), _LeftCenter.xy, _LensFov, _LensRadius.xy, 0, va);
+                float4 b = lens(mul((float3x3)_RightRotation, ray), _RightCenter.xy, _RightLensFov, _RightLensRadius.xy, 1, vb);
                 if (_DiagnosticMode > .5 && _DiagnosticMode < 1.5) return float4(a.rgb * va, 1);
                 if (_DiagnosticMode > 1.5 && _DiagnosticMode < 2.5) return float4(b.rgb * vb, 1);
                 if (_DiagnosticMode > 2.5 && _DiagnosticMode < 3.5)
@@ -173,7 +200,7 @@ Shader "Hidden/FuzzPhyte/VideoUnwrap"
                     float taper=1-smoothstep(_FlowBand*.35,_FlowBand*.5,abs(delta));
                     float2 warped=flowUv+field.xy/_FlowAtlas.xy*(_FlowStrength*taper);
                     float valid;
-                    float4 corrected=lens(mul((float3x3)_RightRotation,chartRay(warped)),_RightCenter.xy,_RightLensFov,_RightLensRadius.xy,valid);
+                    float4 corrected=lens(mul((float3x3)_RightRotation,chartRay(warped)),_RightCenter.xy,_RightLensFov,_RightLensRadius.xy,1,valid);
                     if (valid>.5) b.rgb=corrected.rgb; else accepted=false;
                 }
                 if (_DiagnosticMode > 7.5)
@@ -187,6 +214,14 @@ Shader "Hidden/FuzzPhyte/VideoUnwrap"
                 }
                 // Rejected matches retain the ordinary seam blend, including its feather width.
                 return float4(grade((a.rgb * a.a + b.rgb * b.a) / max(a.a + b.a, .00001)), 1);
+            }
+            float4 frag(v2f_img i) : SV_Target
+            {
+                float4 color=unwrap(i);
+                #ifdef UNITY_COLORSPACE_GAMMA
+                if (_LinearOutput>.5) color.rgb=decodeDisplay(color.rgb);
+                #endif
+                return color;
             }
             ENDCG
         }

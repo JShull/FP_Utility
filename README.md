@@ -796,11 +796,15 @@ Other multi-track layouts are rejected rather than silently dropping a lens.
 Verified sample `VID_20261022_155336_00_001.insv` has two 3840×3840 HEVC lens
 tracks at 50 fps, giving a combined **7680×3840** input, 4,997 frames / 99.94 s,
 and stereo 48-kHz AAC. The input is 10-bit BT.709; current decoder textures and
-H.264 export are **8-bit SDR**. Factory lens metadata, gyro calibration,
-FlowState and camera-specific Log/HDR transforms are not applied. A high-resolution
+H.264 export are **8-bit SDR**. Stitching/grading now retain FP16 linear working
+values on supported devices before the final SDR resolve. Generic/manual lens
+mapping remains the default; supported X6 v6 factory projection is opt-in (below).
+Gyro calibration, FlowState and camera-specific Log/HDR transforms are not applied. A high-resolution
 source costs more decode time and memory; it is not a guarantee of 50-fps Editor
-playback. Output resolution remains the explicit user setting; select 7680×3840
-for an 8K equirectangular export if desired.
+playback. Output resolution remains the explicit user setting. The current
+Windows H.264 path was verified up to 4096×2048 at 50 fps; 7680×3840 was rejected
+by encoder initialization. Larger projection sizes can instead be used for EXR
+frame output, subject to GPU memory and the 8192-pixel dimension limit.
 
 Validation in Unity 6000.6.7f1 / DX12 on RTX 5090 Laptop GPU: **48/48 video
 EditMode tests passed**, including paired-lens staging/cleanup, distinct-lens GPU
@@ -827,6 +831,74 @@ Defaults describe a generic equidistant dual-fisheye layout, not a calibrated
 Insta360 model. Experimental GPU seam correspondence is available after geometric
 alignment. Manufacturer lens calibration, gyro/FlowState stabilization, horizon
 lock, and spherical MP4 metadata injection are not implemented.
+
+#### Processing precision and EXR frames
+
+The status panel separates **native decode**, **processing** and **output**
+precision. Supported devices use an FP16 linear RGB working texture, then resolve
+to the existing 8-bit preview/MP4 format. An unsupported device retains the 8-bit
+path. No GPU readback is added to preview playback. The working texture adds
+64 MiB at 4096x2048, plus the existing SDR output texture.
+
+**Export current frame (16-bit EXR)** re-decodes the displayed timestamp at full
+source resolution and renders the current projection/color settings into FP16.
+It excludes preview grids and diagnostic modes. Enter a full **Output EXR** path,
+or leave it empty to derive a frame filename from **Output MP4**. If neither is
+provided, the Save dialog is used; automated sessions can use the direct path.
+Existing image/report files are protected from overwrite. The ZIP-compressed
+half-float linear EXR has a JSON sidecar recording timestamp, settings, source
+decode precision and processing/output interpretation. This is single-frame
+export; an image-sequence transport has not been added.
+
+**This does not deliver end-to-end 10-bit camera precision.** A controlled
+lossless HEVC Main10 ramp with 877 distinct luma levels produced only about 220
+levels through both the Editor decoder and public GPU VideoPlayer paths on the
+tested Windows/Unity backend, including FP16/FP32 targets. Floating-point storage
+does not recover those discarded distinctions. Current creative curves also
+remain SDR and can clip; EXR does not turn this into camera RAW or HDR.
+
+The [precision qualification and implementation plan](Editor/Video/FPVideoPrecisionPlan.md)
+records evidence, acceptance gates and remaining work: native high-bit-depth
+ingest/output, factory calibration, sensor timing, scopes, advanced grading/LUTs,
+stabilization, direction lock and finally rolling-shutter correction.
+
+#### X6 factory lens projection (experimental)
+
+For supported two-track X6 recordings, expand **Lens calibration** and choose
+**Load embedded factory calibration**. The tool reads the bounded v3 trailer and
+its `offset_v6` protobuf field in managed C#; it does not load a vendor SDK.
+The supported model uses each lens's measured unified-sphere parameter, focal
+lengths, principal point, three-axis rotation and 13 radial/tangential/thin-prism
+coefficients. Calibration coordinates are scaled from the recorded calibration
+frame to the decoded image; they are not assumed to be coded-video pixels.
+
+Turn **Factory projection** off to compare with the unchanged manual calibration.
+Manual centers/radii/rotations are disabled while factory mapping is active.
+**Coverage full FOV** controls the coverage cutoff, not radial scale. Seam placement,
+blend width, grading and optional seam flow still apply. Diagnostics, preview,
+EXR and MP4 all use the same projection. **Reverse lens/track order** defaults to
+the file's declared layout and remains an explicit override for scene review.
+The first decoded track anchors the forward/upright view.
+
+This version evaluates geometry at infinity. Recorded lens translations are
+retained for provenance but are not applied; nearby subjects can retain parallax.
+No gyro stabilization, horizon leveling, rolling-shutter correction or per-body
+vendor mask polygons are applied. A metadata status line indicates IMU presence,
+not calibrated motion. Unsupported or damaged metadata leaves manual playback
+available. A different file's factory fingerprint disables an active factory mode
+until its calibration is explicitly loaded.
+
+Calibration-only JSON **v4** stores factory geometry, track binding and mode beside
+the preserved manual fields. Versions 1–3 remain readable and select manual
+projection. Output framing, trim and grade are preserved when applying a profile.
+Export settings record the exact model parameters and fingerprint.
+
+Bench validation compares C# mapping to independent double-precision reference
+vectors within 0.02 source pixels and GPU mapping to CPU within 0.25 pixels at
+7680x3840, including overlap directions. This validates the numerical mapping,
+not equivalence to Insta360 Studio or factory-quality near-field stitching.
+See the [qualification plan](Editor/Video/FPVideoPrecisionPlan.md) for conventions
+and primary algorithm references.
 
 #### Color tuning
 

@@ -26,6 +26,8 @@ namespace FuzzPhyte.Utility.Editor.Video
         public Vector3 leftRotation, rightRotation = new Vector3(0, 180, 0);
         public bool independentRightLens;
         public string calibrationName = "Generic dual-fisheye (uncalibrated)";
+        public bool useFactoryCalibration;
+        public FPVideoFactoryCalibration factoryCalibration;
         public float rightLensFov = 200;
         public Vector2 rightLensRadius = new Vector2(.25f, .5f);
         public bool useDirectionalSeam;
@@ -42,9 +44,14 @@ namespace FuzzPhyte.Utility.Editor.Video
         public FPVideoToneCurve colorCurve;
         public float colorCurveStrength = 1, colorGamma = 1;
 
-        internal FPVideoUnwrapSettings Snapshot() => (FPVideoUnwrapSettings)MemberwiseClone();
+        internal FPVideoUnwrapSettings Snapshot()
+        {
+            var copy = (FPVideoUnwrapSettings)MemberwiseClone();
+            copy.factoryCalibration = factoryCalibration?.Snapshot(); return copy;
+        }
 
         internal bool SameFlowHistory(FPVideoUnwrapSettings other) => other != null &&
+            useFactoryCalibration == other.useFactoryCalibration && (!useFactoryCalibration || (factoryCalibration != null && factoryCalibration.SameModel(other.factoryCalibration))) &&
             lensFov == other.lensFov && leftCenter.Equals(other.leftCenter) && rightCenter.Equals(other.rightCenter) &&
             lensRadius.Equals(other.lensRadius) && leftRotation.Equals(other.leftRotation) && rightRotation.Equals(other.rightRotation) &&
             independentRightLens == other.independentRightLens && rightLensFov == other.rightLensFov && rightLensRadius.Equals(other.rightLensRadius) &&
@@ -55,6 +62,11 @@ namespace FuzzPhyte.Utility.Editor.Video
 
         internal void Validate()
         {
+            if (useFactoryCalibration)
+            {
+                if (sourceProjection != FPVideoSourceProjection.DualFisheye || factoryCalibration == null) throw new ArgumentException("Factory projection requires a dual-fisheye source and an X6 calibration.");
+                factoryCalibration.Validate();
+            }
             if (colorTuning && (!Finite(colorExposure) || Math.Abs(colorExposure) > 4 ||
                 !Finite(colorTemperature) || Math.Abs(colorTemperature) > 1 || !Finite(colorTint) || Math.Abs(colorTint) > 1 ||
                 !Finite(colorContrast) || colorContrast < 0 || colorContrast > 2 ||
