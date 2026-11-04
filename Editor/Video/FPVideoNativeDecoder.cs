@@ -142,6 +142,12 @@ namespace FuzzPhyte.Utility.Editor.Video
     /// <summary>Stage unsupported extensions and paired-lens track views without modifying the original.</summary>
     internal sealed class FPVideoNativeSource : IDisposable
     {
+        internal FPVideoImuMotion Motion { get; private set; }
+        internal void LoadMotion(FPVideoCameraMetadata metadata)
+        {
+            if (disposed) throw new ObjectDisposedException(nameof(FPVideoNativeSource));
+            if (Motion == null) Motion = new FPVideoImuMotion(OriginalPath, metadata, Info.Duration);
+        }
         private readonly CancellationTokenSource cancellation = new CancellationTokenSource();
         private readonly string stagingFolder;
         private long copied;
@@ -210,6 +216,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         public void Dispose()
         {
             if (disposed) return; disposed = true;
+            Motion?.Dispose(); Motion = null;
             cancellation.Cancel();
             // The copy worker owns its file handles until completion, including cancellation races.
             _ = Ready.ContinueWith(_ => { DeleteStaging(); cancellation.Dispose(); }, TaskScheduler.Default);

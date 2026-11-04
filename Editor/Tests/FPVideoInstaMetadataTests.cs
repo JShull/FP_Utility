@@ -27,12 +27,14 @@ namespace FuzzPhyte.Utility.Editor.Tests
                     Varint(writer, 131 * 8); Varint(writer, 4); Varint(writer, 24 * 8); Varint(writer, 10735982);
                     Varint(writer, 62 * 8); Varint(writer, 1); Varint(writer, 25 * 8 + 1); writer.Write(12.5);
                     Text(writer, 999, "unknown data");
+                    Varint(writer, 65 * 8 + 2); Varint(writer, 5); writer.Write(new byte[] { 8, 32, 16, 208, 15 });
                 }
                 var metadata = FPVideoCameraMetadata.Parse(bytes.ToArray());
                 Assert.That(metadata.Camera, Is.EqualTo("Insta360 X6")); Assert.That(metadata.Gamma, Is.EqualTo("standard"));
                 Assert.That(metadata.StreamType, Is.EqualTo(4)); Assert.That(metadata.FirstFrameTimestamp, Is.EqualTo(10735982));
                 Assert.That(metadata.RawGyro, Is.True); Assert.That(metadata.RollingShutterTime, Is.EqualTo(12.5));
                 Assert.That(metadata.OffsetV6, Is.EqualTo(FPVideoFactoryCalibrationTests.X6));
+                Assert.That(metadata.AccelerationRangeG, Is.EqualTo(32)); Assert.That(metadata.GyroRangeDps, Is.EqualTo(2000));
             }
         }
         [Test]

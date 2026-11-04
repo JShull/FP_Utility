@@ -64,6 +64,8 @@ namespace FuzzPhyte.Utility.Editor.Video
             s.calibrationName = name; s.lensFov = lensFov; s.rightLensFov = rightLensFov; s.blendDegrees = blendDegrees;
             s.useFactoryCalibration = version >= 4 && useFactoryCalibration;
             if (version >= 4) s.factoryCalibration = factoryCalibration?.Snapshot();
+            // Motion belongs to the recording; a different lens profile requires revalidation.
+            s.stabilizeMotion = false;
             s.seamYaw = seamYaw; s.seamWidth = seamWidth; s.leftCenter = leftCenter; s.rightCenter = rightCenter;
             s.lensRadius = lensRadius; s.rightLensRadius = rightLensRadius; s.leftRotation = leftRotation; s.rightRotation = rightRotation;
             s.independentRightLens = independentRightLens; s.useDirectionalSeam = useDirectionalSeam; s.flipX = flipX; s.flipY = flipY;

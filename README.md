@@ -829,8 +829,8 @@ Use view rotation for framing; expand **Lens calibration** for normalized lens
 centers/radii, per-lens Euler rotations, full lens FOV and angular seam blending.
 Defaults describe a generic equidistant dual-fisheye layout, not a calibrated
 Insta360 model. Experimental GPU seam correspondence is available after geometric
-alignment. Manufacturer lens calibration, gyro/FlowState stabilization, horizon
-lock, and spherical MP4 metadata injection are not implemented.
+alignment. Supported X6 factory projection and experimental gyro stabilization
+are opt-in below. Spherical MP4 metadata injection is not implemented.
 
 #### Processing precision and EXR frames
 
@@ -859,8 +859,8 @@ remain SDR and can clip; EXR does not turn this into camera RAW or HDR.
 
 The [precision qualification and implementation plan](Editor/Video/FPVideoPrecisionPlan.md)
 records evidence, acceptance gates and remaining work: native high-bit-depth
-ingest/output, factory calibration, sensor timing, scopes, advanced grading/LUTs,
-stabilization, direction lock and finally rolling-shutter correction.
+ingest/output, broader camera qualification, scopes, advanced grading/LUTs and
+rolling-shutter correction. Factory projection and experimental X6 motion are delivered.
 
 #### X6 factory lens projection (experimental)
 
@@ -882,9 +882,8 @@ The first decoded track anchors the forward/upright view.
 
 This version evaluates geometry at infinity. Recorded lens translations are
 retained for provenance but are not applied; nearby subjects can retain parallax.
-No gyro stabilization, horizon leveling, rolling-shutter correction or per-body
-vendor mask polygons are applied. A metadata status line indicates IMU presence,
-not calibrated motion. Unsupported or damaged metadata leaves manual playback
+Rolling-shutter correction and per-body vendor mask polygons are not applied.
+IMU presence alone does not enable stabilization. Unsupported or damaged metadata leaves manual playback
 available. A different file's factory fingerprint disables an active factory mode
 until its calibration is explicitly loaded.
 
@@ -899,6 +898,28 @@ vectors within 0.02 source pixels and GPU mapping to CPU within 0.25 pixels at
 not equivalence to Insta360 Studio or factory-quality near-field stitching.
 See the [qualification plan](Editor/Video/FPVideoPrecisionPlan.md) for conventions
 and primary algorithm references.
+
+#### X6 IMU stabilization (experimental)
+
+With the recording's factory projection enabled and its declared reversed track
+order selected, expand **IMU stabilization** and choose **Load IMU motion**.
+After the bounded background read and Burst fusion complete, enable **Stabilize
+motion**. **Level horizon** removes tilt; **Smoothing (s)** controls a source-time
+forward/back quaternion filter. Higher values steady more motion and can anticipate
+movement. **Relative direction lock** anchors yaw to **Heading reference (s)**;
+use **Reference at playhead** to set it. Existing view rotation still provides framing.
+
+**Timing offset (ms)** adds a manual adjustment after the camera's recorded offset;
+positive values use later sensor poses. Start at zero. Preview, MP4 and EXR use the
+same full-recording clock, including late trims and backward scrubbing. Reports
+record the method, timing and settings. Applying a lens profile disables motion
+until it is explicitly re-enabled.
+
+The current sensor map is qualified against image motion on the supplied X6
+stream-type-4 recording. Gyro fusion uses gravity-gated tilt correction; sustained
+acceleration can still bias the horizon and relative heading can drift. This does
+not reconstruct proprietary FlowState, absolute compass heading, rolling-shutter
+correction or near-field parallax correction. Other camera layouts remain unsupported.
 
 #### Color tuning
 

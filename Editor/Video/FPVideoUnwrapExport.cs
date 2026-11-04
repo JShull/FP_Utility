@@ -23,6 +23,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             public bool includesAudio;
             public string audioTrimMethod;
             public string sourceDecodePrecision, processingPrecision, outputPrecision;
+            public string motionMethod;
             public long audioSeekSampleFrame;
             public double audioPrerollSeconds;
             public string stitching;
@@ -34,6 +35,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         private readonly FPVideoIsoMediaInfo info;
         private readonly FPVideoUnwrapSettings settings;
         private readonly string temporaryPath;
+        private readonly string sourceMotionProvenance;
         private readonly bool audio;
         private FPVideoNativeDecoder videoDecoder, audioDecoder;
         private FPVideoUnwrapRenderer renderer;
@@ -72,8 +74,10 @@ namespace FuzzPhyte.Utility.Editor.Video
         internal FPVideoUnwrapExport(FPVideoNativeSource source, FPVideoUnwrapSettings settings, double start, double end, string outputPath, bool includeAudio, bool seekAudio = true)
         {
             settings.Validate();
+            if (settings.stabilizeMotion && (source.Motion == null || !source.Motion.Ready || source.Motion.Error != null)) throw new InvalidOperationException("Wait for validated IMU motion before exporting stabilized video.");
             if (!source.Ready.IsCompletedSuccessfully) throw new InvalidOperationException("Source staging is not complete.");
             info = source.Info; this.settings = settings.Snapshot();
+            sourceMotionProvenance = settings.stabilizeMotion ? source.Motion.Provenance : "Disabled";
             (firstFrame, endFrame) = FrameRange(info, start, end); frame = firstFrame;
             OutputPath = Path.GetFullPath(outputPath);
             if (!string.Equals(Path.GetExtension(OutputPath), ".mp4", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Choose an MP4 output path.");
@@ -89,6 +93,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 sourceTexture = new Texture2D(info.Width, info.Height, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
                 outputTexture = new Texture2D(settings.width, settings.height, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
                 renderer = new FPVideoUnwrapRenderer();
+                renderer.SetMotion(source.Motion);
                 var h264 = new H264EncoderAttributes { profile = UnityEditor.VideoEncodingProfile.H264High, gopSize = (uint)Math.Max(1, Math.Round(info.FrameRate)), numConsecutiveBFrames = 0 };
                 var attributes = new VideoTrackEncoderAttributes(h264) { width = (uint)settings.width, height = (uint)settings.height, includeAlpha = false,
                     targetBitRate = checked((uint)Math.Round(settings.videoBitrateMbps * 1000000d)), bitRateMode = UnityEditor.VideoBitrateMode.High,
@@ -189,6 +194,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 sourceDecodePrecision = "8-bit native video decode",
                 processingPrecision = FPVideoUnwrapRenderer.SupportsHighPrecision ? "FP16 linear RGB" : "8-bit SDR fallback",
                 outputPrecision = "8-bit H.264 SDR",
+                motionMethod = settings.stabilizeMotion ? sourceMotionProvenance : "Disabled",
                 audioTrimMethod = AudioTrimMethod, audioSeekSampleFrame = audio ? audioStartSample / info.AudioChannels : 0,
                 audioPrerollSeconds = audio ? (firstSample - audioStartSample) / (double)(info.AudioSampleRate * info.AudioChannels) : 0,
                 flowMethod = settings.opticalFlow ? FPVideoFarneback.MethodVersion : "Disabled",
@@ -196,7 +202,8 @@ namespace FuzzPhyte.Utility.Editor.Video
                 colorMethod = settings.colorTuning ? "SDR output grade v3; creative curve " + settings.colorCurve : "Disabled",
                 stitching = (settings.sourceProjection == FPVideoSourceProjection.Equirectangular ? "Equirectangular reprojection without lens stitching" :
                     (settings.useFactoryCalibration ? "Experimental X6 v6 unified-sphere lenses at infinity; translation not applied; " : "Equidistant lenses with ") + (settings.useDirectionalSeam ? "directional seam blending" : "angular edge-feather blending")) +
-                    (settings.opticalFlow ? "; experimental bidirectional polynomial flow" : "; no optical flow") + "; no gyro stabilization. MP4 spherical metadata is not injected.",
+                    (settings.opticalFlow ? "; experimental bidirectional polynomial flow" : "; no optical flow") +
+                    (settings.stabilizeMotion ? "; experimental IMU stabilization" : "; no gyro stabilization") + ". MP4 spherical metadata is not injected.",
                 video = new FPVideoManifestItem { id = Path.GetFileNameWithoutExtension(OutputPath), version = "1.0.0", fileName = Path.GetFileName(OutputPath),
                     sha256 = Hash, contentLength = new FileInfo(temporaryPath).Length, downloadUrl = "" }
             };

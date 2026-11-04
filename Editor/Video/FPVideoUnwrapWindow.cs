@@ -15,6 +15,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         [SerializeField] private double playhead, exportIn, exportOut, viewStart, viewEnd;
         [SerializeField] private bool includeAudio = true, lensExpanded, sourceVisible = true, colorExpanded;
         [SerializeField] private bool fastAudioTrim = true;
+        [SerializeField] private bool motionExpanded;
         [SerializeField] private float previewSplit = .5f;
         [SerializeField] private int previewMaxWidth = 2048;
         [SerializeField] private bool gpuPreview;
@@ -50,6 +51,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         {
             minSize = new Vector2(960, 620); settings ??= new FPVideoUnwrapSettings();
             if (settings.videoBitrateMbps == 0) settings.videoBitrateMbps = 40;
+            if (settings.motionSmoothingSeconds == 0) settings.motionSmoothingSeconds = .3f;
             if (previewMaxWidth != 1024 && previewMaxWidth != 2048 && previewMaxWidth != 4096 && previewMaxWidth != 8192) previewMaxWidth = 2048;
             loadPending = !string.IsNullOrEmpty(sourcePath) && File.Exists(sourcePath);
             EditorApplication.update += Tick; Undo.undoRedoPerformed += UndoChanged;
@@ -79,6 +81,8 @@ namespace FuzzPhyte.Utility.Editor.Video
                 }
                 if (settings.useFactoryCalibration && (cameraMetadata?.Factory == null || settings.factoryCalibration?.fingerprint != cameraMetadata.Factory.fingerprint))
                     settings.useFactoryCalibration = false;
+                if (!settings.useFactoryCalibration || !FPVideoImuMotion.Supported(cameraMetadata)) settings.stabilizeMotion = false;
+                if (settings.stabilizeMotion) source.LoadMotion(cameraMetadata);
                 if (reloadRange || exportOut <= 0 || exportOut > Duration) { exportIn = playhead = viewStart = 0; exportOut = viewEnd = Duration; }
                 reloadRange = false; dirty = true; notice = "Preparing native source…";
             }
@@ -90,6 +94,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             try
             {
                 if (loadPending && !Busy) { loadPending = false; LoadSource(); }
+                if (source?.Motion != null && !source.Motion.Ready && source.Motion.Error == null) { source.Motion.Update(); Repaint(); }
                 if (Busy)
                 {
                     export.Tick();
@@ -103,6 +108,8 @@ namespace FuzzPhyte.Utility.Editor.Video
                     return;
                 }
                 if (source == null) return;
+                if (settings.stabilizeMotion && source.Motion?.Error != null) { settings.stabilizeMotion = false; error = source.Motion.Error; dirty = true; }
+                if (settings.stabilizeMotion && source.Motion?.Ready != true) { notice = source.Motion?.Status ?? "Load IMU motion before stabilizing."; Repaint(); return; }
                 if (!source.Ready.IsCompleted) { notice = $"Staging temporary MP4 copy… {source.Progress:P0}"; Repaint(); return; }
                 source.Ready.GetAwaiter().GetResult();
                 if (preview == null) { preview = new FPVideoUnwrapPreview(source,previewMaxWidth,gpuPreview); renderer = new FPVideoUnwrapRenderer(); notice = "Ready • native Editor decode"; }
@@ -117,6 +124,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 if (rendered)
                 {
                     settings.Validate(); int width = Math.Min(Math.Min(4096, (int)(1024 * imageZoom)), settings.width); int height = Math.Max(1, (int)Math.Round((double)width * settings.height / settings.width));
+                    renderer.SetMotion(source.Motion);
                     renderer.Render(preview.Texture, settings, width, height,
                         settings.sourceProjection == FPVideoSourceProjection.DualFisheye ? calibrationView : FPVideoCalibrationView.Composite, overlayMix, differenceGain,
                         preview.PresentedSeconds,1 / source.Info.FrameRate); dirty = false;
@@ -280,7 +288,8 @@ namespace FuzzPhyte.Utility.Editor.Video
                     }
                     if (!FPVideoFarneback.Supported) EditorGUILayout.HelpBox("This graphics device does not support float32 compute flow. Ordinary stitching remains available.",MessageType.Info);
                 }
-                if (EditorGUI.EndChangeCheck()) { serialized.ApplyModifiedProperties(); dirty = true; error = null; if (settings.sourceProjection != FPVideoSourceProjection.DualFisheye) { calibrationView = FPVideoCalibrationView.Composite; settings.opticalFlow = false; } }
+                DrawMotionControls(data);
+                if (EditorGUI.EndChangeCheck()) { serialized.ApplyModifiedProperties(); dirty = true; error = null; playing = false; preview?.Pause(); if (!settings.useFactoryCalibration || settings.factoryCalibration?.reverseTracks != true) settings.stabilizeMotion = false; if (settings.sourceProjection != FPVideoSourceProjection.DualFisheye) { calibrationView = FPVideoCalibrationView.Composite; settings.opticalFlow = false; settings.stabilizeMotion = false; } }
                 else serialized.ApplyModifiedProperties();
                 if (lensExpanded && settings.sourceProjection == FPVideoSourceProjection.DualFisheye)
                 {
@@ -309,7 +318,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 }
                 EditorGUILayout.LabelField($"Video budget ~{settings.videoBitrateMbps * Math.Max(0, exportOut - exportIn) / 8000:F2} GB (actual varies)", EditorStyles.miniLabel);
             }
-            EditorGUILayout.HelpBox("Geometric lens calibration is required. GPU seam flow is experimental and opt-in; gyro stabilization and spherical MP4 tags are not applied.", MessageType.Info);
+            EditorGUILayout.HelpBox("Geometric lens calibration is required. Seam flow and IMU stabilization are experimental and opt-in. Spherical MP4 tags are not injected.", MessageType.Info);
             if (source != null && !source.Info.ConstantFrameRate) EditorGUILayout.HelpBox("Variable frame timing detected. Export is disabled.", MessageType.Warning);
         }
         private void DrawFactoryCalibration(SerializedObject serialized, SerializedProperty data)
@@ -317,7 +326,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             if (cameraMetadata != null)
             {
                 EditorGUILayout.LabelField(cameraMetadata.Camera + " • gamma " + cameraMetadata.Gamma, EditorStyles.miniLabel);
-                EditorGUILayout.LabelField(cameraMetadata.HasImu ? "IMU data present • stabilization not applied" : "No IMU record identified", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField(cameraMetadata.HasImu ? "IMU data present" : "No IMU record identified", EditorStyles.miniLabel);
             }
             if (metadataNotice != null) EditorGUILayout.HelpBox(metadataNotice, MessageType.Info);
             if (cameraMetadata?.Factory != null && source?.SecondDecodePath != null)
@@ -340,15 +349,43 @@ namespace FuzzPhyte.Utility.Editor.Video
                 if (data.FindPropertyRelative("useFactoryCalibration").boolValue)
                 {
                     EditorGUILayout.PropertyField(data.FindPropertyRelative("factoryCalibration").FindPropertyRelative("reverseTracks"), new GUIContent("Reverse lens/track order", "The X6 declares reversed tracks. Override only after comparing the two hemispheres."));
-                    EditorGUILayout.HelpBox("Experimental factory geometry at infinity. FOV limits coverage; manual centers, radii and rotations are bypassed. Seam and grade controls remain active. Lens translation and gyro stabilization are not applied; nearby objects can retain parallax.", MessageType.Info);
+                    EditorGUILayout.HelpBox("Experimental factory geometry at infinity. FOV limits coverage; manual centers, radii and rotations are bypassed. Seam and grade controls remain active. Lens translation is not applied; nearby objects can retain parallax.", MessageType.Info);
                 }
             }
+        }
+        private void DrawMotionControls(SerializedProperty data)
+        {
+            motionExpanded = EditorGUILayout.Foldout(motionExpanded, "IMU stabilization (experimental)", true);
+            if (!motionExpanded) return;
+            bool supported = FPVideoImuMotion.Supported(cameraMetadata);
+            if (!supported) { EditorGUILayout.HelpBox("Requires an X6 raw-IMU recording with factory calibration, sensor ranges and timing metadata.", MessageType.Info); return; }
+            if (source.Motion == null && GUILayout.Button("Load IMU motion")) source.LoadMotion(cameraMetadata);
+            if (source.Motion != null) EditorGUILayout.LabelField(source.Motion.Status, EditorStyles.wordWrappedMiniLabel);
+            bool projectionReady = data.FindPropertyRelative("useFactoryCalibration").boolValue && data.FindPropertyRelative("factoryCalibration").FindPropertyRelative("reverseTracks").boolValue &&
+                data.FindPropertyRelative("sourceProjection").enumValueIndex == (int)FPVideoSourceProjection.DualFisheye;
+            using (new EditorGUI.DisabledScope(source.Motion?.Ready != true || !projectionReady))
+                EditorGUILayout.PropertyField(data.FindPropertyRelative("stabilizeMotion"), new GUIContent("Stabilize motion"));
+            if (!projectionReady) EditorGUILayout.HelpBox("Enable the recording's factory projection and declared reversed track order to stabilize.", MessageType.Info);
+            using (new EditorGUI.DisabledScope(!data.FindPropertyRelative("stabilizeMotion").boolValue))
+            {
+                EditorGUILayout.PropertyField(data.FindPropertyRelative("levelHorizon"), new GUIContent("Level horizon"));
+                EditorGUILayout.Slider(data.FindPropertyRelative("motionSmoothingSeconds"), .05f, 3, new GUIContent("Smoothing (s)", "Forward/back quaternion filter in source time. Higher values smooth more motion; seek order does not affect the result."));
+                EditorGUILayout.PropertyField(data.FindPropertyRelative("lockDirection"), new GUIContent("Relative direction lock"));
+                if (data.FindPropertyRelative("lockDirection").boolValue)
+                {
+                    EditorGUILayout.PropertyField(data.FindPropertyRelative("motionReferenceSeconds"), new GUIContent("Heading reference (s)"));
+                    if (GUILayout.Button("Reference at playhead")) data.FindPropertyRelative("motionReferenceSeconds").doubleValue = playhead;
+                }
+                EditorGUILayout.Slider(data.FindPropertyRelative("motionOffsetMilliseconds"), -100, 100, new GUIContent("Timing offset (ms)", "Additional offset after the camera's recorded offset. Positive samples later IMU poses. Default 0."));
+            }
+            EditorGUILayout.HelpBox("Uses gyro with gravity-gated tilt correction. Relative heading can drift; this is not an absolute compass or vendor FlowState reconstruction. Rolling-shutter correction is not applied. Preview and export use the same source-time poses.", MessageType.Info);
         }
         private string ValidationError()
         {
             try
             {
                 settings.Validate();
+                if (settings.stabilizeMotion && source?.Motion?.Ready != true) return source?.Motion?.Status ?? "Load IMU motion before exporting stabilized video.";
                 if (settings.opticalFlow && !FPVideoFarneback.Supported) return "Disable seam flow: this graphics device does not support its compute/float32 requirements.";
                 if (preview == null || source == null) return "Load a source and wait for its first decoded frame.";
                 FPVideoUnwrapExport.FrameRange(source.Info, exportIn, exportOut); return null;

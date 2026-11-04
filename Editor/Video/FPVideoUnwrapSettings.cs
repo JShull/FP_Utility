@@ -28,6 +28,9 @@ namespace FuzzPhyte.Utility.Editor.Video
         public string calibrationName = "Generic dual-fisheye (uncalibrated)";
         public bool useFactoryCalibration;
         public FPVideoFactoryCalibration factoryCalibration;
+        public bool stabilizeMotion, levelHorizon = true, lockDirection;
+        public float motionSmoothingSeconds = .3f, motionOffsetMilliseconds;
+        public double motionReferenceSeconds;
         public float rightLensFov = 200;
         public Vector2 rightLensRadius = new Vector2(.25f, .5f);
         public bool useDirectionalSeam;
@@ -62,6 +65,11 @@ namespace FuzzPhyte.Utility.Editor.Video
 
         internal void Validate()
         {
+            if (stabilizeMotion && (!useFactoryCalibration || factoryCalibration == null || !factoryCalibration.reverseTracks || factoryCalibration.streamType != 4))
+                throw new ArgumentException("Motion stabilization requires the supported X6 factory projection and declared reversed track order.");
+            if (!Finite(motionSmoothingSeconds) || motionSmoothingSeconds < .05f || motionSmoothingSeconds > 3 || !Finite(motionOffsetMilliseconds) || Math.Abs(motionOffsetMilliseconds) > 100 ||
+                double.IsNaN(motionReferenceSeconds) || double.IsInfinity(motionReferenceSeconds) || motionReferenceSeconds < 0)
+                throw new ArgumentException("Motion smoothing requires 0.05–3 seconds, timing offset ±100 ms and a finite nonnegative heading reference.");
             if (useFactoryCalibration)
             {
                 if (sourceProjection != FPVideoSourceProjection.DualFisheye || factoryCalibration == null) throw new ArgumentException("Factory projection requires a dual-fisheye source and an X6 calibration.");

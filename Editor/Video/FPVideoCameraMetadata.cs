@@ -13,6 +13,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         internal double GyroTimestamp, RollingShutterTime;
         internal bool HasGyroTimestamp, RawGyro, HasImu;
         internal int StreamType;
+        internal int AccelerationRangeG, GyroRangeDps;
         internal FPVideoFactoryCalibration Factory;
         internal static FPVideoCameraMetadata Read(string path)
         {
@@ -49,7 +50,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 if (++fields > 4096) throw new InvalidDataException("Too many camera metadata fields.");
                 ulong key = Varint(bytes, ref position); int wire = (int)(key & 7); ulong tag = key >> 3;
                 if (tag == 0 || tag > 536870911) throw new InvalidDataException("Invalid camera metadata field.");
-                int expected = tag == 2 || tag == 22 || tag == 111 || tag == 112 ? 2 : tag == 25 || tag == 28 ? 1 : tag == 24 || tag == 29 || tag == 62 || tag == 131 ? 0 : -1;
+                int expected = tag == 2 || tag == 22 || tag == 65 || tag == 111 || tag == 112 ? 2 : tag == 25 || tag == 28 ? 1 : tag == 24 || tag == 29 || tag == 62 || tag == 131 ? 0 : -1;
                 if (expected >= 0 && expected != wire) throw new InvalidDataException("Unexpected camera metadata field encoding.");
                 if (wire == 0)
                 {
@@ -79,6 +80,21 @@ namespace FuzzPhyte.Utility.Editor.Video
                 {
                     ulong count = Varint(bytes, ref position);
                     if (count > (ulong)(bytes.Length - position)) throw new InvalidDataException("Truncated camera metadata payload.");
+                    if (tag == 65)
+                    {
+                        if (count > 64) throw new InvalidDataException("Gyro configuration exceeds its read budget.");
+                        var config = new byte[(int)count]; Array.Copy(bytes, position, config, 0, config.Length);
+                        int p = 0;
+                        while (p < config.Length)
+                        {
+                            ulong configKey = Varint(config, ref p);
+                            if ((configKey & 7) != 0 || configKey >> 3 == 0) throw new InvalidDataException("Unsupported gyro configuration encoding.");
+                            ulong value = Varint(config, ref p);
+                            if (value > int.MaxValue) throw new InvalidDataException("Invalid gyro range.");
+                            if (configKey >> 3 == 1) result.AccelerationRangeG = (int)value;
+                            if (configKey >> 3 == 2) result.GyroRangeDps = (int)value;
+                        }
+                    }
                     if (tag == 2 || tag == 22 || tag == 111 || tag == 112)
                     {
                         if (count > (tag < 100 ? 256ul : 8192ul)) throw new InvalidDataException("Camera metadata string exceeds its read budget.");

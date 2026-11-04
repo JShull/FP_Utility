@@ -12,6 +12,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         private sealed class Report
         {
             public string source, createdUtc, sourcePrecision, processingPrecision, outputEncoding;
+            public string motionMethod;
             public double sourceSeconds;
             public FPVideoUnwrapSettings settings;
         }
@@ -28,7 +29,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 {
                     double actual = decoder.ReadAt(texture, seconds);
                     if (Math.Abs(actual - seconds) > .5 / source.Info.FrameRate + .00001) throw new InvalidDataException("Decoded frame did not match the requested source time.");
-                    WriteTexture(texture, settings, path, source.OriginalPath, actual, "Native video decode: 8-bit; original 10-bit precision is not retained");
+                    WriteTexture(texture, settings, path, source.OriginalPath, actual, "Native video decode: 8-bit; original 10-bit precision is not retained", source.Motion);
                 }
             }
             finally { UnityEngine.Object.DestroyImmediate(texture); }
@@ -41,7 +42,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             if (!Directory.Exists(Path.GetDirectoryName(path))) throw new DirectoryNotFoundException("Choose an existing output folder.");
             if (File.Exists(path) || File.Exists(path + ".json")) throw new IOException("Output or its JSON report already exists. Choose a new filename.");
         }
-        internal static void WriteTexture(Texture source, FPVideoUnwrapSettings settings, string path, string sourceName, double seconds, string sourcePrecision)
+        internal static void WriteTexture(Texture source, FPVideoUnwrapSettings settings, string path, string sourceName, double seconds, string sourcePrecision, FPVideoImuMotion motion = null)
         {
             ValidatePath(path); settings.Validate();
             string partial = Path.Combine(Path.GetDirectoryName(path), "." + Path.GetFileName(path) + "." + Guid.NewGuid().ToString("N") + ".partial");
@@ -50,6 +51,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             {
                 using (var renderer = new FPVideoUnwrapRenderer())
                 {
+                    renderer.SetMotion(motion);
                     renderer.Render(source, settings, settings.width, settings.height, sourceSeconds: seconds);
                     pixels = new Texture2D(settings.width, settings.height, TextureFormat.RGBAHalf, false, true) { hideFlags = HideFlags.HideAndDontSave };
                     renderer.ReadWorking(pixels);
@@ -58,6 +60,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                     {
                         source = sourceName, createdUtc = DateTime.UtcNow.ToString("O"), sourceSeconds = seconds,
                         sourcePrecision = sourcePrecision, processingPrecision = renderer.WorkingPrecision,
+                        motionMethod = settings.stabilizeMotion ? motion.Provenance : "Disabled",
                         outputEncoding = "OpenEXR half-float linear RGB using the existing Unity SDR interpretation; not a recovered camera RAW or HDR signal",
                         settings = settings.Snapshot()
                     }, true));

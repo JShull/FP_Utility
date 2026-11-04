@@ -10,6 +10,8 @@ namespace FuzzPhyte.Utility.Editor.Video
         private readonly Material resolve;
         private FPVideoFarneback flow;
         private FPVideoUnwrapSettings historySettings;
+        private FPVideoImuMotion motion;
+        internal void SetMotion(FPVideoImuMotion data) => motion = data;
         internal void ResetTemporal() => flow?.ResetTemporal();
         internal const float FlowBandDegrees = 32, FlowVerticalDegrees = 160;
         internal RenderTexture Output { get; private set; }
@@ -60,7 +62,8 @@ namespace FuzzPhyte.Utility.Editor.Video
             material.SetFloat("_DirectionalSeam", settings.useDirectionalSeam ? 1 : 0);
             material.SetFloat("_SeamWidth", settings.seamWidth);
             material.SetVector("_SeamNormal", Quaternion.Euler(0, settings.seamYaw, 0) * Vector3.forward);
-            material.SetMatrix("_ViewRotation", Matrix4x4.Rotate(Quaternion.Euler(settings.rotation)));
+            Quaternion correction = settings.stabilizeMotion ? (motion ?? throw new InvalidOperationException("Load motion data before enabling stabilization.")).Correction(sourceSeconds, settings) : Quaternion.identity;
+            material.SetMatrix("_ViewRotation", Matrix4x4.Rotate(correction * Quaternion.Euler(settings.rotation)));
             material.SetMatrix("_LeftRotation", Matrix4x4.Rotate(Quaternion.Inverse(Quaternion.Euler(settings.leftRotation))));
             material.SetMatrix("_RightRotation", Matrix4x4.Rotate(Quaternion.Inverse(Quaternion.Euler(settings.rightRotation))));
             FPVideoFactoryCalibration.Bind(material, settings);
