@@ -6,7 +6,8 @@
         "com.fuzzphyte.utility.tests.playmode",
         "com.fuzzphyte.utility",
         "Unity.TextMeshPro",
-        "Unity.RenderPipelines.Universal.Runtime"
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.Collections"
     ],
     "includePlatforms": [
         "Editor"

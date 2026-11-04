@@ -1,0 +1,186 @@
+// Copyright (c) 2026 John B. Shull. See LICENSE.md.
+// Independent reconstruction of Farneback (SCIA 2003), equations 13 and 21–23.
+#pragma kernel Downsample
+#pragma kernel FitPolynomial
+#pragma kernel InitializeFlow
+#pragma kernel FormTensors
+#pragma kernel BlurHorizontal
+#pragma kernel SolveVertical
+#pragma kernel Confidence
+#pragma kernel TemporalSmooth
+
+Texture2D<float4> _Image, _ImageA, _ImageB, _CoarseFlow, _FlowRead;
+Texture2D<float4> _PolyA0, _PolyA1, _PolyB0, _PolyB1;
+Texture2D<float4> _Tensor0, _Tensor1, _Forward, _Backward;
+Texture2D<float4> _HistoryFlow, _HistoryImage;
+float _HistoryWeight, _TemporalConfidence;
+float2 _TemporalRejectPixels;
+RWTexture2D<float4> _WriteImage, _WritePoly0, _WritePoly1, _FlowWrite, _WriteTensor0, _WriteTensor1;
+StructuredBuffer<float> _FitInverse;
+SamplerState sampler_linear_clamp;
+int4 _Size, _SourceSize; // width, height, width per independent chart, chart count
+int _HasCoarse;
+float2 _MaxFlowPixels;
+float _Consistency = 1.5, _PhotoTolerance = .12;
+
+bool Outside(uint2 p) { return p.x >= (uint)_Size.x || p.y >= (uint)_Size.y; }
+int2 InChart(int2 p, int chart, int4 size)
+{ return int2(clamp(p.x, chart * size.z, (chart + 1) * size.z - 1), clamp(p.y, 0, size.y - 1)); }
+bool ValidPoint(float2 p, int chart, int4 size, float margin = 0)
+{ return p.x >= chart * size.z + margin && p.x <= (chart + 1) * size.z - 1 - margin && p.y >= margin && p.y <= size.y - 1 - margin; }
+float2 ChartUv(float2 p, int chart, int4 size)
+{
+    p = clamp(p, float2(chart * size.z, 0), float2((chart + 1) * size.z - 1, size.y - 1));
+    return (p + .5) / float2(size.xy);
+}
+float Luma(float3 rgb) { return dot(rgb, float3(.2126, .7152, .0722)); }
+
+[numthreads(8,8,1)]
+void Downsample(uint3 id : SV_DispatchThreadID)
+{
+    if (Outside(id.xy)) return;
+    int chart = id.x / _Size.z;
+    int2 p = int2(chart * _SourceSize.z + (id.x % _Size.z) * 2, id.y * 2);
+    float4 a = _Image.Load(int3(InChart(p, chart, _SourceSize),0));
+    float4 b = _Image.Load(int3(InChart(p + int2(1,0), chart, _SourceSize),0));
+    float4 c = _Image.Load(int3(InChart(p + int2(0,1), chart, _SourceSize),0));
+    float4 d = _Image.Load(int3(InChart(p + 1, chart, _SourceSize),0));
+    _WriteImage[id.xy] = float4((a.rgb+b.rgb+c.rgb+d.rgb)*.25, min(min(a.a,b.a),min(c.a,d.a)));
+}
+
+[numthreads(8,8,1)]
+void FitPolynomial(uint3 id : SV_DispatchThreadID)
+{
+    if (Outside(id.xy)) return;
+    int chart = id.x / _Size.z;
+    float moments[6] = {0,0,0,0,0,0}; float valid = ValidPoint(id.xy, chart, _Size, 2) ? 1 : 0;
+    [unroll] for (int y=-2;y<=2;y++) [unroll] for (int x=-2;x<=2;x++)
+    {
+        float4 sample = _Image.Load(int3(InChart(int2(id.xy)+int2(x,y),chart,_Size),0));
+        valid *= step(.99,sample.a);
+        float w = exp(-(x*x+y*y)/(2*1.1*1.1));
+        float value = Luma(sample.rgb) * 255 * w;
+        moments[0]+=value; moments[1]+=x*value; moments[2]+=y*value;
+        moments[3]+=x*x*value; moments[4]+=y*y*value; moments[5]+=x*y*value;
+    }
+    float coefficients[6];
+    [unroll] for (int i=0;i<6;i++)
+    { coefficients[i]=0; [unroll] for(int j=0;j<6;j++) coefficients[i]+=_FitInverse[i*6+j]*moments[j]; }
+    // Polynomial basis: 1,x,y,x²,y²,xy; Axy is half the xy coefficient.
+    _WritePoly0[id.xy] = float4(coefficients[3],coefficients[5]*.5,coefficients[4],coefficients[1]);
+    _WritePoly1[id.xy] = float4(coefficients[2],valid,0,0);
+}
+
+[numthreads(8,8,1)]
+void InitializeFlow(uint3 id : SV_DispatchThreadID)
+{
+    if (Outside(id.xy)) return;
+    float2 value=0;
+    if (_HasCoarse != 0)
+    {
+        int chart=id.x/_Size.z;
+        float2 scale=float2(_Size.z,_Size.y)/float2(_SourceSize.z,_SourceSize.y);
+        float2 p=float2(chart*_SourceSize.z,0)+(float2(id.x%_Size.z,id.y)+.5)/scale-.5;
+        value=_CoarseFlow.SampleLevel(sampler_linear_clamp,ChartUv(p,chart,_SourceSize),0).xy*scale;
+    }
+    _FlowWrite[id.xy]=float4(value,0,0);
+}
+
+[numthreads(8,8,1)]
+void FormTensors(uint3 id : SV_DispatchThreadID)
+{
+    if (Outside(id.xy)) return;
+    int chart=id.x/_Size.z;
+    float2 prior=round(_FlowRead.Load(int3(id.xy,0)).xy);
+    int2 q=int2(id.xy)+int2(prior);
+    float4 a=_PolyA0.Load(int3(id.xy,0)), aa=_PolyA1.Load(int3(id.xy,0));
+    if (!ValidPoint(q,chart,_Size,2) || aa.y<.5)
+    { _WriteTensor0[id.xy]=0; _WriteTensor1[id.xy]=0; return; }
+    float4 b=_PolyB0.Load(int3(q,0)), bb=_PolyB1.Load(int3(q,0));
+    if (bb.y<.5) { _WriteTensor0[id.xy]=0; _WriteTensor1[id.xy]=0; return; }
+    float3 A=(a.xyz+b.xyz)*.5;
+    float2 delta=.5*float2(a.w-b.w,aa.x-bb.x)+float2(A.x*prior.x+A.y*prior.y,A.y*prior.x+A.z*prior.y);
+    _WriteTensor0[id.xy]=float4(A.x*A.x+A.y*A.y,A.y*(A.x+A.z),A.y*A.y+A.z*A.z,A.x*delta.x+A.y*delta.y);
+    _WriteTensor1[id.xy]=float4(A.y*delta.x+A.z*delta.y,1,0,0);
+}
+
+[numthreads(8,8,1)]
+void BlurHorizontal(uint3 id : SV_DispatchThreadID)
+{
+    if (Outside(id.xy)) return;
+    int chart=id.x/_Size.z; float4 g=0,h=0;
+    [unroll] for(int x=-4;x<=4;x++)
+    {
+        int3 p=int3(InChart(int2(id.xy)+int2(x,0),chart,_Size),0);float w=exp(-x*x/8.0);
+        g+=w*_Tensor0.Load(p);h+=w*_Tensor1.Load(p);
+    }
+    _WriteTensor0[id.xy]=g;_WriteTensor1[id.xy]=h;
+}
+
+[numthreads(8,8,1)]
+void SolveVertical(uint3 id : SV_DispatchThreadID)
+{
+    if (Outside(id.xy)) return;
+    int chart=id.x/_Size.z;float4 g=0,h=0;
+    [unroll] for(int y=-4;y<=4;y++)
+    {
+        int3 p=int3(InChart(int2(id.xy)+int2(0,y),chart,_Size),0);float w=exp(-y*y/8.0);
+        g+=w*_Tensor0.Load(p);h+=w*_Tensor1.Load(p);
+    }
+    g/=max(h.y,.00001);h.x/=max(h.y,.00001);
+    float trace=g.x+g.z;
+    float eigen=.5*(trace-sqrt(max(0,(g.x-g.z)*(g.x-g.z)+4*g.y*g.y)));
+    float certainty=trace>.001 && eigen>max(.00001,trace*.002) ? 1 : 0;
+    float ridge=max(.00001,trace*.0001);g.x+=ridge;g.z+=ridge;
+    float det=g.x*g.z-g.y*g.y;
+    float2 flow=det>.000000001 ? float2(g.z*g.w-g.y*h.x,g.x*h.x-g.y*g.w)/det : 0;
+    if (!all(isfinite(flow))) { flow=0;certainty=0; }
+    float magnitude=length(flow/max(_MaxFlowPixels,.001));
+    if (magnitude>1) { flow/=magnitude;certainty=0; }
+    _FlowWrite[id.xy]=float4(flow,certainty,0);
+}
+
+[numthreads(8,8,1)]
+void Confidence(uint3 id : SV_DispatchThreadID)
+{
+    if (Outside(id.xy)) return;
+    int chart=id.x/_Size.z;
+    float4 forward=_Forward.Load(int3(id.xy,0));float2 q=float2(id.xy)+forward.xy;
+    float confidence=0,error=1;
+    if (forward.z>.5 && ValidPoint(q,chart,_Size,3) && ValidPoint(id.xy,chart,_Size,3))
+    {
+        float2 uv=ChartUv(q,chart,_Size);
+        float4 reverse=_Backward.SampleLevel(sampler_linear_clamp,uv,0);
+        float4 a=_ImageA.Load(int3(id.xy,0)), b=_ImageB.SampleLevel(sampler_linear_clamp,uv,0);
+        float consistency=length(forward.xy+reverse.xy);
+        error=abs(Luma(a.rgb)-Luma(b.rgb));
+        confidence=(1-smoothstep(_Consistency*.5,_Consistency,consistency))*(1-smoothstep(_PhotoTolerance*.5,_PhotoTolerance,error));
+        confidence*=step(.5,reverse.z)*step(.99,a.a)*step(.99,b.a);
+    }
+    _FlowWrite[id.xy]=float4(forward.xy,confidence,error);
+}
+
+// Filter correspondence, never image pixels. Do not carry an invalid match forward.
+[numthreads(8,8,1)]
+void TemporalSmooth(uint3 id : SV_DispatchThreadID)
+{
+    if (Outside(id.xy)) return;
+    int chart=id.x/_Size.z;
+    float4 current=_Forward.Load(int3(id.xy,0)), previous=_HistoryFlow.Load(int3(id.xy,0));
+    float4 image=_ImageA.Load(int3(id.xy,0)), oldImage=_HistoryImage.Load(int3(id.xy,0));
+    float difference=length((current.xy-previous.xy)/max(_TemporalRejectPixels,.001));
+    float appearance=abs(Luma(image.rgb)-Luma(oldImage.rgb));
+    float weight=_HistoryWeight*(1-smoothstep(.5,1,difference))*(1-smoothstep(.04,.08,appearance));
+    if (current.z<_TemporalConfidence || previous.z<_TemporalConfidence || image.a<.99 || oldImage.a<.99) weight=0;
+    float2 filtered=lerp(current.xy,previous.xy,weight);
+    float2 q=float2(id.xy)+filtered;
+    if (weight>0 && ValidPoint(q,chart,_Size,3))
+    {
+        float4 b=_ImageB.SampleLevel(sampler_linear_clamp,ChartUv(q,chart,_Size),0);
+        float error=abs(Luma(image.rgb)-Luma(b.rgb));
+        // Avoid preserving a steady vector that no longer describes this frame.
+        if (b.a>=.99 && error<=min(_PhotoTolerance,current.w+.02))
+        { current.xy=filtered; current.w=error; }
+    }
+    _FlowWrite[id.xy]=current;
+}

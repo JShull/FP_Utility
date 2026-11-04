@@ -15,7 +15,10 @@ namespace FuzzPhyte.Utility.Editor
         internal static double XToTime(Rect rect, float x, double duration) =>
             Mathf.InverseLerp(rect.x, rect.xMax, x) * Math.Max(0, duration);
 
-        internal static void DrawRuler(Rect rect, double duration) {
+        internal static void DrawRuler(Rect rect, double duration) => DrawRuler(rect, 0, duration);
+
+        internal static void DrawRuler(Rect rect, double start, double end) {
+            double duration = Math.Max(0, end - start);
             EditorGUI.DrawRect(rect, new Color(.1f, .1f, .1f));
             int ticks = Mathf.Clamp(Mathf.CeilToInt((float)duration), 1, 16);
             Handles.BeginGUI();
@@ -25,7 +28,7 @@ namespace FuzzPhyte.Utility.Editor
                 double time = duration * i / ticks;
                 float x = TimeToX(rect, time, duration);
                 Handles.DrawLine(new Vector3(x, rect.yMax - 10), new Vector3(x, rect.yMax));
-                GUI.Label(new Rect(Mathf.Min(x + 3, rect.xMax - 54), rect.y + 1, 54, 16), $"{time:F1}", EditorStyles.miniLabel);
+                GUI.Label(new Rect(Mathf.Min(x + 3, rect.xMax - 54), rect.y + 1, 54, 16), $"{start + time:F1}", EditorStyles.miniLabel);
             }
             Handles.color = previous;
             Handles.EndGUI();

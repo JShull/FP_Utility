@@ -773,6 +773,367 @@ Use the heightmap editor to:
 * `Use GPU Working Copy` enables GPU-backed editing and debug views for source, shader source, mask influence, and final influence.
 * Brush edits are made on a working copy. The original source texture is not changed until a new PNG is saved.
 
+### FP Video Unwrap
+
+Open `FuzzPhyte/Utility/Video/FP Video Unwrap` to convert external MP4-container
+`.lrv`, `.insv`, `.mp4`, or `.mov` videos without entering Play Mode. Browse or drop one
+file into the window. An LRV is staged as a temporary `.mp4` copy because Unity's
+native decoder rejects the extension; the original stays untouched. The copy
+requires free temporary disk space equal to the source size and is removed when
+the source/window closes. Source and projected previews sit above an Audio
+Combine-style ruler, playhead and export In/Out bookends.
+
+**Two-track INSV:** matching square, constant-frame-rate lens tracks are staged
+into two temporary MP4 views. C# copies the container and changes the other video
+track's index box to a same-size `free` box; compressed samples and chunk offsets
+are retained. Unity decodes both streams, verifies equal timestamps, and copies
+their GPU images side by side for the existing dual-fisheye mapping. No external
+demuxer, transcoding or native plugin is used by the tool. Staging needs roughly
+twice the source file size in temporary disk space. Copies are removed on unload,
+cancellation or window teardown. Single-track INSV uses one temporary MP4 copy.
+Other multi-track layouts are rejected rather than silently dropping a lens.
+
+Verified sample `VID_20261022_155336_00_001.insv` has two 3840×3840 HEVC lens
+tracks at 50 fps, giving a combined **7680×3840** input, 4,997 frames / 99.94 s,
+and stereo 48-kHz AAC. The input is 10-bit BT.709; current decoder textures and
+H.264 export are **8-bit SDR**. Factory lens metadata, gyro calibration,
+FlowState and camera-specific Log/HDR transforms are not applied. A high-resolution
+source costs more decode time and memory; it is not a guarantee of 50-fps Editor
+playback. Output resolution remains the explicit user setting; select 7680×3840
+for an 8K equirectangular export if desired.
+
+Validation in Unity 6000.6.7f1 / DX12 on RTX 5090 Laptop GPU: **48/48 video
+EditMode tests passed**, including paired-lens staging/cleanup, distinct-lens GPU
+composition, synchronized seeks, color bypass/neutral behavior and diagnostic
+isolation, CPU/GPU whole-frame preview scaling, paired GPU seeks, curve ramps,
+shadow/highlight behavior and muted-color vibrance. A native 0.00–0.40-s export from the supplied INSV completed at
+2048×1024 with 20 H.264 frames, 19,200 audio sample frames, SHA-256 and color
+settings in its report. This validates the short path, not full-clip 8K export,
+factory-quality stitching or other codec/platform combinations. Offline ffprobe
+was used to inspect stream metadata and the encoded sample, not by the product.
+
+Choose the source layout explicitly: **Dual Fisheye** for two side-by-side lens
+circles, or **Equirectangular** for already stitched media. The three outputs are:
+
+- **Equirectangular:** full 360 × 180 degrees, requiring a 2:1 output size for
+  the existing sphere playback workflow.
+- **Cylindrical:** full horizontal panorama with adjustable vertical FOV.
+- **Perspective:** flat camera view with horizontal FOV and aspect-correct
+  vertical coverage.
+
+Use view rotation for framing; expand **Lens calibration** for normalized lens
+centers/radii, per-lens Euler rotations, full lens FOV and angular seam blending.
+Defaults describe a generic equidistant dual-fisheye layout, not a calibrated
+Insta360 model. Experimental GPU seam correspondence is available after geometric
+alignment. Manufacturer lens calibration, gyro/FlowState stabilization, horizon
+lock, and spherical MP4 metadata injection are not implemented.
+
+#### Color tuning
+
+Expand **Color tuning**, then enable **Apply color tuning** for the Composite
+preview and normal exports. It works on decoded media in either source layout,
+including the current LRV and supported paired-track INSV workflows. INSV layouts
+and platform codec support still vary.
+
+- **Exposure:** −4 to +4 stops.
+- **Contrast:** 0–2, with a linear-light 0.18 pivot; neutral is 1.
+- **Saturation:** 0–2; 0 is grayscale and 1 is neutral.
+- **Temperature / Tint:** −1 to +1 relative cool/warm and green/magenta RGB balance.
+  These are artistic controls, not measured Kelvin or camera-profile corrections.
+- **Tone curve:** Neutral, Soft film, Flat Log113 (creative), Custom gamma,
+  Vivid, Shadow detail, or Vivid + shadow detail.
+- **Curve strength:** 0–1, mixed with the normally graded image. Custom gamma
+  exposes **Midtone gamma** (0.5–2.5): 1 is neutral, above 1 lifts midtones.
+
+Curves run after exposure/balance/contrast/saturation. Soft film uses the original
+creative display-code curve `0.5*x + 0.5*x*x*(3-2*x)`. Custom gamma uses
+`pow(x,1/gamma)` on display code. Flat Log113 uses
+`log(1+112*linear)/log(113)` as its target display code, based on the equation in
+[GoPro Labs' LOGB documentation](https://gopro.github.io/labs/control/tech/).
+Strength blends display-code values, with piecewise sRGB conversion to/from
+Unity's linear working values. Neutral, strength zero, and gamma one bypass the
+curve exactly. Defaults remain Neutral. The Flat Log113 look **does not decode
+Protune/CineStyle footage**, reproduce a complete manufacturer profile, perform
+a gamut transform, or recover captured dynamic range. It is a creative option
+for the currently decoded SDR image. No third-party LUT or source code is bundled.
+
+**Vivid** adds a gentle luminance S-curve and boosts muted colors more than highly
+saturated ones. **Shadow detail** lifts linear luminance with
+`target = Y + 2*Y*(1-Y)^6`: darkest nonzero values rise most, while highlights
+largely retain their original brightness and true black remains black.
+**Vivid + shadow detail** combines the lift with the vivid look. All three use
+uniform chroma scaling toward the target luminance to fit the SDR gamut rather
+than clipping channels independently. Strength controls the final mix; start
+around 0.5. These are original creative looks, not manufacturer LUTs. Shadow lift
+can reveal noise and cannot recover clipped data or create spatial detail.
+
+Curve validation in the active Linear-color-space Editor uses a 256-step grayscale
+ramp, checked against independent double-precision formulas within 0.009 encoded
+RGB units (including 8-bit quantization). All curves must remain finite, bounded,
+monotonic and preserve black/white endpoints. Zero strength, bypass and gamma one
+must retain the baseline pixels exactly. A five-frame, full-source INSV export
+with Flat Log113 at 0.5 strength also completed with audio, hash and curve settings
+in the JSON report. Gamma-project rendering and other graphics backends remain
+unqualified; these are creative SDR curves, not manufacturer color equivalence.
+
+Grading runs in the existing projection shader after stitching, with no additional
+readback or native dependency. Toggle **Apply color tuning** to compare with the
+ungraded image; **Reset color tuning** restores neutral values. Changes support
+Undo and survive Editor reloads. Settings are copied into export snapshots and
+recorded in the existing JSON report. Calibration-only JSON files preserve the
+current output grade rather than storing or overwriting it.
+
+The Source preview, lens/overlap/difference/flow diagnostics and correspondence
+inputs remain ungraded. Output tuning cannot fix an exposure mismatch between
+the two lenses. This is the current SDR pipeline, with clipping at the output;
+automatic Log/HDR transfer, camera gamut transforms, LUTs and HDR export are not
+implemented. Higher-resolution media does not by itself establish its color space.
+
+#### Lens calibration workspace
+
+Pause on a useful frame, open **Calibration**, and select a diagnostic view from
+the toolbar above the preview:
+
+- **Lens A / Lens B:** each reprojected hemisphere on its own; uncovered areas are
+  black. These are mappings into the selected output view, not the raw circles.
+- **Overlap Overlay:** superimpose both lenses where they overlap. **A mix** moves
+  from lens B at 0 to lens A at 1; non-overlap areas are dimmed for context.
+- **Difference:** absolute RGB difference in the overlap, with adjustable gain.
+  Identical samples are black. Bright edges expose mismatch; exposure differences
+  and parallax can also produce a nonzero difference after geometric alignment.
+- **Coverage:** cyan for A, magenta for B, white for both and black for neither.
+- **Composite:** the final blend. Diagnostics and the grid are preview-only;
+  normal exports always render Composite.
+
+Use the wheel over the output image to zoom around the pointer (1–8×), middle-drag
+to pan, **Grid** for alignment guides, and **Reset zoom** to reframe. Zoom is only
+an inspection crop and never changes export framing. Preview render resolution
+increases with zoom up to the output width / 4096-pixel preview cap. Hide **Source**
+to give the calibration image the full viewer width.
+
+Use A as a reference and adjust B's rotation to align stationary distant features.
+Refine centers, radii and FOV while checking more than one part of the seam.
+**Independent lens B** enables a separate B FOV/radius instead of the shared
+default values. No factory-calibrated X6 preset is supplied: the generic starting
+values still need calibration against the recording.
+
+**Directional seam** is opt-in. Its yaw rotates the split plane in source
+spherical coordinates, and **Blend width** controls the angular transition
+(0 degrees is a hard cut). Place the transition inside valid lens overlap; when
+only one lens covers a direction, that lens is used. The disabled/default mode
+retains the original edge-feather blend. Narrowing or moving a seam can avoid a
+difficult subject, but does not correct geometric misalignment or depth-dependent
+parallax. Global **View rotation** changes framing rather than relative alignment.
+
+**Save calibration** / **Load calibration** explicitly write/read a versioned
+calibration-only JSON file. They preserve output dimensions, bitrate, projection,
+view rotation and timeline settings. Loading is validated before applying and
+supports Undo. Calibration name and mapping/seam settings are also recorded in
+export reports. No calibration files are created automatically in the media folder.
+
+#### Native GPU seam flow (experimental)
+
+Under **Lens calibration → GPU seam flow**, enable **Farnebäck correction**.
+This enables the directional seam and estimates correspondence between the two
+lenses at the same timestamp. Lens A remains fixed; accepted matches warp lens B
+before blending. C# and a Unity compute shader implement polynomial expansion,
+an image pyramid and bidirectional consistency checks. No OpenCV, native plugin,
+Python, model weights or inference package is used by the tool. Compute shaders
+and float32 random-write render textures are required.
+
+Keep geometric alignment first: 196.4° was the user's best shared-FOV setting on
+the supplied X6 recording, not a factory calibration. Start with flow resolution
+512, five iterations, maximum warp 2°, strength 1 and minimum confidence 0.5.
+The maximum-warp control supports 0.1–10°.
+Resolution is the seam chart height, independent of export dimensions. Lowering
+it reduces cost; raising it increases cost and memory. The default pair of charts
+is 208×512 in total and owns about 31 MiB of reusable float32 textures.
+
+- **Flow Vectors:** direction as hue, angular magnitude/confidence as brightness.
+- **Flow Confidence:** white indicates stronger correspondence; black is rejected
+  or outside the seam charts.
+- **Warped Difference:** corrected RGB residual; magenta marks rejected overlap.
+  Compare with the ordinary **Difference** view on a frozen frame.
+
+Uncertain overlap retains the ordinary uncorrected seam blend and its feather width. The two seam charts are
+independent, limited to ±80° elevation; poles retain ordinary stitching. Matching
+is bounded. Strength zero matches ordinary stitching. Optional **Temporal smoothing**
+filters reliable displacement vectors across consecutive source frames; it does not
+average video pixels. Start with **Response time** 0.08 s and **Motion reset** 1°.
+Higher response times reduce jitter but add lag; lower motion-reset angles reject
+history sooner when displacement changes. Low-confidence matches, local appearance
+changes and poor warped photometric matches discard history at that pixel.
+
+Seeks, reverse steps, skipped frames, calibration/flow-setting changes and raw
+diagnostic views reset history. Repainting a paused frame never integrates it
+again. Preview and export share the filter, independent of preview resolution;
+they agree when started at the same frame with the same consecutive sequence.
+Each export starts fresh at **In**, without hidden preroll, so its first frames
+can differ from a preview that has already warmed up. Smoothing owns another
+4.9 MiB at default resolution and remains off by default. Water, reflections,
+occlusion, nearby subjects and thin objects can still produce seams or flicker;
+this is not motion-compensated temporal tracking or camera stabilization.
+Inspect a short moving export before a full clip. Diagnostics remain preview-only;
+enabled correction applies to normal Composite exports. Flow is off by default.
+
+Calibration JSON version 3 stores flow and temporal settings; version 2 loads with
+temporal smoothing disabled, and version 1 loads with flow disabled. Export reports
+include settings and both method descriptions. See [validation evidence](Editor/Video/FPVideoFlowValidation.md)
+for the measured scope and limitations; OpenCV equivalence is not claimed.
+
+Drag the ruler/lane to scrub, drag the blue/orange bookends to trim, use the wheel
+to zoom around the pointer, middle-drag to pan, and **Fit** to see the full source.
+Space toggles playback, Left/Right steps by one source frame (Shift: ten), and I/O
+sets the export bookends. Requested and displayed timestamps remain separate;
+scrub requests are coalesced and a bounded cache at the selected preview resolution is used.
+**Preview detail** selects 1024 (fastest), 2048 (balanced/default), 4096 (detailed),
+or Full source. In CPU preview, Unity decodes to a full-size CPU frame; a parallel Burst job
+bilinearly resizes CPU pixels before uploading only the smaller preview. This is
+not a proxy transcode or GPU-resident codec path. Normalized lens
+mapping remains the same. The status line shows actual decoded preview dimensions.
+Changing preview detail resets playback, cache and flow history, without changing
+export dimensions or the full-resolution export decoder. The existing installed
+Unity Burst package is reused by the Editor assembly; no package is installed.
+Use Full source when
+inspecting fine detail; zooming a smaller preview cannot restore native pixels.
+Preview resizing can change estimated flow relative to full-resolution inputs;
+use Full source when validating the export seam on a frozen frame.
+
+On the supplied paired 3840×3840/50-fps INSV, a warmed eight-frame main-thread
+decode/upload-submission probe on RTX 5090 Laptop / Unity 6000.6.7f1 / DX12 measured
+median **119.48 ms** at 7680×3840 and **53.51 ms** at 2048×1024 (max 128.83/54.95 ms)
+in the same corrected-scaling run. An earlier 21-ms probe used a cropped
+destination and was rejected by visual/spatial validation; it is not a valid
+scaled-preview result.
+These are Editor decode-path timings, not GPU timestamps or guaranteed playback
+rates. The 50-fps budget is 20 ms before other work; reduced previews can still
+drop frames. Stitching, flow and grading already run on the GPU. CPU preview
+still uploads CPU pixels. CPU Play uses sequential native decoding at the source frame rate, independently of
+the 80 ms drag-scrub throttle. A wall-clock playhead permits bounded forward
+catch-up after missed Editor updates; distant jumps resume via a seek. The status
+line distinguishes sequential playback from scrub preview and shows decode time.
+The source/output preview split is resizable. Preview playback is muted; export
+can preserve the first source audio track.
+
+#### GPU texture preview (experimental)
+
+Enable **GPU texture preview** near Preview detail to use public Unity
+`VideoPlayer` components rendering directly into render textures. Matching lens
+frame indices are copied into the source atlas on the GPU; no application-side
+CPU image upload, resize or readback occurs during playback. A normal
+`EditorApplication.QueuePlayerLoopUpdate` pump lets preparation and playback
+advance in Edit Mode. No Play Mode transition, new plugin or external decoder is
+required. The earlier undocumented VideoPlayback/GetTexture probe that crashed
+the Editor is **not** used by this backend.
+
+This mode is opt-in and requires constant-frame-rate source metadata. Preparation
+and seeks are asynchronous; serial seeks coalesce drag requests and only matching
+actual frame indices are published. Paused repaints do not republish a frame.
+Continuous playback allows Unity to drop late frames when supported, keeping
+preview near real time under Editor load. Each scrub seek disables dropping again
+so the requested frame is delivered exactly; export remains frame-accurate.
+The transport follows presented GPU frame times during playback. Preview is muted,
+keeps one GPU atlas rather than a CPU frame cache, and disposes players/textures
+when switching backend, changing detail or closing/unloading. Native decoder
+errors/timeouts appear in-window; turn this option off to return to CPU preview.
+Native codec/hardware-decoder selection remains Unity/OS/driver-dependent: direct
+GPU textures do not establish driver-level zero-copy or guarantee hardware decode.
+Export deliberately retains the full-resolution Editor MediaDecoder, audio timing
+and MediaEncoder path; it still reads back the final output image for encoding.
+
+Qualification used a separate temporary Unity 6000.6.7f1 project before active
+Editor integration. Public VideoPlayer playback worked on D3D11/D3D12. The actual
+backend then ran outside Play Mode in Linear color space on D3D12 / RTX 5090 Laptop
+with two full 3840×3840 HEVC lenses and a 7680×3840 GPU atlas: **49.91 published fps**
+over two three-second steady intervals, no errors, matching forward/reverse/rapid
+seeks, stable pause and two complete create/dispose cycles. This is a short sample
+result, not a full-clip/platform guarantee or an isolated GPU execution time.
+At matched frame 100 (2.0 s), a 1024×512 comparison against the Editor decoder had
+mean absolute encoded RGB difference **0.00351**, p95 **0.01569** (bounds 0.02/0.06).
+The images are close, not bit-identical; codec conversion/resampling can vary.
+Application-side hardware decode telemetry was not conclusively established.
+
+A subsequent 35-second paired-lens stress test added 45 ms of main-thread work
+per Editor update after ten seconds. Disabling frame drops accumulated **17.66 s**
+of playback delay; allowing drops during playback ended at **0.026 s** delay with
+no errors and matching lens indices at every sampled publication. The longest
+publication gap was **0.176 s**. This measures latency under artificial Editor
+load, not a guarantee of uninterrupted playback on every source/platform.
+
+Playback validation on Windows, Unity 6000.6.7f1 / DX12, Intel Core Ultra 9 275HX,
+using the 2048 × 1024 HEVC/25 fps LRV sample: 100 sequentially timed requests
+previously presented 36 frames (median decode 6.59 ms, p95 1021.63 ms). With the
+separate Play path, all 100 were presented (median 2.46 ms, p95 4.49 ms), below
+the 40 ms source-frame budget. These are warm Editor preview/decode measurements,
+not export, runtime Player, headset, or cross-platform performance guarantees.
+
+Enter a full **Output MP4** path to export without a native file dialog (useful
+when Unity runs with `-automated`). Leave it empty to choose a file through the
+Save dialog. Existing files are protected from overwrite. A cancelled or unavailable
+dialog now displays a status message with the direct-path alternative.
+
+Run **Export 2-second test at playhead** before a full export. In/Out times are
+quantized to source frames; Out is exclusive. Export retains the constant source
+frame rate and validates decoded presentation timestamps. **Fast audio trim**
+defaults on: for the qualified Windows Unity 6000.6 / 48 kHz native decoder, it
+seeks on the integer PCM sample clock to five seconds before In, decodes that
+bounded preroll, then writes the selected samples. This avoids decoding all
+earlier video merely to advance the audio demuxer. The backend's measured
+one-sample seek offset is compensated before preroll. Near-start trims, other
+configurations, or disabling Fast audio trim retain the original sequential path.
+Preparation shows percentage and source seconds remaining to decode; the JSON
+report records the trim method, seek sample frame and preroll duration.
+
+Validation compared sequential PCM against native near-seek PCM at three
+nonzero trim points in an eight-second Unity-encoded stereo AAC fixture: maximum
+error <1e-5, RMS <1e-6. Fast/sequential eight-frame exports retained 15,360 audio
+sample frames and matched decoded output samples within 1e-5. Separately, a
+1,024-frame stereo block captured from the running X6 export near source 794.41 s
+matched the compensated five-second-preroll decode exactly (maximum/RMS error 0).
+That isolated native decode took about 4.3 s versus scanning over thirteen
+minutes of prior source time. These qualify this backend and sampled content;
+they do not establish all-codec/platform equivalence. The sequential option
+remains available for sources requiring separate qualification.
+
+Variable-frame-rate export and fragmented MP4 sample tables are
+unsupported. Even output dimensions from 16 to 8192 are accepted, subject to the
+installed native encoder/GPU limits. Increasing dimensions adds no source detail.
+
+**Export bitrate (Mbps)** defaults to 40, using H.264 High profile, a roughly
+one-second GOP and no B-frames. Unity's implicit Baseline/default-rate encoder
+produced progressive block/smear artifacts on moving-water footage, including
+inside a two-second test; clip duration was not the cause. A 40 Mbps target kept
+the end of that segment close to the uncompressed projected frame (35.7 dB PSNR,
+versus 22.2 dB with the old settings). The target is not a guaranteed constant
+bitrate; actual file size varies. A full 1799-second clip has a video budget of
+about 9 GB at 40 Mbps, plus audio. The window displays an approximate size budget.
+
+Export processes bounded batches (up to eight frames / about 12 ms of work per
+Editor update, allowing a single slow native call to finish), refreshes progress
+at 10 Hz and avoids uploading readback pixels to the GPU again before encoding.
+Unity texture/decoder/encoder submissions stay on the main thread; arbitrary
+worker-thread calls are not used. Hashing runs in the background. Progress shows
+measured throughput and a remaining-time estimate. On the same Windows Editor
+machine above, a 100-frame 2048 × 1024 source test improved from 44.6 fps with the
+old defaults to 53.9 fps with the new high-quality settings and batched updates.
+This short-run measurement includes UI scheduling and is not a long-run guarantee.
+
+MP4 output uses Unity's native `MediaEncoder`; decoding uses a small,
+version-checked reflection adapter for Unity's **internal** Editor `MediaDecoder`.
+This is native but is not a supported public decoding API. It has been exercised
+on Unity 6000.6.7f1; other Editor versions/platforms/codecs may reject the source
+or lack that API. Failures appear in the window; no FFmpeg or new package is
+installed automatically. Projection/rendering is shared by preview and export.
+
+Export writes a temporary MP4, then calculates SHA-256 and publishes the MP4 plus
+`<output>.mp4.json`. The report includes settings, source frame range, frame rate,
+audio sample-frame count and a `video` manifest item using `FPVideoHashUtility`.
+Fill in the download URL before adding that item to your hosted manifest. Both
+output paths must be unused; existing files are never overwritten. Cancellation,
+window closure and assembly reload dispose decoders/render resources and remove
+partial files. An application crash may leave a temporary copy or partial export
+for manual cleanup.
+
 ### FP Video Sphere Generator
 
 FP Video Sphere Generator is an editor-only mesh authoring tool for creating video-ready playback surfaces. It can generate inside-out sphere meshes for 360 equirectangular video, ellipsoid meshes for stretched immersive volumes, and segmented quads for flat video surfaces, kiosks, billboards, or UI-style playback planes.

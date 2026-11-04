@@ -10,6 +10,7 @@
         "Unity.Timeline",
         "Unity.Entities",
         "Unity.Collections",
+        "Unity.Burst",
         "Unity.Entities.Editor"
     ],
     "includePlatforms": [
