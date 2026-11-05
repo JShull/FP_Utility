@@ -33,6 +33,7 @@ namespace FuzzPhyte.Utility.Editor
         private string status = "Trace an old root to inspect scene connections. Plans are cleared after domain reload.";
         private bool stale;
         private int page;
+        private bool validationPending;
 
         [MenuItem("FuzzPhyte/Utility/Scene/Scene Reference Replacer", priority = FP_UtilityData.MENU_UTILITY_SCENE + 12)]
         public static void Open()
@@ -47,19 +48,42 @@ namespace FuzzPhyte.Utility.Editor
             plan = null;
             preservation = null; candidates = null;
             EditorApplication.hierarchyChanged += Invalidate;
-            EditorApplication.projectChanged += Invalidate;
+            EditorApplication.projectChanged += ProjectChanged;
             Undo.undoRedoPerformed += Invalidate;
             ObjectChangeEvents.changesPublished += ObjectsChanged;
         }
         private void OnDisable()
         {
             EditorApplication.hierarchyChanged -= Invalidate;
-            EditorApplication.projectChanged -= Invalidate;
+            EditorApplication.projectChanged -= ProjectChanged;
             Undo.undoRedoPerformed -= Invalidate;
             ObjectChangeEvents.changesPublished -= ObjectsChanged;
+            EditorApplication.delayCall -= ValidatePendingChanges;
+            validationPending = false;
         }
         private void ObjectsChanged(ref ObjectChangeEventStream stream) => Invalidate();
-        private void Invalidate() { if (plan != null) stale = true; if (preservation != null) preservationStale = true; Repaint(); }
+        private void ProjectChanged() { if (plan != null) stale = true; if (preservation != null) preservationStale = true; Repaint(); }
+        private void Invalidate()
+        {
+            if (validationPending || (plan == null && preservation == null)) return;
+            validationPending = true;
+            EditorApplication.delayCall += ValidatePendingChanges;
+        }
+        private void ValidatePendingChanges()
+        {
+            EditorApplication.delayCall -= ValidatePendingChanges;
+            validationPending = false;
+            // Notifications include selection/window and unrelated Editor activity. Compare live scene
+            // state before disabling Apply; application still performs its own full preflight.
+            try
+            {
+                if (plan != null && (FPSceneReferencePlanner.StaleReason(plan) != null ||
+                    plan.Edits.Any(e => e.Ready && FPSceneReferenceApply.ReadCurrent(e) != e.Expected))) stale = true;
+                if (preservation != null && FPSceneReferencePlanner.StaleReason(preservation.Trace) != null) preservationStale = true;
+            }
+            catch (Exception) { if (plan != null) stale = true; if (preservation != null) preservationStale = true; }
+            Repaint();
+        }
         private void OnGUI()
         {
             using (new EditorGUILayout.HorizontalScope())

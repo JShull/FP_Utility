@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fix Scene Reference Replacer previews becoming stale after unrelated Editor object notifications: coalesce notifications and compare live scene snapshots before disabling Apply. Actual scene changes and project imports still invalidate previews, and apply retains full preflight validation.
+
 - Replace the blanket PlayableDirector coverage warning with a read-only audit of exposed fields and playable/Timeline track/clip asset references, per-Director resolution, old-hierarchy counts, concrete locations, Select/Ping controls and Markdown report entries. Custom nested asset graphs and orphan table entries remain explicitly outside coverage; no new replacement writes are enabled.
 
 - Add opt-in Unity-native X6 IMU synchronization, Burst/double-precision quaternion fusion, gravity-gated horizon leveling, source-time forward/back motion smoothing and relative direction lock. Read only the indexed IMU trailer; share deterministic poses between preview, MP4 and EXR, with method/timing provenance. Require supported factory projection and reversed tracks. Absolute heading, vendor FlowState equivalence and rolling-shutter correction remain unqualified.

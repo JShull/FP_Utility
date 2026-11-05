@@ -69,6 +69,32 @@ namespace FuzzPhyte.Utility.Editor.Tests
         }
 
         [Test]
+        public void Window_UnrelatedNotificationsKeepPreviewReady_RealChangesInvalidate()
+        {
+            outside.Target = oldOwner;
+            var plan = Preview();
+            var window = ScriptableObject.CreateInstance<FPSceneReferenceReplaceEditorWindow>();
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var type = window.GetType();
+            try
+            {
+                type.GetField("plan", flags).SetValue(window, plan);
+                type.GetMethod("Invalidate", flags).Invoke(window, null);
+                type.GetMethod("ValidatePendingChanges", flags).Invoke(window, null);
+                Assert.That(type.GetField("stale", flags).GetValue(window), Is.EqualTo(false));
+                using (var so = new SerializedObject(outside))
+                {
+                    so.FindProperty("Target").objectReferenceValue = newOwner;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                }
+                type.GetMethod("Invalidate", flags).Invoke(window, null);
+                type.GetMethod("ValidatePendingChanges", flags).Invoke(window, null);
+                Assert.That(type.GetField("stale", flags).GetValue(window), Is.EqualTo(true));
+                Assert.That(FPSceneReferenceApply.Preflight(plan), Is.Not.Null);
+            }
+            finally { Object.DestroyImmediate(window); }
+        }
+        [Test]
         public void DirectorAudit_ReportsExposedAndAssetFieldsPerDirectorWithoutEdits()
         {
             var asset = ScriptableObject.CreateInstance<FPSceneReferenceTestPlayable>(); temporary.Add(asset);

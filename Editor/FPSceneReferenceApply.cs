@@ -116,7 +116,7 @@ namespace FuzzPhyte.Utility.Editor
             }
         }
 
-        private static UnityEngine.Object ReadCurrent(FPSceneReferenceEdit edit)
+        internal static UnityEngine.Object ReadCurrent(FPSceneReferenceEdit edit)
         {
             if (edit.Source.IsBinding)
             {
