@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Replace the blanket PlayableDirector coverage warning with a read-only audit of exposed fields and playable/Timeline track/clip asset references, per-Director resolution, old-hierarchy counts, concrete locations, Select/Ping controls and Markdown report entries. Custom nested asset graphs and orphan table entries remain explicitly outside coverage; no new replacement writes are enabled.
+
 - Add opt-in Unity-native X6 IMU synchronization, Burst/double-precision quaternion fusion, gravity-gated horizon leveling, source-time forward/back motion smoothing and relative direction lock. Read only the indexed IMU trailer; share deterministic poses between preview, MP4 and EXR, with method/timing provenance. Require supported factory projection and reversed tracks. Absolute heading, vendor FlowState equivalence and rolling-shutter correction remain unqualified.
 - Add opt-in GPU texture preview through public Unity VideoPlayer APIs with Edit Mode player-loop pumping, matched lens frames, serial asynchronous seeks, stable paused frames and GPU-only atlas composition. Retain CPU preview fallback and the existing exact export decoder. Qualify full-resolution paired HEVC playback in an isolated project before integration and add GPU seek/scaling regression tests. Hardware-decoder selection remains platform-dependent.
 - Fix progressive GPU preview latency under Editor load by allowing frame drops only during playback, restoring exact delivery for scrub seeks. Verify a 35-second paired-HEVC stress run and forward/reverse pixel-accurate scrubbing after playback; export timing is unchanged.

@@ -49,6 +49,8 @@ Scene/project changes and Undo/Redo invalidate the transient preview. Apply also
 
 ## Supported coverage and limits
 
+The **Warnings** tab now includes a read-only Director reference audit: Director counts, exposed-field and asset-held-field counts, references targeting the old hierarchy, and unreadable asset counts. Paginated rows show the Director, playable/track/clip asset, track/clip location and serialized field, exposed key, override/default resolution status and resolved target, with Select/Ping controls. The Markdown report includes these locations. Re-run Trace or Rebuild Preview to refresh the captured audit. These rows are context, not proposed replacement edits. Coverage is limited to assigned playable assets and Timeline tracks/clips; arbitrary nested custom asset graphs and orphan Director table entries are explicitly excluded.
+
 - Traversal uses `SerializedObject` and `Next`, including hidden fields, lists, nested data, and managed-reference contents exposed by Unity. Structural ownership and prefab metadata are excluded from writable application references.
 - Incoming persistent UnityEvent targets and object arguments retain listener order, method, mode, arguments and call state. The destination method/signature is validated. Unresolved dynamic/native signatures remain blocked. Runtime listeners and delegates are outside this trace.
 - Outgoing UnityEvents require structural listener migration and are reported as **Manual Transfer Required**. This release does not recreate or merge callbacks, resize/reorder collections, migrate renamed fields, or copy whole component configurations. Collection transfers require matching declared collection types, element layouts and sizes; unverified layouts remain blocked.

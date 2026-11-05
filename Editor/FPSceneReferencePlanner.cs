@@ -53,6 +53,8 @@ namespace FuzzPhyte.Utility.Editor
         internal readonly List<Object> Inventory = new List<Object>();
         internal readonly List<FPSceneLink> Links = new List<FPSceneLink>();
         internal readonly List<string> Warnings = new List<string>();
+        internal int AuditedDirectors, DirectorAuditFailures;
+        internal readonly List<FPDirectorReferenceLocation> DirectorReferences = new List<FPDirectorReferenceLocation>();
         internal readonly List<FPSceneObjectMapping> Mappings = new List<FPSceneObjectMapping>();
         internal readonly Dictionary<Type, int> NewComponentTypeCounts = new Dictionary<Type, int>();
         internal readonly List<FPSceneReferenceEdit> Edits = new List<FPSceneReferenceEdit>();
@@ -100,7 +102,6 @@ namespace FuzzPhyte.Utility.Editor
             if (error != null) throw new InvalidOperationException(error);
             var plan = new FPSceneReferencePlan { OldRoot = oldRoot, NewRoot = newRoot, Scene = oldRoot.scene };
             plan.Warnings.Add("Scope: active scene objects only; other scenes, scene-global settings and runtime relationships are excluded. Assets are read-only context.");
-            plan.Warnings.Add("PlayableDirector exposed-reference tables and asset-held clip/track references are unsupported; review them manually.");
             foreach (var owner in SceneObjects(plan.Scene))
             {
                 if (cancelled != null && cancelled()) { plan.Complete = false; plan.Warnings.Add("Scan cancelled; results are incomplete."); break; }
@@ -127,6 +128,7 @@ namespace FuzzPhyte.Utility.Editor
                     }
                     if (owner is PlayableDirector director && director.playableAsset != null)
                     {
+                        FPDirectorReferenceAudit.Scan(plan, director);
                         foreach (var outputs in director.playableAsset.outputs.Where(o => o.sourceObject != null).GroupBy(o => o.sourceObject))
                         {
                             var output = outputs.First();
@@ -438,6 +440,9 @@ namespace FuzzPhyte.Utility.Editor
             report.AppendLine("Scope: active scene `" + plan.Scene.name + "`. Complete: " + plan.Complete + ". Inventory: " + plan.Inventory.Count + ".\n");
             foreach (string warning in plan.Warnings) report.AppendLine("- " + warning);
             report.AppendLine("\n## Inventory\n");
+            report.AppendLine("Director audit: " + plan.AuditedDirectors + " director(s), " + plan.DirectorReferences.Count + " reference locations, " + plan.DirectorReferences.Count(r => r.TargetsOld) + " targeting old hierarchy, " + plan.DirectorAuditFailures + " unreadable asset(s). Asset traversal covers the assigned playable asset and Timeline tracks/clips; custom nested asset graphs and orphan Director table entries are not enumerated.");
+            foreach (var row in plan.DirectorReferences)
+                report.AppendLine("- " + Describe(row.Director) + " | " + row.Kind + " | " + Describe(row.Asset) + " / " + row.Location + " → " + Describe(row.Target) + " | " + row.Detail + (row.TargetsOld ? " | TARGETS OLD HIERARCHY" : ""));
             foreach (var item in plan.Inventory) report.AppendLine("- " + Describe(item));
             foreach (FPSceneLinkCategory category in Enum.GetValues(typeof(FPSceneLinkCategory)))
             {

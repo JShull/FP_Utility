@@ -69,6 +69,30 @@ namespace FuzzPhyte.Utility.Editor.Tests
         }
 
         [Test]
+        public void DirectorAudit_ReportsExposedAndAssetFieldsPerDirectorWithoutEdits()
+        {
+            var asset = ScriptableObject.CreateInstance<FPSceneReferenceTestPlayable>(); temporary.Add(asset);
+            asset.SceneTarget = new ExposedReference<GameObject> { exposedName = new PropertyName("scene-target") };
+            asset.DirectTarget = oldOwner;
+            var a = outside.gameObject.AddComponent<PlayableDirector>(); a.playableAsset = asset;
+            var b = newRoot.AddComponent<PlayableDirector>(); b.playableAsset = asset;
+            a.SetReferenceValue(new PropertyName("scene-target"), oldRoot);
+            b.SetReferenceValue(new PropertyName("scene-target"), newRoot);
+            bool dirty = scene.isDirty;
+            var plan = Preview();
+            Assert.That(plan.AuditedDirectors, Is.EqualTo(2));
+            Assert.That(plan.DirectorAuditFailures, Is.Zero);
+            var exposed = plan.DirectorReferences.Where(r => r.Kind == "Exposed reference").ToArray();
+            Assert.That(exposed.Length, Is.EqualTo(2));
+            Assert.That(exposed.Single(r => r.Director == a).Target, Is.EqualTo(oldRoot));
+            Assert.That(exposed.Single(r => r.Director == b).Target, Is.EqualTo(newRoot));
+            Assert.That(exposed.Single(r => r.Director == a).TargetsOld, Is.True);
+            Assert.That(plan.DirectorReferences.Any(r => r.Location.Contains("DirectTarget") && r.Target == oldOwner), Is.True);
+            Assert.That(FPSceneReferencePlanner.Report(plan), Does.Contain("scene-target"));
+            Assert.That(scene.isDirty, Is.EqualTo(dirty));
+            Assert.That(plan.Edits.Any(e => e.Source.Path.Contains("SceneTarget")), Is.False);
+        }
+        [Test]
         public void Trace_HiddenNestedInactiveAndCategories_AreReadOnly()
         {
             var child = Create("Child", oldRoot).AddComponent<BoxCollider>();
@@ -650,6 +674,8 @@ namespace FuzzPhyte.Utility.Editor.Tests
 
     public sealed class FPSceneReferenceTestPlayable : PlayableAsset
     {
+        public ExposedReference<GameObject> SceneTarget;
+        public Object DirectTarget;
         public Object Key;
         public bool DuplicateOutput;
         public override Playable CreatePlayable(PlayableGraph graph, GameObject owner) => Playable.Null;

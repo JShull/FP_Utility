@@ -231,7 +231,21 @@ namespace FuzzPhyte.Utility.Editor
                         EditorGUILayout.LabelField(edit.Mapping?.Reason ?? "Unmapped", EditorStyles.miniLabel);
                         if (!edit.Ready && edit.Mapping != null) MappingActions(edit.Mapping);
                     }
-            if (tab == 4) foreach (string warning in plan.Warnings.Where(Matches)) EditorGUILayout.HelpBox(warning, MessageType.Warning);
+            if (tab == 4)
+            {
+                foreach (string warning in plan.Warnings.Where(Matches)) EditorGUILayout.HelpBox(warning, MessageType.Warning);
+                EditorGUILayout.LabelField("Director reference audit", EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox(plan.AuditedDirectors + " director(s) with playable assets; " + plan.DirectorReferences.Count(r => r.Kind == "Exposed reference") + " exposed fields; " + plan.DirectorReferences.Count(r => r.Kind == "Asset-held reference") + " asset-held fields; " + plan.DirectorReferences.Count(r => r.TargetsOld) + " targeting old hierarchy; " + plan.DirectorAuditFailures + " unreadable assets.", MessageType.Info);
+                EditorGUILayout.HelpBox("Read-only locations below are not replacement edits. Covers assigned playable assets and Timeline tracks/clips. Custom nested asset graphs and orphan Director table entries remain outside this audit. Unresolved exposed fields show their key and default/override status.", MessageType.Info);
+                foreach (var row in PageRows(plan.DirectorReferences.Where(r => Matches(r.Location + " " + r.Kind + " " + r.Detail + " " + FPSceneReferencePlanner.Describe(r.Director) + " " + FPSceneReferencePlanner.Describe(r.Target)))))
+                    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                    {
+                        EditorGUILayout.LabelField(row.Kind + (row.TargetsOld ? " — TARGETS OLD HIERARCHY" : ""), EditorStyles.boldLabel);
+                        ObjectRow("Director", row.Director); ObjectRow("Asset / clip", row.Asset);
+                        EditorGUILayout.LabelField(row.Location + "\n" + row.Detail, EditorStyles.wordWrappedLabel);
+                        ObjectRow("Resolved target", row.Target);
+                    }
+            }
             if (tab == 5) DrawSuggestions();
             EditorGUILayout.EndScrollView();
         }
