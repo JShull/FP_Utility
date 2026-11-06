@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fix repeated header update exceptions after deleting a header when no last-changed name is available. Inactive-object name lookup now returns no match for null or blank input, allowing stale header tracking to expire normally.
+
 - Fix Scene Reference Replacer previews becoming stale after unrelated Editor object notifications: coalesce notifications and compare live scene snapshots before disabling Apply. Actual scene changes and project imports still invalidate previews, and apply retains full preflight validation.
 
 - Replace the blanket PlayableDirector coverage warning with a read-only audit of exposed fields and playable/Timeline track/clip asset references, per-Director resolution, old-hierarchy counts, concrete locations, Select/Ping controls and Markdown report entries. Custom nested asset graphs and orphan table entries remain explicitly outside coverage; no new replacement writes are enabled.
