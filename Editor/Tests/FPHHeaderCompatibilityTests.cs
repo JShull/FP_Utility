@@ -57,12 +57,9 @@ namespace FuzzPhyte.Utility.Editor.Tests
         [Test]
         public void FindGameObjectByNameInactive_PreservesInactiveTrimmedCaseInsensitiveMatch()
         {
-            var activeScene = SceneManager.GetActiveScene();
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            var obj = new GameObject("  FP HEADER LOOKUP REGRESSION  ");
             try
             {
-                var obj = new GameObject("  FP HEADER LOOKUP REGRESSION  ");
-                SceneManager.MoveGameObjectToScene(obj, scene);
                 obj.SetActive(false);
 
                 Assert.That(FP_Utility_Editor.FindGameObjectByNameInactive(" fp header lookup regression "), Is.SameAs(obj));
@@ -70,8 +67,7 @@ namespace FuzzPhyte.Utility.Editor.Tests
             }
             finally
             {
-                EditorSceneManager.CloseScene(scene, true);
-                SceneManager.SetActiveScene(activeScene);
+                UnityEngine.Object.DestroyImmediate(obj);
             }
         }
 
@@ -85,19 +81,15 @@ namespace FuzzPhyte.Utility.Editor.Tests
             var previousNameCheck = typeof(FP_HHeader).GetMethod("PreviousNameCheck", BindingFlags.Static | BindingFlags.NonPublic);
             var savedPreviousNames = previousNamesField.GetValue(null);
             var savedLastChangedName = lastChangedNameField.GetValue(null);
-            var activeScene = SceneManager.GetActiveScene();
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            var header = new GameObject("FP DELETED HEADER REGRESSION");
+            var survivor = new GameObject("FP Header Regression Survivor");
             try
             {
-                var header = new GameObject("FP DELETED HEADER REGRESSION");
-                SceneManager.MoveGameObjectToScene(header, scene);
                 header.SetActive(false);
                 string key = header.name;
                 previousNamesField.SetValue(null, new Dictionary<string, string> { { key, key } });
                 lastChangedNameField.SetValue(null, lastChangedName);
                 UnityEngine.Object.DestroyImmediate(header);
-                var survivor = new GameObject("FP Header Regression Survivor");
-                SceneManager.MoveGameObjectToScene(survivor, scene);
 
                 int loop = 0;
                 for (int i = 0; i < 100; i++)
@@ -115,8 +107,8 @@ namespace FuzzPhyte.Utility.Editor.Tests
             {
                 previousNamesField.SetValue(null, savedPreviousNames);
                 lastChangedNameField.SetValue(null, savedLastChangedName);
-                EditorSceneManager.CloseScene(scene, true);
-                SceneManager.SetActiveScene(activeScene);
+                UnityEngine.Object.DestroyImmediate(survivor);
+                if (header != null) UnityEngine.Object.DestroyImmediate(header);
             }
         }
 
