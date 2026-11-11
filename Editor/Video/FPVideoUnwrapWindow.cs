@@ -116,7 +116,20 @@ namespace FuzzPhyte.Utility.Editor.Video
                 bool wasPlaying = playing;
                 if (playing && preview.UsesGpu && preview.Texture == null) { playStartOffset=playhead;playStartTime=now; }
                 if (playing) { playhead = Math.Min(exportOut, playStartOffset + now - playStartTime); if (playhead >= exportOut) playing = false; }
-                bool changed = preview.Request(Math.Min(playhead, Math.Max(0, Duration - 1 / source.Info.FrameRate)), now, timelineDrag != 0, wasPlaying);
+                bool changed;
+                try
+                {
+                    changed = preview.Request(Math.Min(playhead, Math.Max(0, Duration - 1 / source.Info.FrameRate)), now, timelineDrag != 0, wasPlaying);
+                }
+                catch (TimeoutException e) when (preview.UsesGpu)
+                {
+                    // A failed native seek cannot recover by polling the same players again.
+                    preview.Dispose(); preview = null; gpuPreview = false; playing = false;
+                    dirty = true; error = null;
+                    preview = new FPVideoUnwrapPreview(source, previewMaxWidth);
+                    notice = "GPU preview timed out; switched to CPU preview at the current playhead. " + e.Message;
+                    Repaint(); return;
+                }
                 if (changed) dirty = true;
                 if (changed && preview.UsesGpu && wasPlaying)
                 { playhead=Math.Min(exportOut,preview.PresentedSeconds);playStartOffset=playhead;playStartTime=now; }
@@ -150,6 +163,20 @@ namespace FuzzPhyte.Utility.Editor.Video
             }
             HandleDrop(new Rect(0, 0, position.width, position.height));
         }
+        internal static string SourceBrowseDirectory(string path)
+        {
+            // Unity's Mono Path.GetDirectoryName throws for empty or malformed input.
+            if (string.IsNullOrWhiteSpace(path)) return "";
+            try
+            {
+                if (Directory.Exists(path)) return path;
+                string directory = Path.GetDirectoryName(path);
+                return Directory.Exists(directory) ? directory : "";
+            }
+            catch (ArgumentException) { return ""; }
+            catch (NotSupportedException) { return ""; }
+            catch (PathTooLongException) { return ""; }
+        }
         private void DrawParameters()
         {
             GUILayout.Label("Source", EditorStyles.boldLabel);
@@ -160,7 +187,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                 {
                     if (GUILayout.Button("Browse…"))
                     {
-                        string selected = EditorUtility.OpenFilePanel("Open 360 video", Path.GetDirectoryName(sourcePath) ?? "", "");
+                        string selected = EditorUtility.OpenFilePanel("Open 360 video", SourceBrowseDirectory(sourcePath), "");
                         if (!string.IsNullOrEmpty(selected)) { sourcePath = selected; reloadRange = loadPending = true; }
                     }
                     if (GUILayout.Button("Load / Reload")) { reloadRange = loadPending = true; }

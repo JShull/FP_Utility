@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Recover Video Unwrap GPU preview timeouts by releasing the GPU players and switching to CPU preview at the current playhead. Include requested and received lens frame indices in seek timeout diagnostics.
+
+- Fix Video Unwrap Browse throwing on an empty or malformed File path. Use an existing source folder when available and otherwise let the file picker choose its default directory.
+
 - Fix Scene Reference Replacer previews becoming stale after unrelated Editor object notifications: coalesce notifications and compare live scene snapshots before disabling Apply. Actual scene changes and project imports still invalidate previews, and apply retains full preflight validation.
 
 - Replace the blanket PlayableDirector coverage warning with a read-only audit of exposed fields and playable/Timeline track/clip asset references, per-Director resolution, old-hierarchy counts, concrete locations, Select/Ping controls and Markdown report entries. Custom nested asset graphs and orphan table entries remain explicitly outside coverage; no new replacement writes are enabled.

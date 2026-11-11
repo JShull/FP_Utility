@@ -107,7 +107,8 @@ namespace FuzzPhyte.Utility.Editor.Video
                     for(int i=0;i<readyFrames.Length;i++)if(readyFrames[i]!=seekFrame)match=false;
                     if(!match)
                     {
-                        if(now-seekStarted>10)throw new TimeoutException("GPU preview seek did not produce matching lens frames. Choose CPU preview.");
+                        if(now-seekStarted>10)throw new TimeoutException("GPU preview seek did not produce matching lens frames. Requested frame "
+                            +seekFrame+"; received "+string.Join(", ",readyFrames)+".");
                         return false;
                     }
                     Publish(seekFrame);seeking=false;

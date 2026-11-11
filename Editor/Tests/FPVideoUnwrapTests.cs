@@ -11,6 +11,30 @@ namespace FuzzPhyte.Utility.Editor.Tests
 
     public sealed class FPVideoUnwrapTests
     {
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        [TestCase("bad\0path.mp4")]
+        [TestCase("video.mp4")]
+        public void SourceBrowseToleratesEmptyOrInvalidPaths(string path)
+        {
+            Assert.That(FPVideoUnwrapWindow.SourceBrowseDirectory(path), Is.EqualTo(""));
+        }
+
+        [Test]
+        public void SourceBrowseUsesExistingFolderAndFallsBackForMissingFolder()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "FPVideoBrowse_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            try
+            {
+                Assert.That(FPVideoUnwrapWindow.SourceBrowseDirectory(folder), Is.EqualTo(folder));
+                Assert.That(FPVideoUnwrapWindow.SourceBrowseDirectory(Path.Combine(folder, "source.insv")), Is.EqualTo(folder));
+                Assert.That(FPVideoUnwrapWindow.SourceBrowseDirectory(Path.Combine(folder, "missing", "source.mp4")), Is.EqualTo(""));
+            }
+            finally { Directory.Delete(folder); }
+        }
+
         [TestCase(0)]
         [TestCase(1)]
         [TestCase(2)]
