@@ -46,6 +46,72 @@ namespace FuzzPhyte.Utility.Editor.Tests
             }
         }
 
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase(" \t ")]
+        public void FindGameObjectByNameInactive_BlankNameReturnsNoMatch(string name)
+        {
+            Assert.That(FP_Utility_Editor.FindGameObjectByNameInactive(name), Is.Null);
+        }
+
+        [Test]
+        public void FindGameObjectByNameInactive_PreservesInactiveTrimmedCaseInsensitiveMatch()
+        {
+            var obj = new GameObject("  FP HEADER LOOKUP REGRESSION  ");
+            try
+            {
+                obj.SetActive(false);
+
+                Assert.That(FP_Utility_Editor.FindGameObjectByNameInactive(" fp header lookup regression "), Is.SameAs(obj));
+                Assert.That(FP_Utility_Editor.FindGameObjectByNameInactive(null), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(obj);
+            }
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase(" \t ")]
+        public void PreviousNameCheck_DeletedHeaderWithoutFallbackNameExpires(string lastChangedName)
+        {
+            var previousNamesField = typeof(FP_HHeader).GetField("previousNames", BindingFlags.Static | BindingFlags.NonPublic);
+            var lastChangedNameField = typeof(FP_HHeader).GetField("lastChangedObjectName", BindingFlags.Static | BindingFlags.NonPublic);
+            var previousNameCheck = typeof(FP_HHeader).GetMethod("PreviousNameCheck", BindingFlags.Static | BindingFlags.NonPublic);
+            var savedPreviousNames = previousNamesField.GetValue(null);
+            var savedLastChangedName = lastChangedNameField.GetValue(null);
+            var header = new GameObject("FP DELETED HEADER REGRESSION");
+            var survivor = new GameObject("FP Header Regression Survivor");
+            try
+            {
+                header.SetActive(false);
+                string key = header.name;
+                previousNamesField.SetValue(null, new Dictionary<string, string> { { key, key } });
+                lastChangedNameField.SetValue(null, lastChangedName);
+                UnityEngine.Object.DestroyImmediate(header);
+
+                int loop = 0;
+                for (int i = 0; i < 100; i++)
+                {
+                    var result = ((bool, int))previousNameCheck.Invoke(null, new object[] { key, null, loop });
+                    Assert.That(result.Item1, Is.True);
+                    loop = result.Item2;
+                }
+                var expired = ((bool, int))previousNameCheck.Invoke(null, new object[] { key, null, loop });
+                Assert.That(expired.Item1, Is.False);
+                Assert.That(expired.Item2, Is.Zero);
+                Assert.That(survivor.name, Is.EqualTo("FP Header Regression Survivor"));
+            }
+            finally
+            {
+                previousNamesField.SetValue(null, savedPreviousNames);
+                lastChangedNameField.SetValue(null, savedLastChangedName);
+                UnityEngine.Object.DestroyImmediate(survivor);
+                if (header != null) UnityEngine.Object.DestroyImmediate(header);
+            }
+        }
+
         [Test]
         public void IsHeaderObject_AcceptsInactiveAllCapsLeaf()
         {

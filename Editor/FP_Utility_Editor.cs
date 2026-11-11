@@ -639,19 +639,25 @@ namespace FuzzPhyte.Utility.Editor
             return null;
         }
         /// <summary>
-        /// Helps find objects using the inactive set to true and by instance ID
+        /// Finds a scene object, including inactive objects, by trimmed, case-insensitive name.
+        /// Returns null for a null or blank name, or when no matching object exists.
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
         public static GameObject FindGameObjectByNameInactive(string name)
         {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+            string searchName = name.Trim();
             GameObject[] allGameObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
             for (int i = 0; i < allGameObjects.Length; i++)
             {
                 var obj = allGameObjects[i];
                 if (obj != null)
                 {
-                    if (obj.name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(obj.name?.Trim(), searchName, StringComparison.OrdinalIgnoreCase))
                     {
                         bool isPrefabInstance = PrefabUtility.GetPrefabInstanceStatus(obj) == PrefabInstanceStatus.Connected;
                         if (isPrefabInstance || string.IsNullOrEmpty(AssetDatabase.GetAssetPath(obj)))

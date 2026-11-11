@@ -201,7 +201,7 @@ namespace FuzzPhyte.Utility.Editor
                 {
                     //the assumption is to use the current name of the last item changed
                     //Debug.LogWarning($"We had our Obj return null, lets use the name of the last object changed |{lastChangedObjectName}|");
-                    if (lastChangedObjectName == "") 
+                    if (string.IsNullOrWhiteSpace(lastChangedObjectName))
                     {
                         LogWarning($"Blank Name?");
                     }
