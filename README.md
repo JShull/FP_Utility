@@ -783,7 +783,7 @@ requires free temporary disk space equal to the source size and is removed when
 the source/window closes. Source and projected previews sit above an Audio
 Combine-style ruler, playhead and export In/Out bookends.
 
-**Two-track INSV:** matching square, constant-frame-rate lens tracks are staged
+**Two-track INSV:** matching square lens tracks are staged
 into two temporary MP4 views. C# copies the container and changes the other video
 track's index box to a same-size `free` box; compressed samples and chunk offsets
 are retained. Unity decodes both streams, verifies equal timestamps, and copies
@@ -792,6 +792,29 @@ demuxer, transcoding or native plugin is used by the tool. Staging needs roughly
 twice the source file size in temporary disk space. Copies are removed on unload,
 cancellation or window teardown. Single-track INSV uses one temporary MP4 copy.
 Other multi-track layouts are rejected rather than silently dropping a lens.
+Variable frame timing can be previewed using the CPU decoder, with lens timestamps
+checked during decoding. Video export accepts constant timing and a single matching
+one-frame interior gap; it repeats the preceding frame in that gap and records the
+adjustment in the export report. Other variable timing remains unsupported.
+Source properties list each audio track and its channel count. **Export audio
+channels as WAV** saves the full source as separate 16-bit mono WAV files for
+each track and channel, without changing the source. These files do not follow
+the video In/Out range; the regular MP4 export preserves only the first audio track.
+Channel numbers describe the container order, not identified microphones.
+
+To include a separate camera backup WAV, use **Import companion WAV** under
+Audio mix. Its waveform appears in a second synchronized timeline lane; dragging
+either lane scrubs the shared playhead. Adjust **WAV start offset** to align it
+(positive starts the WAV later), and set independent linear video and companion
+gains (1 is unchanged). Export mixes both feeds into one audio track and clamps
+peaks to ±1. The WAV must be mono/stereo 16-, 24-, or 32-bit PCM or 32-bit float,
+at the same sample rate as the video's mono/stereo audio. Samples outside the WAV
+are silent. Audio preview is currently muted, so audition the mix in the exported
+file; an external WAV is read into memory and is not imported into Unity assets.
+If the embedded audio ends up to 50 ms before the selected video's end, export
+pads that embedded feed with silence and still mixes any companion WAV samples.
+The JSON report records the padded sample-frame count. Earlier audio loss and
+invalid decoder blocks remain export errors.
 
 Verified sample `VID_20261022_155336_00_001.insv` has two 3840×3840 HEVC lens
 tracks at 50 fps, giving a combined **7680×3840** input, 4,997 frames / 99.94 s,
@@ -879,6 +902,22 @@ blend width, grading and optional seam flow still apply. Diagnostics, preview,
 EXR and MP4 all use the same projection. **Reverse lens/track order** defaults to
 the file's declared layout and remains an explicit override for scene review.
 The first decoded track anchors the forward/upright view.
+
+**Analyze recording overlap** samples three source times (15%, 50%, 85%) with an
+independent CPU decoder at 512 pixels per lens. It combines their brightness,
+fits a circular boundary to visible non-black edges, subtracts the adjustable
+boundary safety margin (default 1% of lens-image width), and projects the fitted
+boundaries through the recording's factory model. It reports paired angular FOV
+ranges, one-degree equatorial overlap bands, and estimated fractions of the sphere
+covered by both lenses or neither. The separate one-degree map uses cyan for lens 1,
+magenta for lens 2, white for both, and black for neither. The estimate ignores
+the current FOV cutoff, and changing the margin, recording, or lens order makes it
+stale. It never changes export or FOV settings. Dark content, exposure, lens guards,
+obstructions, codec edges, circular extrapolation beyond clipped image edges and
+the three-frame sample can bias the result. The fit rejects insufficient evidence,
+but cannot guarantee edge pixels are useful for matching. It does not read vendor
+masks or assess feature correspondence, near-field parallax or stitching quality;
+this is an exploratory image-boundary estimate, not a verified physical lens FOV.
 
 This version evaluates geometry at infinity. Recorded lens translations are
 retained for provenance but are not applied; nearby subjects can retain parallax.
@@ -1111,15 +1150,19 @@ can preserve the first source audio track.
 #### GPU texture preview (experimental)
 
 Enable **GPU texture preview** near Preview detail to use public Unity
-`VideoPlayer` components rendering directly into render textures. Matching lens
-frame indices are copied into the source atlas on the GPU; no application-side
+`VideoPlayer` components exposing GPU textures. Each ready lens frame is copied
+into its own preview texture before matching frame indices are copied into the
+source atlas on the GPU; no application-side
 CPU image upload, resize or readback occurs during playback. A normal
 `EditorApplication.QueuePlayerLoopUpdate` pump lets preparation and playback
 advance in Edit Mode. No Play Mode transition, new plugin or external decoder is
 required. The earlier undocumented VideoPlayback/GetTexture probe that crashed
 the Editor is **not** used by this backend.
 
-This mode is opt-in and requires constant-frame-rate source metadata. Preparation
+This mode is opt-in and accepts constant-frame-rate sources or a single matching
+one-frame timing gap in the lens tracks. The gap holds the preceding image and
+the later frames map back to their source timeline. Other variable timing is not
+supported by this GPU preview. Preparation
 and seeks are asynchronous; serial seeks coalesce drag requests and only matching
 actual frame indices are published. Paused repaints do not republish a frame.
 Continuous playback allows Unity to drop late frames when supported, keeping

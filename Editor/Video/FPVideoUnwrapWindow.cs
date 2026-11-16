@@ -3,6 +3,9 @@ namespace FuzzPhyte.Utility.Editor.Video
 {
     using System;
     using System.IO;
+    using System.Collections.Generic;
+    using System.Threading.Tasks;
+    using Unity.Collections;
     using UnityEditor;
     using UnityEngine;
 
@@ -15,6 +18,11 @@ namespace FuzzPhyte.Utility.Editor.Video
         [SerializeField] private double playhead, exportIn, exportOut, viewStart, viewEnd;
         [SerializeField] private bool includeAudio = true, lensExpanded, sourceVisible = true, colorExpanded;
         [SerializeField] private bool fastAudioTrim = true;
+        [SerializeField] private string companionPath = "";
+        [SerializeField] private float videoAudioGain = 1, companionAudioGain = 1;
+        [SerializeField] private double companionAudioOffset;
+        private FPVideoCompanionAudio companionAudio;
+        private Task<FPVideoCompanionAudio> companionLoad;
         [SerializeField] private bool motionExpanded;
         [SerializeField] private float previewSplit = .5f;
         [SerializeField] private int previewMaxWidth = 2048;
@@ -30,6 +38,13 @@ namespace FuzzPhyte.Utility.Editor.Video
         private FPVideoUnwrapPreview preview;
         private FPVideoUnwrapRenderer renderer;
         private FPVideoUnwrapExport export;
+        [SerializeField] private float overlapMargin = .01f;
+        private FPVideoOverlapSampler overlapSampler;
+        private FPVideoOverlapAnalysis overlapResult;
+        private Texture2D overlapMap;
+        private string overlapFingerprint, overlapSource, overlapFailure;
+        private bool overlapReverse, overlapPending;
+        private float overlapMeasuredMargin;
         private bool playing, dirty = true, loadPending, reloadRange;
         private double playStartTime, playStartOffset;
         private double nextExportRepaint;
@@ -37,7 +52,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         private int timelineDrag; // 1 playhead, 2 In, 3 Out, 4 pan
         private double dragStart, dragViewStart, dragViewEnd;
         private Rect timelineRect;
-        private bool Busy => export != null && !export.Finished;
+        private bool Busy => (export != null && !export.Finished) || overlapSampler != null;
         private double Duration => source?.Info.Duration ?? 0;
         private static readonly Color PlayheadColor = new Color(1, .72f, .25f, .95f);
         private static readonly Color InColor = new Color(.25f, .75f, 1, .95f);
@@ -54,16 +69,20 @@ namespace FuzzPhyte.Utility.Editor.Video
             if (settings.motionSmoothingSeconds == 0) settings.motionSmoothingSeconds = .3f;
             if (previewMaxWidth != 1024 && previewMaxWidth != 2048 && previewMaxWidth != 4096 && previewMaxWidth != 8192) previewMaxWidth = 2048;
             loadPending = !string.IsNullOrEmpty(sourcePath) && File.Exists(sourcePath);
+            if (!string.IsNullOrEmpty(companionPath) && File.Exists(companionPath)) LoadCompanion(companionPath);
             EditorApplication.update += Tick; Undo.undoRedoPerformed += UndoChanged;
         }
         private void OnDisable()
         {
             EditorApplication.update -= Tick; Undo.undoRedoPerformed -= UndoChanged;
             export?.Dispose(); export = null; ReleaseSource();
+            companionAudio = null; companionLoad = null;
         }
         private void UndoChanged() { dirty = true; playing = false; Repaint(); }
         private void ReleaseSource()
         {
+            overlapSampler?.Dispose(); overlapSampler=null; overlapResult=null; overlapPending=false; overlapFailure=null;
+            if(overlapMap!=null)DestroyImmediate(overlapMap); overlapMap=null;
             cameraMetadata = null; metadataNotice = null;
             playing = false; preview?.Dispose(); preview = null; renderer?.Dispose(); renderer = null; source?.Dispose(); source = null;
         }
@@ -93,7 +112,46 @@ namespace FuzzPhyte.Utility.Editor.Video
             double now = EditorApplication.timeSinceStartup;
             try
             {
+                if (companionLoad != null && companionLoad.IsCompleted)
+                {
+                    var completed = companionLoad; companionLoad = null;
+                    try { companionAudio = completed.GetAwaiter().GetResult(); notice = "Companion WAV loaded."; }
+                    catch (Exception e) { companionAudio = null; error = "Companion WAV: " + e.Message; }
+                    Repaint();
+                }
                 if (loadPending && !Busy) { loadPending = false; LoadSource(); }
+                if (overlapPending && !Busy)
+                {
+                    overlapPending=false; overlapFailure=null;
+                    try
+                    {
+                        var calibration=settings.factoryCalibration;
+                        if(calibration==null || cameraMetadata?.Factory==null || calibration.fingerprint!=cameraMetadata.Factory.fingerprint)
+                            throw new InvalidOperationException("Load this recording's embedded factory calibration first.");
+                        overlapSampler=new FPVideoOverlapSampler(source,calibration,overlapMargin);
+                        overlapFingerprint=calibration.fingerprint;overlapReverse=calibration.reverseTracks;overlapSource=source.OriginalPath;overlapMeasuredMargin=overlapMargin;
+                        playing=false;preview?.Pause();
+                    }
+                    catch(Exception e) { overlapFailure=e.Message; }
+                }
+                if(overlapSampler!=null)
+                {
+                    try
+                    {
+                        overlapSampler.Tick();
+                        if(overlapSampler.Finished)
+                        {
+                            overlapResult=overlapSampler.Result;
+                            if(overlapMap!=null)DestroyImmediate(overlapMap);
+                            overlapMap=new Texture2D(FPVideoOverlapAnalysis.MapWidth,FPVideoOverlapAnalysis.MapHeight,TextureFormat.RGBA32,false) { hideFlags=HideFlags.HideAndDontSave,filterMode=FilterMode.Point };
+                            overlapMap.SetPixels32(overlapResult.Map);overlapMap.Apply(false,false);
+                            overlapSampler.Dispose();overlapSampler=null;notice="Overlap estimate complete.";
+                        }
+                        else notice=$"Analyzing lens boundaries • {overlapSampler.Samples}/3 frames";
+                    }
+                    catch(Exception e) { overlapSampler.Dispose();overlapSampler=null;overlapResult=null;overlapFailure=e.Message; }
+                    Repaint();return;
+                }
                 if (source?.Motion != null && !source.Motion.Ready && source.Motion.Error == null) { source.Motion.Update(); Repaint(); }
                 if (Busy)
                 {
@@ -197,7 +255,14 @@ namespace FuzzPhyte.Utility.Editor.Video
             {
                 EditorGUILayout.LabelField(Path.GetFileName(source.OriginalPath), EditorStyles.wordWrappedMiniLabel);
                 EditorGUILayout.LabelField($"{source.Info.Width} × {source.Info.Height} • {source.Info.FrameRate:F3} fps • {Duration:F2} s", EditorStyles.miniLabel);
-                EditorGUILayout.LabelField(source.Info.HasAudio ? $"Audio: {source.Info.AudioChannels} ch / {source.Info.AudioSampleRate} Hz" : "No audio track", EditorStyles.miniLabel);
+                if (!source.Info.HasAudio) EditorGUILayout.LabelField("No audio track", EditorStyles.miniLabel);
+                for (int i = 0; i < source.Info.AudioTracks.Count; i++)
+                {
+                    var track = source.Info.AudioTracks[i];
+                    EditorGUILayout.LabelField($"Audio track {i + 1}: {track.Channels} ch / {track.SampleRate} Hz", EditorStyles.miniLabel);
+                }
+                using (new EditorGUI.DisabledScope(Busy || !source.Info.HasAudio || !source.Ready.IsCompletedSuccessfully))
+                    if (GUILayout.Button("Export audio channels as WAV…")) ExportAudioChannels();
                 if (source.SecondDecodePath != null) EditorGUILayout.LabelField($"Two native lens tracks • {source.Info.Width/2} × {source.Info.Height} each",EditorStyles.miniLabel);
             }
             EditorGUI.BeginChangeCheck();
@@ -339,6 +404,26 @@ namespace FuzzPhyte.Utility.Editor.Video
                 includeAudio = EditorGUILayout.Toggle("Preserve audio", includeAudio);
                 using (new EditorGUI.DisabledScope(!includeAudio))
                 {
+                    EditorGUILayout.Space(4); GUILayout.Label("Audio mix", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField(string.IsNullOrEmpty(companionPath) ? "No companion WAV" : Path.GetFileName(companionPath), EditorStyles.wordWrappedMiniLabel);
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        if (GUILayout.Button("Import companion WAV…"))
+                        {
+                            string selected = EditorUtility.OpenFilePanel("Import companion audio", SourceBrowseDirectory(sourcePath), "wav");
+                            if (!string.IsNullOrEmpty(selected)) { Undo.RecordObject(this, "Import companion audio"); companionPath = selected; LoadCompanion(selected); }
+                        }
+                        using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(companionPath)))
+                            if (GUILayout.Button("Clear", GUILayout.Width(50))) { companionPath = ""; companionAudio = null; companionLoad = null; }
+                    }
+                    if (companionLoad != null) EditorGUILayout.LabelField("Loading companion WAV…", EditorStyles.miniLabel);
+                    if (companionAudio != null) EditorGUILayout.LabelField($"{companionAudio.Channels} ch • {companionAudio.SampleRate} Hz • {companionAudio.Duration:F2} s", EditorStyles.miniLabel);
+                    EditorGUI.BeginChangeCheck();
+                    float vg = EditorGUILayout.Slider(new GUIContent("Video audio gain", "Linear gain; 1 is unchanged."), videoAudioGain, 0, 4);
+                    float cg = EditorGUILayout.Slider(new GUIContent("Companion gain", "Linear gain; 1 is unchanged."), companionAudioGain, 0, 4);
+                    double offset = EditorGUILayout.DoubleField(new GUIContent("WAV start offset (s)", "Positive values start the companion audio later on the video timeline."), companionAudioOffset);
+                    if (EditorGUI.EndChangeCheck()) { Undo.RecordObject(this, "Change audio mix"); videoAudioGain = vg; companionAudioGain = cg; companionAudioOffset = offset; }
+                    EditorGUILayout.HelpBox("Mix is applied to MP4 export. Preview is muted; align and audition externally until audio preview is available. Mixed peaks are clipped to ±1.", MessageType.Info);
                     EditorGUI.BeginChangeCheck();
                     bool nextFastAudio = EditorGUILayout.Toggle(new GUIContent("Fast audio trim", "Seek near In and decode five seconds of audio preroll on qualified Windows Unity 6000.6 / 48 kHz sources. Disable to decode audio from the recording start."), fastAudioTrim);
                     if (EditorGUI.EndChangeCheck()) { Undo.RecordObject(this, "Change audio trimming"); fastAudioTrim = nextFastAudio; }
@@ -346,7 +431,87 @@ namespace FuzzPhyte.Utility.Editor.Video
                 EditorGUILayout.LabelField($"Video budget ~{settings.videoBitrateMbps * Math.Max(0, exportOut - exportIn) / 8000:F2} GB (actual varies)", EditorStyles.miniLabel);
             }
             EditorGUILayout.HelpBox("Geometric lens calibration is required. Seam flow and IMU stabilization are experimental and opt-in. Spherical MP4 tags are not injected.", MessageType.Info);
-            if (source != null && !source.Info.ConstantFrameRate) EditorGUILayout.HelpBox("Variable frame timing detected. Export is disabled.", MessageType.Warning);
+            if (source != null && !source.Info.CanExportTiming) EditorGUILayout.HelpBox("Unsupported variable frame timing detected. Video export is disabled.", MessageType.Warning);
+            else if (source != null && source.Info.MissingFrameIndex >= 0) EditorGUILayout.HelpBox($"A one-frame timing gap at {source.Info.MissingFrameIndex / source.Info.FrameRate:F3} s will be filled by repeating the preceding frame, preserving audio timing.", MessageType.Info);
+        }
+        private void LoadCompanion(string path)
+        {
+            companionAudio = null; error = null;
+            companionLoad = Task.Run(() => FPVideoCompanionAudio.Read(path));
+        }
+        private void ExportAudioChannels()
+        {
+            string folder = EditorUtility.OpenFolderPanel("Export audio channels", SourceBrowseDirectory(source.OriginalPath), "");
+            if (string.IsNullOrEmpty(folder)) return;
+            ExportAudioChannels(folder);
+        }
+        private void ExportAudioChannels(string folder)
+        {
+            var temporary = new List<string>(); var destinations = new List<string>(); var published = new List<string>();
+            try
+            {
+                string name = Path.GetFileNameWithoutExtension(source.OriginalPath);
+                for (int t = 0; t < source.Info.AudioTracks.Count; t++)
+                {
+                    var track = source.Info.AudioTracks[t];
+                    if (track.Channels < 1 || track.Channels > 8 || track.SampleRate <= 0) throw new NotSupportedException("Unsupported audio channel layout or sample rate.");
+                    for (int c = 0; c < track.Channels; c++)
+                    {
+                        string path = Path.Combine(folder, $"{name}_track{t + 1}_channel{c + 1}.wav");
+                        if (File.Exists(path)) throw new IOException("Audio output already exists: " + path);
+                        destinations.Add(path); temporary.Add(path + "." + Guid.NewGuid().ToString("N") + ".partial");
+                    }
+                }
+                int offset = 0;
+                for (int t = 0; t < source.Info.AudioTracks.Count; t++)
+                {
+                    var track = source.Info.AudioTracks[t]; var writers = new List<BinaryWriter>();
+                    var buffer = new NativeArray<float>(8192 * track.Channels, Allocator.Persistent);
+                    var pump = new Texture2D(2, 2, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+                    try
+                    {
+                        for (int c = 0; c < track.Channels; c++) { var writer = new BinaryWriter(new FileStream(temporary[offset + c], FileMode.CreateNew)); writers.Add(writer); writer.Write(new byte[44]); }
+                        using (var decoder = new FPVideoNativeDecoder(source.DecodePath, resizeFrames: false))
+                        {
+                            bool eof = false; long frames = 0;
+                            while (true)
+                            {
+                                int count = decoder.ReadAudio(buffer, checked((ushort)t));
+                                if (count < 0 || count > buffer.Length || count % track.Channels != 0) throw new InvalidDataException("Native decoder returned an invalid audio block.");
+                                if (count == 0)
+                                {
+                                    if (eof) break;
+                                    eof = !decoder.Read(pump, out _);
+                                    if (EditorUtility.DisplayCancelableProgressBar("Exporting audio", $"Track {t + 1} of {source.Info.AudioTracks.Count}", (float)Math.Min(1, frames / (track.SampleRate * Math.Max(.001, Duration))))) throw new OperationCanceledException();
+                                    continue;
+                                }
+                                for (int i = 0; i < count; i += track.Channels)
+                                    for (int c = 0; c < track.Channels; c++) writers[c].Write((short)Math.Round(Math.Max(-1, Math.Min(1, buffer[i + c])) * 32767));
+                                frames += count / track.Channels;
+                                if (frames > (uint.MaxValue - 36L) / 2) throw new NotSupportedException("Audio exceeds the WAV size limit.");
+                            }
+                            if (frames == 0) throw new InvalidDataException("The native decoder returned no audio for track " + (t + 1) + ".");
+                            foreach (var writer in writers)
+                            {
+                                writer.BaseStream.Position = 0; writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF")); writer.Write((uint)(36 + frames * 2));
+                                writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt ")); writer.Write(16); writer.Write((short)1); writer.Write((short)1);
+                                writer.Write(track.SampleRate); writer.Write(track.SampleRate * 2); writer.Write((short)2); writer.Write((short)16);
+                                writer.Write(System.Text.Encoding.ASCII.GetBytes("data")); writer.Write((uint)(frames * 2));
+                            }
+                        }
+                    }
+                    finally { foreach (var writer in writers) writer.Dispose(); buffer.Dispose(); DestroyImmediate(pump); }
+                    offset += track.Channels;
+                }
+                for (int i = 0; i < temporary.Count; i++) { File.Move(temporary[i], destinations[i]); published.Add(destinations[i]); }
+                error = null; notice = $"Exported {destinations.Count} mono WAV files to {folder}";
+            }
+            catch (Exception e)
+            {
+                foreach (string path in published) if (File.Exists(path)) File.Delete(path);
+                if (e is OperationCanceledException) notice = "Audio export cancelled."; else error = e.Message;
+            }
+            finally { foreach (string path in temporary) if (File.Exists(path)) File.Delete(path); EditorUtility.ClearProgressBar(); }
         }
         private void DrawFactoryCalibration(SerializedObject serialized, SerializedProperty data)
         {
@@ -379,6 +544,32 @@ namespace FuzzPhyte.Utility.Editor.Video
                     EditorGUILayout.HelpBox("Experimental factory geometry at infinity. FOV limits coverage; manual centers, radii and rotations are bypassed. Seam and grade controls remain active. Lens translation is not applied; nearby objects can retain parallax.", MessageType.Info);
                 }
             }
+            DrawOverlapAnalysis();
+        }
+        private void DrawOverlapAnalysis()
+        {
+            EditorGUILayout.Space(4);GUILayout.Label("Recording overlap estimate",EditorStyles.boldLabel);
+            EditorGUI.BeginChangeCheck();float margin=EditorGUILayout.Slider(new GUIContent("Boundary safety (% width)","Remove this margin from the detected lens radius. One percent is about 30 pixels on a 3008-pixel source."),overlapMargin*100,0,5)/100;
+            if(EditorGUI.EndChangeCheck()) { Undo.RecordObject(this,"Change overlap boundary margin");overlapMargin=margin; }
+            bool ready=source!=null && source.SecondDecodePath!=null && source.Ready.IsCompletedSuccessfully && settings.factoryCalibration!=null && cameraMetadata?.Factory!=null && settings.factoryCalibration.fingerprint==cameraMetadata.Factory.fingerprint;
+            using(new EditorGUI.DisabledScope(Busy || !ready))
+                if(GUILayout.Button("Analyze recording overlap")) { overlapPending=true;overlapResult=null;overlapFailure=null; }
+            if(overlapFailure!=null)EditorGUILayout.HelpBox(overlapFailure,MessageType.Warning);
+            bool stale=overlapResult!=null && (source?.OriginalPath!=overlapSource || settings.factoryCalibration?.fingerprint!=overlapFingerprint || settings.factoryCalibration?.reverseTracks!=overlapReverse || !Mathf.Approximately(overlapMargin,overlapMeasuredMargin));
+            if(stale)EditorGUILayout.HelpBox("Settings changed; analyze again to update this estimate.",MessageType.Warning);
+            if(overlapResult==null)return;
+            for(int i=0;i<2;i++)
+            {
+                var b=overlapResult.Boundaries[i];
+                EditorGUILayout.LabelField($"Lens {i+1}: radius {b.Radius*100:F2}% • edge fit {b.Residual*100:F2}% • {b.Evidence} rays",EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.LabelField($"  Boundary-based FOV: {overlapResult.MinimumFov[i]:F1}–{overlapResult.MaximumFov[i]:F1}° by direction",EditorStyles.miniLabel);
+            }
+            string bands=overlapResult.EquatorialBands.Count==0 ? "none" : string.Join("° / ",overlapResult.EquatorialBands)+"°";
+            EditorGUILayout.LabelField("Equatorial overlap bands: "+bands,EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField($"Both lenses: {overlapResult.OverlapPercent:F1}% of sphere • neither: {overlapResult.MissingPercent:F1}%",EditorStyles.wordWrappedMiniLabel);
+            if(overlapMap!=null) { Rect r=GUILayoutUtility.GetAspectRect(2f,GUILayout.ExpandWidth(true));GUI.DrawTexture(r,overlapMap,ScaleMode.StretchToFill,false); }
+            EditorGUILayout.LabelField("Cyan: lens 1 • magenta: lens 2 • white: both • black: neither",EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.HelpBox("Exploratory estimate from 3 decoded frames, fitted circular image boundaries and factory projection at infinity. Dark scenes, occlusion, lens guards and image-edge artifacts can bias the result. This is not the camera's proprietary mask or a measured stitching-quality limit. FOV/export settings are unchanged.",MessageType.Info);
         }
         private void DrawMotionControls(SerializedProperty data)
         {
@@ -415,6 +606,9 @@ namespace FuzzPhyte.Utility.Editor.Video
                 if (settings.stabilizeMotion && source?.Motion?.Ready != true) return source?.Motion?.Status ?? "Load IMU motion before exporting stabilized video.";
                 if (settings.opticalFlow && !FPVideoFarneback.Supported) return "Disable seam flow: this graphics device does not support its compute/float32 requirements.";
                 if (preview == null || source == null) return "Load a source and wait for its first decoded frame.";
+                if (includeAudio && companionLoad != null) return "Wait for the companion WAV to load.";
+                if (includeAudio && !string.IsNullOrEmpty(companionPath) && companionAudio == null) return "Load a valid companion WAV or clear it.";
+                if (includeAudio && companionAudio != null && (!source.Info.HasAudio || source.Info.AudioChannels > 2 || companionAudio.SampleRate != source.Info.AudioSampleRate)) return "Companion mixing requires mono/stereo video audio and a WAV with the same sample rate.";
                 FPVideoUnwrapExport.FrameRange(source.Info, exportIn, exportOut); return null;
             }
             catch (Exception e) { return e.Message; }
@@ -438,7 +632,8 @@ namespace FuzzPhyte.Utility.Editor.Video
                 using (new EditorGUI.DisabledScope(preview?.Texture == null || !FPVideoUnwrapRenderer.SupportsHighPrecision))
                     if (GUILayout.Button("Export current frame (16-bit EXR)…")) ExportExrFrame();
             }
-            if (Busy && GUILayout.Button("Cancel export")) { export.Dispose(); export = null; notice = "Export cancelled; partial files removed."; }
+            if (overlapSampler!=null && GUILayout.Button("Cancel overlap analysis")) { overlapSampler.Dispose(); overlapSampler=null; notice="Overlap analysis cancelled."; }
+            if (export != null && !export.Finished && GUILayout.Button("Cancel export")) { export.Dispose(); export = null; notice = "Export cancelled; partial files removed."; }
             using (new EditorGUI.DisabledScope(export == null || !export.Succeeded))
                 if (GUILayout.Button("Reveal completed output")) EditorUtility.RevealInFinder(export.OutputPath);
         }
@@ -476,7 +671,7 @@ namespace FuzzPhyte.Utility.Editor.Video
                     throw new ArgumentException("Output MP4 must be a full path ending in .mp4.");
                 export?.Dispose();
                 double start = test ? Math.Min(playhead, Duration - 1 / source.Info.FrameRate) : exportIn;
-                export = new FPVideoUnwrapExport(source, settings, start, test ? Math.Min(Duration, start + 2) : exportOut, path, includeAudio, fastAudioTrim);
+                export = new FPVideoUnwrapExport(source, settings, start, test ? Math.Min(Duration, start + 2) : exportOut, path, includeAudio, fastAudioTrim, includeAudio ? companionAudio : null, videoAudioGain, companionAudioGain, companionAudioOffset);
             }
             catch (Exception e) { error = e.Message; export = null; }
         }
@@ -612,7 +807,7 @@ namespace FuzzPhyte.Utility.Editor.Video
         }
         private void DrawTimeline()
         {
-            Rect full = GUILayoutUtility.GetRect(100, 82, GUILayout.ExpandWidth(true)); timelineRect = full;
+            Rect full = GUILayoutUtility.GetRect(100, companionAudio != null ? 126 : 82, GUILayout.ExpandWidth(true)); timelineRect = full;
             double span = Math.Max(.001, viewEnd - viewStart);
             Rect ruler = new Rect(full.x, full.y, full.width, 25), lane = new Rect(full.x, ruler.yMax, full.width, 40);
             FPTimelineViewUtility.DrawRuler(ruler, viewStart, viewEnd);
@@ -621,8 +816,27 @@ namespace FuzzPhyte.Utility.Editor.Video
             EditorGUI.DrawRect(new Rect(a, lane.y + 5, Mathf.Max(0, b - a), lane.height - 10), new Color(.15f, .5f, .7f, .3f));
             FPTimelineViewUtility.DrawPlayhead(lane, exportIn - viewStart, span, InColor, true);
             FPTimelineViewUtility.DrawPlayhead(lane, exportOut - viewStart, span, FP_Utility_Editor.WarningColor, true);
-            FPTimelineViewUtility.DrawPlayhead(new Rect(full.x, full.y, full.width, 65), playhead - viewStart, span, PlayheadColor, true);
-            GUI.Label(new Rect(full.x, lane.yMax, full.width, 17), "Drag: scrub • I/O: range • Space: play • ←/→: frame • Wheel: zoom • Middle drag: pan", EditorStyles.miniLabel);
+            float bottom = lane.yMax;
+            if (companionAudio != null)
+            {
+                Rect audioLane = new Rect(full.x, bottom + 2, full.width, 42);
+                EditorGUI.DrawRect(audioLane, new Color(.12f, .17f, .18f));
+                if (Event.current.type == EventType.Repaint)
+                {
+                    Handles.color = new Color(.35f, .8f, .7f, .8f);
+                    for (int x = 0; x < (int)audioLane.width; x++)
+                    {
+                        double t = viewStart + x * span / Math.Max(1, audioLane.width) - companionAudioOffset;
+                        if (t < 0 || t >= companionAudio.Duration) continue;
+                        int bin = Math.Min(companionAudio.MinEnvelope.Length - 1, (int)(t / companionAudio.Duration * companionAudio.MinEnvelope.Length));
+                        FPAudioWaveformDrawing.DrawColumn(audioLane, audioLane.x + x, companionAudio.MinEnvelope[bin], companionAudio.MaxEnvelope[bin]);
+                    }
+                    Handles.color = Color.white;
+                }
+                GUI.Label(audioLane, "Companion WAV", EditorStyles.miniLabel); bottom = audioLane.yMax;
+            }
+            FPTimelineViewUtility.DrawPlayhead(new Rect(full.x, full.y, full.width, bottom - full.y), playhead - viewStart, span, PlayheadColor, true);
+            GUI.Label(new Rect(full.x, bottom, full.width, 17), "Drag either lane: scrub • I/O: range • Space: play • Wheel: zoom • Middle drag: pan", EditorStyles.miniLabel);
             HandleTimeline(full, lane, span);
         }
         private void HandleTimeline(Rect full, Rect lane, double span)
@@ -677,7 +891,15 @@ namespace FuzzPhyte.Utility.Editor.Video
         private void DrawStatus()
         {
             GUILayout.Label("Precision: native decode 8-bit • processing " + (renderer?.WorkingPrecision ?? "pending") + " • MP4 8-bit • EXR FP16", EditorStyles.wordWrappedMiniLabel);
-            if (Busy) { Rect rect = GUILayoutUtility.GetRect(100, 20, GUILayout.ExpandWidth(true)); EditorGUI.ProgressBar(rect, export.Progress, export.Status); }
+            if (overlapSampler != null)
+            {
+                Rect rect = GUILayoutUtility.GetRect(100, 20, GUILayout.ExpandWidth(true));
+                EditorGUI.ProgressBar(rect, overlapSampler.Samples / 4f, $"Analyzing lens boundaries • {overlapSampler.Samples}/3 frames");
+            }
+            else if (export != null && !export.Finished)
+            {
+                Rect rect = GUILayoutUtility.GetRect(100, 20, GUILayout.ExpandWidth(true)); EditorGUI.ProgressBar(rect, export.Progress, export.Status);
+            }
             if (calibrationView >= FPVideoCalibrationView.FlowVectors && !settings.opticalFlow)
                 EditorGUILayout.HelpBox("Enable Farnebäck correction to inspect flow diagnostics. Warped Difference uses magenta for rejected overlap matches; inspect Flow Confidence alongside it.",MessageType.Info);
             GUILayout.Label(preview == null ? notice : $"Requested {playhead:F3} s • Displayed {preview.PresentedSeconds:F3} s • {preview.BackendStatus} • {(preview.UsesGpu ? "Submit" : "Decode")} {preview.LastDecodeMilliseconds:F1} ms • {preview.Texture?.width} × {preview.Texture?.height} preview • Preview audio muted", EditorStyles.wordWrappedMiniLabel);

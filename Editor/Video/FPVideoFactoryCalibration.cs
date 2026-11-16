@@ -90,8 +90,12 @@ namespace FuzzPhyte.Utility.Editor.Video
         }
         internal Vector2 Project(Vector3 worldRay, int track)
         {
-            int index = LensIndex(track); var v = lenses[index].values;
             Vector3 ray = WorldToLens(track).MultiplyVector(worldRay.normalized);
+            return ProjectCameraRay(ray, track);
+        }
+        internal Vector2 ProjectCameraRay(Vector3 ray, int track)
+        {
+            int index = LensIndex(track); var v = lenses[index].values;
             double denominator = ray.z + v[0], x = ray.x / denominator, y = -ray.y / denominator;
             double r2 = x * x + y * y, r4 = r2 * r2;
             double radial = 1 + r2 * (v[11] + r2 * (v[12] + r2 * (v[13] + r2 * (v[14] + r2 * v[15]))));

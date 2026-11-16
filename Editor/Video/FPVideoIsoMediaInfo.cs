@@ -14,14 +14,20 @@ namespace FuzzPhyte.Utility.Editor.Video
         internal long FrameCount;
         internal double Duration;
         internal bool ConstantFrameRate = true;
+        internal long MissingFrameIndex = -1;
+        internal bool CanExportTiming => ConstantFrameRate || MissingFrameIndex >= 0;
+        internal long TimelineFrameCount => FrameCount + (MissingFrameIndex >= 0 ? 1 : 0);
         internal sealed class VideoTrack
         {
             internal long TypeOffset, Frames;
             internal int Width, Height;
             internal uint Scale, Delta;
             internal bool Constant;
+            internal long MissingFrameIndex;
         }
         internal readonly List<VideoTrack> VideoTracks = new List<VideoTrack>();
+        internal sealed class AudioTrack { internal int Channels, SampleRate; }
+        internal readonly List<AudioTrack> AudioTracks = new List<AudioTrack>();
         internal double FrameRate => FrameDelta == 0 ? 0 : (double)TimeScale / FrameDelta;
         internal bool HasAudio => AudioChannels > 0;
         internal uint RateNumerator => TimeScale / Gcd(TimeScale, FrameDelta);
@@ -66,13 +72,20 @@ namespace FuzzPhyte.Utility.Editor.Video
             }
             if (info.Width <= 0 || info.Height <= 0 || info.FrameCount <= 0 || info.FrameDelta == 0 || info.TimeScale == 0)
                 throw new InvalidDataException("No supported MP4 video sample table. Fragmented MP4 and non-MP4 LRV files are unsupported.");
+            if (info.VideoTracks.Exists(t => !t.Constant)) info.ConstantFrameRate = false;
+            if (!info.ConstantFrameRate && info.VideoTracks.Count > 0 && info.VideoTracks[0].MissingFrameIndex >= 0)
+            {
+                long gap = info.VideoTracks[0].MissingFrameIndex;
+                if (info.VideoTracks.TrueForAll(t => t.MissingFrameIndex == gap && t.Frames == info.FrameCount && t.Scale == info.TimeScale && t.Delta == info.FrameDelta))
+                    info.MissingFrameIndex = gap;
+            }
             return info;
         }
 
         private static void ReadTrack(BinaryReader r, Box track, FPVideoIsoMediaInfo info)
         {
             string handler = null; uint scale = 0, delta = 0; ulong duration = 0; long count = 0;
-            int width = 0, height = 0, channels = 0, rate = 0; bool constant = true;
+            int width = 0, height = 0, channels = 0, rate = 0; bool constant = true, validGap = true; long gap = -1;
             // Only descend the container boxes required for stream metadata.
             Action<long> visit = null;
             visit = end =>
@@ -102,19 +115,34 @@ namespace FuzzPhyte.Utility.Editor.Video
                     {
                         r.BaseStream.Position = b.Data + 4; uint entries = U32(r);
                         if (entries > (b.End - r.BaseStream.Position) / 8) throw new InvalidDataException("Invalid MP4 sample timing table.");
-                        for (uint i = 0; i < entries; i++) { uint n = U32(r), d = U32(r); count += n; if (delta == 0) delta = d; else if (delta != d) constant = false; }
+                        for (uint i = 0; i < entries; i++)
+                        {
+                            uint n = U32(r), d = U32(r);
+                            if (delta == 0) delta = d;
+                            else if (delta != d)
+                            {
+                                constant = false;
+                                if (validGap && gap < 0 && n == 1 && (ulong)d == (ulong)delta * 2) gap = count + 1;
+                                else validGap = false;
+                            }
+                            count += n;
+                        }
                     }
                     r.BaseStream.Position = b.End;
                 }
             };
             visit(track.End);
-            if (handler == "vide") info.VideoTracks.Add(new VideoTrack { TypeOffset=track.TypeOffset,Width=width,Height=height,Scale=scale,Delta=delta,Frames=count,Constant=constant });
+            if (handler == "vide") info.VideoTracks.Add(new VideoTrack { TypeOffset=track.TypeOffset,Width=width,Height=height,Scale=scale,Delta=delta,Frames=count,Constant=constant, MissingFrameIndex = validGap && gap > 0 && gap < count ? gap : -1 });
             if (handler == "vide" && info.Width == 0)
             {
                 info.Width = width; info.Height = height; info.TimeScale = scale; info.FrameDelta = delta;
                 info.FrameCount = count; info.Duration = scale == 0 ? 0 : (double)duration / scale; info.ConstantFrameRate = constant;
             }
-            else if (handler == "soun" && info.AudioChannels == 0) { info.AudioChannels = channels; info.AudioSampleRate = rate; }
+            else if (handler == "soun")
+            {
+                info.AudioTracks.Add(new AudioTrack { Channels = channels, SampleRate = rate });
+                if (info.AudioTracks.Count == 1) { info.AudioChannels = channels; info.AudioSampleRate = rate; }
+            }
         }
     }
 }

@@ -10,6 +10,14 @@ namespace FuzzPhyte.Utility.Editor.Tests
 
     public sealed class FPVideoAudioSeekTests
     {
+        [TestCase(2591744,2592190,true)]
+        [TestCase(2590000,2592401,false)]
+        [TestCase(100,100,false)]
+        [TestCase(-1,100,false)]
+        public void TailPaddingIsLimitedToFiftyMilliseconds(long current,long end,bool allowed)
+        {
+            Assert.That(FPVideoUnwrapExport.CanPadAudioTail(current,end,48000),Is.EqualTo(allowed));
+        }
         // Interleaved stereo PCM on the source's 48 kHz clock, with no resampling.
         private static float[] ReadWindow(FPVideoNativeDecoder decoder, long discard, int count)
         {

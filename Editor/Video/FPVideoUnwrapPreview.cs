@@ -38,8 +38,8 @@ namespace FuzzPhyte.Utility.Editor.Video
             capacity = Math.Max(1, Math.Min(8, (int)(64L * 1024 * 1024 / ((long)decodedWidth * decodedHeight * 8))));
             if (useGpu)
             {
-                if (!info.ConstantFrameRate) throw new NotSupportedException("GPU preview requires constant-frame-rate source timing. Choose CPU preview for this source.");
-                gpu = new FPVideoGpuPreview(source.DecodePath,source.SecondDecodePath,decodedWidth,decodedHeight,info.FrameRate,info.FrameCount);
+                if (!info.CanExportTiming) throw new NotSupportedException("GPU preview supports constant timing or one matching single-frame gap. Choose CPU preview for this source.");
+                gpu = new FPVideoGpuPreview(source.DecodePath,source.SecondDecodePath,decodedWidth,decodedHeight,info.FrameRate,info.FrameCount,info.MissingFrameIndex);
                 return;
             }
             decoder = new FPVideoNativeDecoder(source.DecodePath,source.SecondDecodePath);

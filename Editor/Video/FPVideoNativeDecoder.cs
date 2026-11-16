@@ -134,7 +134,7 @@ namespace FuzzPhyte.Utility.Editor.Video
             }
             throw new InvalidOperationException("Native seek preroll exceeded 512 frames.");
         }
-        internal int ReadAudio(NativeArray<float> samples) => readSamples(0, samples);
+        internal int ReadAudio(NativeArray<float> samples, ushort track = 0) => readSamples(track, samples);
         private void ReleaseLenses() { UnityEngine.Object.DestroyImmediate(lensA); UnityEngine.Object.DestroyImmediate(lensB); lensA=lensB=null; }
         public void Dispose() { second?.Dispose(); ReleaseLenses(); UnityEngine.Object.DestroyImmediate(decodeFrame); decoder.Dispose(); }
     }
@@ -170,8 +170,8 @@ namespace FuzzPhyte.Utility.Editor.Video
             {
                 var a=Info.VideoTracks[0]; var b=Info.VideoTracks[1];
                 if (a.Width != a.Height || a.Width != b.Width || a.Height != b.Height || a.Frames != b.Frames ||
-                    a.Scale != b.Scale || a.Delta != b.Delta || !a.Constant || !b.Constant || a.Width*2 > 8192)
-                    throw new NotSupportedException("INSV requires two matching square, constant-rate lens tracks with combined width up to 8192.");
+                    a.Scale != b.Scale || a.Delta != b.Delta || a.Width*2 > 8192)
+                    throw new NotSupportedException("INSV requires two matching square lens tracks with matching initial timing and combined width up to 8192.");
                 Info.Width *= 2; length *= 2;
             }
             if (!insv && !string.Equals(Path.GetExtension(path), ".lrv", StringComparison.OrdinalIgnoreCase))

@@ -8,24 +8,87 @@ namespace FuzzPhyte.Utility.Editor.Tests
     using FuzzPhyte.Utility.Editor.Video;
     using NUnit.Framework;
     using UnityEditor.Media;
+    using Unity.Collections;
     using UnityEngine;
 
     public sealed class FPVideoInsvTests
     {
+        [Test]
+        public void CompanionWavMixUsesSourceTimeOffsetGainsAndChannelMapping()
+        {
+            string path=Path.Combine(Path.GetTempPath(),"FPVideoAudio_"+Guid.NewGuid().ToString("N")+".wav");
+            try
+            {
+                using(var w=new BinaryWriter(File.Create(path)))
+                {
+                    w.Write(Encoding.ASCII.GetBytes("RIFF")); w.Write(40); w.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
+                    w.Write(16); w.Write((short)1); w.Write((short)1); w.Write(48000); w.Write(96000); w.Write((short)2); w.Write((short)16);
+                    w.Write(Encoding.ASCII.GetBytes("data")); w.Write(4); w.Write((short)16384); w.Write((short)-16384);
+                }
+                var audio=FPVideoCompanionAudio.Read(path); Assert.That(audio.Channels,Is.EqualTo(1));
+                using(var buffer=new NativeArray<float>(new[]{.25f,.25f,.25f,.25f,.25f,.25f},Allocator.Temp))
+                {
+                    FPVideoUnwrapExport.MixAudio(buffer,0,6,2,9,2,audio,1,10);
+                    Assert.That(buffer[0],Is.EqualTo(.5f).Within(.0001)); Assert.That(buffer[2],Is.EqualTo(1f).Within(.0001));
+                    Assert.That(buffer[3],Is.EqualTo(1f).Within(.0001)); Assert.That(buffer[4],Is.EqualTo(0).Within(.0001));
+                }
+            }
+            finally { File.Delete(path); }
+        }
         private static byte[] U32(uint n) => new[]{(byte)(n>>24),(byte)(n>>16),(byte)(n>>8),(byte)n};
         private static byte[] Box(string type,params byte[][] data)
         {
             var payload=data.SelectMany(x=>x).ToArray();
             return U32((uint)(8+payload.Length)).Concat(Encoding.ASCII.GetBytes(type)).Concat(payload).ToArray();
         }
-        private static byte[] Track(int width=64)
+        private static byte[] Track(int width=64, bool variable=false)
         {
             var sample=new byte[28];sample[24]=(byte)(width>>8);sample[25]=(byte)width;sample[27]=64;
             return Box("trak",Box("mdia",
                 Box("hdlr",new byte[8],Encoding.ASCII.GetBytes("vide")),
                 Box("mdhd",new byte[12],U32(5000),U32(1000)),
                 Box("minf",Box("stbl",Box("stsd",new byte[4],U32(1),Box("hvc1",sample)),
-                    Box("stts",new byte[4],U32(1),U32(5),U32(200))))));
+                    Box("stts",new byte[4],U32(variable ? 2u : 1u),U32(variable ? 4u : 5u),U32(200), variable ? U32(1).Concat(U32(400)).ToArray() : new byte[0])))));
+        }
+        private static byte[] GapTrack()
+        {
+            var sample=new byte[28]; sample[25]=64; sample[27]=64;
+            return Box("trak",Box("mdia",Box("hdlr",new byte[8],Encoding.ASCII.GetBytes("vide")),
+                Box("mdhd",new byte[12],U32(5000),U32(1400)),Box("minf",Box("stbl",Box("stsd",new byte[4],U32(1),Box("hvc1",sample)),
+                Box("stts",new byte[4],U32(3),U32(4),U32(200),U32(1),U32(400),U32(1),U32(200))))));
+        }
+        [Test]
+        public void MatchingOneFrameGapPreservesTimelineAndRejectsMismatchedLenses()
+        {
+            string folder=Path.Combine(Path.GetTempPath(),"FPVideoInsvTest_"+Guid.NewGuid().ToString("N")); Directory.CreateDirectory(folder);
+            try
+            {
+                string path=Path.Combine(folder,"gap.insv"); File.WriteAllBytes(path,Box("moov",GapTrack(),GapTrack()));
+                var info=FPVideoIsoMediaInfo.Read(path);
+                Assert.That(info.MissingFrameIndex,Is.EqualTo(5)); Assert.That(info.TimelineFrameCount,Is.EqualTo(7));
+                Assert.That(FPVideoUnwrapExport.FrameRange(info,0,info.Duration).end,Is.EqualTo(7));
+                File.WriteAllBytes(path,Box("moov",GapTrack(),Track()));
+                Assert.That(FPVideoIsoMediaInfo.Read(path).CanExportTiming,Is.False);
+            }
+            finally { Directory.Delete(folder,true); }
+        }
+
+        [Test]
+        public void VariableTimingPairedSourceStagesForPreviewButRejectsVideoExport()
+        {
+            string folder=Path.Combine(Path.GetTempPath(),"FPVideoInsvTest_"+Guid.NewGuid().ToString("N")); Directory.CreateDirectory(folder);
+            try
+            {
+                string path=Path.Combine(folder,"variable.insv"); File.WriteAllBytes(path,Box("moov",Track(variable:true),Track(variable:true)));
+                using(var source=new FPVideoNativeSource(path))
+                {
+                    source.Ready.GetAwaiter().GetResult();
+                    Assert.That(source.Info.ConstantFrameRate,Is.False);
+                    Assert.That(source.SecondDecodePath,Is.Not.Null);
+                    Assert.Throws<NotSupportedException>(()=>FPVideoUnwrapExport.FrameRange(source.Info,0,.1));
+                }
+            }
+            finally { System.Threading.SpinWait.SpinUntil(()=>Directory.GetFiles(folder).Length == 1,2000); Directory.Delete(folder,true); }
         }
 
         [Test]
@@ -60,14 +123,14 @@ namespace FuzzPhyte.Utility.Editor.Tests
             finally { Directory.Delete(folder,true); }
         }
 
-        internal static void Encode(string path,Color color)
+        internal static void Encode(string path,Color color,int frames=4)
         {
             var texture=new Texture2D(64,64,TextureFormat.RGBA32,false);
             try
             {
                 texture.SetPixels(Enumerable.Repeat(color,64*64).ToArray());texture.Apply();
                 using(var encoder=new MediaEncoder(path,new VideoTrackAttributes { width=64,height=64,frameRate=new MediaRational(25),includeAlpha=false }))
-                    for(int i=0;i<4;i++)Assert.That(encoder.AddFrame(texture),Is.True);
+                    for(int i=0;i<frames;i++)Assert.That(encoder.AddFrame(texture),Is.True);
             }
             finally { UnityEngine.Object.DestroyImmediate(texture); }
         }

@@ -19,9 +19,14 @@ namespace FuzzPhyte.Utility.Editor.Video
             public FPVideoUnwrapSettings settings;
             public double sourceInSeconds, sourceOutSeconds;
             public long frames, audioSampleFrames;
+            public long audioSilencePaddedFrames;
             public uint frameRateNumerator, frameRateDenominator;
             public bool includesAudio;
             public string audioTrimMethod;
+            public string timingAdjustment;
+            public string companionAudio;
+            public float videoAudioGain, companionAudioGain;
+            public double companionAudioOffsetSeconds;
             public string sourceDecodePrecision, processingPrecision, outputPrecision;
             public string motionMethod;
             public long audioSeekSampleFrame;
@@ -37,14 +42,21 @@ namespace FuzzPhyte.Utility.Editor.Video
         private readonly string temporaryPath;
         private readonly string sourceMotionProvenance;
         private readonly bool audio;
+        private readonly FPVideoCompanionAudio companion;
+        private readonly float videoGain, companionGain;
+        private readonly double companionOffset;
+        private readonly long companionOffsetFrames;
         private FPVideoNativeDecoder videoDecoder, audioDecoder;
         private FPVideoUnwrapRenderer renderer;
         private MediaEncoder encoder;
         private Texture2D sourceTexture, outputTexture, audioPumpTexture;
         private NativeArray<float> audioBuffer;
         private int audioOffset, audioCount;
+        private bool audioDecoderEof;
+        private long silencePaddedFrames;
         private readonly long firstFrame, endFrame, firstSample, audioStartSample;
         private long frame, consumedSamples, writtenSampleFrames;
+        private bool gapPrimed;
         private Task<string> hashTask;
         private bool disposed;
         private readonly Stopwatch elapsed = new Stopwatch();
@@ -64,14 +76,14 @@ namespace FuzzPhyte.Utility.Editor.Video
         {
             if (double.IsNaN(start) || double.IsInfinity(start) || double.IsNaN(end) || double.IsInfinity(end) || start < 0 || end > info.Duration + .000001 || start >= end)
                 throw new ArgumentException("Export range must be inside the source with Out greater than In.");
-            if (!info.ConstantFrameRate) throw new NotSupportedException("Variable-frame-rate export is not supported; preview remains available.");
+            if (!info.CanExportTiming) throw new NotSupportedException("This variable-frame-rate timing is not supported for export; preview remains available.");
             long a = Math.Max(0, (long)Math.Ceiling(start * info.FrameRate - .000001));
-            long b = Math.Min(info.FrameCount, (long)Math.Ceiling(end * info.FrameRate - .000001));
+            long b = Math.Min(info.TimelineFrameCount, (long)Math.Ceiling(end * info.FrameRate - .000001));
             if (b <= a) throw new ArgumentException("The export range contains no complete source frame.");
             return (a, b);
         }
 
-        internal FPVideoUnwrapExport(FPVideoNativeSource source, FPVideoUnwrapSettings settings, double start, double end, string outputPath, bool includeAudio, bool seekAudio = true)
+        internal FPVideoUnwrapExport(FPVideoNativeSource source, FPVideoUnwrapSettings settings, double start, double end, string outputPath, bool includeAudio, bool seekAudio = true, FPVideoCompanionAudio companion = null, float videoGain = 1, float companionGain = 1, double companionOffset = 0)
         {
             settings.Validate();
             if (settings.stabilizeMotion && (source.Motion == null || !source.Motion.Ready || source.Motion.Error != null)) throw new InvalidOperationException("Wait for validated IMU motion before exporting stabilized video.");
@@ -85,11 +97,17 @@ namespace FuzzPhyte.Utility.Editor.Video
             if (!Directory.Exists(Path.GetDirectoryName(OutputPath))) throw new DirectoryNotFoundException("Choose an existing output folder.");
             temporaryPath = Path.Combine(Path.GetDirectoryName(OutputPath), "." + Path.GetFileNameWithoutExtension(OutputPath) + "." + Guid.NewGuid().ToString("N") + ".partial.mp4");
             audio = includeAudio && info.HasAudio;
+            if (companion != null && !audio) throw new NotSupportedException("Companion audio mixing requires the source video audio track and Preserve audio enabled.");
+            if (companion != null && (companion.SampleRate != info.AudioSampleRate || info.AudioChannels > 2)) throw new NotSupportedException("Companion WAV must match the video audio sample rate; mixing supports mono or stereo video audio.");
+            if (float.IsNaN(videoGain) || float.IsInfinity(videoGain) || videoGain < 0 || videoGain > 4 || float.IsNaN(companionGain) || float.IsInfinity(companionGain) || companionGain < 0 || companionGain > 4 || double.IsNaN(companionOffset) || double.IsInfinity(companionOffset) || Math.Abs(companionOffset) > 86400)
+                throw new ArgumentException("Audio gains must be 0–4 and the companion offset within 24 hours.");
+            this.companion = companion; this.videoGain = videoGain; this.companionGain = companionGain; this.companionOffset = companionOffset;
+            companionOffsetFrames = audio ? (long)Math.Round(companionOffset * info.AudioSampleRate) : 0;
             if (audio && (info.AudioChannels > 8 || info.AudioSampleRate <= 0)) throw new NotSupportedException("Unsupported source audio layout.");
             firstSample = audio ? (long)Math.Round(firstFrame / info.FrameRate * info.AudioSampleRate) * info.AudioChannels : 0;
             try
             {
-                videoDecoder = new FPVideoNativeDecoder(source.DecodePath,source.SecondDecodePath); videoDecoder.Seek(firstFrame / info.FrameRate);
+                videoDecoder = new FPVideoNativeDecoder(source.DecodePath,source.SecondDecodePath); videoDecoder.Seek((firstFrame == info.MissingFrameIndex ? firstFrame - 1 : firstFrame) / info.FrameRate);
                 sourceTexture = new Texture2D(info.Width, info.Height, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
                 outputTexture = new Texture2D(settings.width, settings.height, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
                 renderer = new FPVideoUnwrapRenderer();
@@ -143,11 +161,17 @@ namespace FuzzPhyte.Utility.Editor.Video
                 while (frame < endFrame && processed < frameLimit && (processed == 0 || budget.ElapsedMilliseconds < 12))
                 {
                     processed++;
-                    if (!videoDecoder.Read(sourceTexture, out double pts)) throw new EndOfStreamException("Video ended before the selected Out point.");
-                    if (frame == firstFrame && pts + .000001 < firstFrame / info.FrameRate) continue;
-                    if (double.IsNaN(pts) || Math.Abs(pts - frame / info.FrameRate) > .5 / info.FrameRate + .00001)
-                        throw new InvalidDataException($"Unexpected video timestamp {pts:F6}; expected {frame / info.FrameRate:F6}. Export stopped to preserve timing.");
-                    renderer.Render(sourceTexture, settings, settings.width, settings.height, sourceSeconds: pts, frameSeconds: 1 / info.FrameRate); renderer.ReadBack(outputTexture, false);
+                    bool repeat = frame == info.MissingFrameIndex;
+                    if (!repeat || (frame == firstFrame && !gapPrimed))
+                    {
+                        long expected = repeat ? frame - 1 : frame;
+                        if (!videoDecoder.Read(sourceTexture, out double pts)) throw new EndOfStreamException("Video ended before the selected Out point.");
+                        if (frame == firstFrame && pts + .000001 < expected / info.FrameRate) continue;
+                        if (double.IsNaN(pts) || Math.Abs(pts - expected / info.FrameRate) > .5 / info.FrameRate + .00001)
+                            throw new InvalidDataException($"Unexpected video timestamp {pts:F6}; expected {expected / info.FrameRate:F6}. Export stopped to preserve timing.");
+                        renderer.Render(sourceTexture, settings, settings.width, settings.height, sourceSeconds: pts, frameSeconds: 1 / info.FrameRate); renderer.ReadBack(outputTexture, false);
+                        gapPrimed = true;
+                    }
                     if (!encoder.AddFrame(outputTexture)) throw new IOException("Unity's encoder rejected a video frame.");
                     frame++;
                     if (audio)
@@ -170,18 +194,43 @@ namespace FuzzPhyte.Utility.Editor.Video
             {
                 // The native decoder queues audio as its video demuxer advances; zero is not necessarily EOF.
                 audioCount = audioDecoder.ReadAudio(audioBuffer); audioOffset = 0;
-                for (int i = 0; audioCount == 0 && i < 512; i++)
+                for (int i = 0; !audioDecoderEof && audioCount == 0 && i < 512; i++)
                 {
-                    if (!audioDecoder.Read(audioPumpTexture, out _)) break;
+                    if (!audioDecoder.Read(audioPumpTexture, out _)) audioDecoderEof = true;
+                    // A final demux/decode step can queue samples even when no video frame is returned.
                     audioCount = audioDecoder.ReadAudio(audioBuffer);
                 }
-                if (audioCount <= 0 || audioCount > audioBuffer.Length || audioCount % info.AudioChannels != 0)
-                    throw new EndOfStreamException("Audio ended early or returned an invalid sample block. Export was not published.");
+                if (audioCount < 0 || audioCount > audioBuffer.Length || audioCount % info.AudioChannels != 0)
+                    throw new InvalidDataException($"Audio decoder returned an invalid sample block ({audioCount} samples). Export was not published.");
+                if (audioCount == 0)
+                {
+                    long endSampleFrame = firstSample / info.AudioChannels + (long)Math.Round((endFrame - firstFrame) / info.FrameRate * info.AudioSampleRate);
+                    long currentSampleFrame = consumedSamples / info.AudioChannels;
+                    if (!write || !audioDecoderEof || !CanPadAudioTail(currentSampleFrame, endSampleFrame, info.AudioSampleRate))
+                        throw new EndOfStreamException($"Embedded audio ended at {currentSampleFrame / (double)info.AudioSampleRate:F3} s before the requested output end ({endSampleFrame / (double)info.AudioSampleRate:F3} s). Export was not published.");
+                    audioCount = (int)Math.Min(requested, (endSampleFrame - currentSampleFrame) * info.AudioChannels);
+                    for (int i = 0; i < audioCount; i++) audioBuffer[i] = 0;
+                    silencePaddedFrames += audioCount / info.AudioChannels;
+                }
             }
             int count = Math.Min(requested, audioCount - audioOffset);
+            if (write && (videoGain != 1 || companion != null))
+                MixAudio(audioBuffer, audioOffset, count, info.AudioChannels, consumedSamples / info.AudioChannels, videoGain, companion, companionGain, companionOffsetFrames);
             if (write && !encoder.AddSamples(audioBuffer.GetSubArray(audioOffset, count))) throw new IOException("Unity's encoder rejected audio samples.");
             audioOffset += count; consumedSamples += count;
             if (write) writtenSampleFrames += count / info.AudioChannels;
+        }
+        // Bound padding to a short encoder/recording tail; do not mask missing audio within a recording.
+        internal static bool CanPadAudioTail(long currentSampleFrame, long endSampleFrame, int sampleRate) =>
+            sampleRate > 0 && currentSampleFrame >= 0 && endSampleFrame > currentSampleFrame && endSampleFrame - currentSampleFrame <= Math.Ceiling(sampleRate * .05);
+        internal static void MixAudio(NativeArray<float> buffer, int offset, int count, int channels, long startFrame, float videoGain, FPVideoCompanionAudio companion, float companionGain, long companionOffsetFrames)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                float sample = buffer[offset + i] * videoGain;
+                if (companion != null) sample += companion.Sample(startFrame + i / channels, i % channels, channels, companionOffsetFrames) * companionGain;
+                buffer[offset + i] = Math.Max(-1, Math.Min(1, sample));
+            }
         }
         private void Publish()
         {
@@ -191,6 +240,9 @@ namespace FuzzPhyte.Utility.Editor.Video
                 sourceInSeconds = firstFrame / info.FrameRate, sourceOutSeconds = endFrame / info.FrameRate,
                 frames = endFrame - firstFrame, frameRateNumerator = info.RateNumerator, frameRateDenominator = info.RateDenominator,
                 includesAudio = audio, audioSampleFrames = writtenSampleFrames,
+                audioSilencePaddedFrames = silencePaddedFrames,
+                companionAudio = companion?.Path, videoAudioGain = videoGain, companionAudioGain = companionGain, companionAudioOffsetSeconds = companionOffset,
+                timingAdjustment = info.MissingFrameIndex >= firstFrame && info.MissingFrameIndex < endFrame ? $"Repeated preceding frame at timeline frame {info.MissingFrameIndex} to preserve a one-frame source timing gap." : "None",
                 sourceDecodePrecision = "8-bit native video decode",
                 processingPrecision = FPVideoUnwrapRenderer.SupportsHighPrecision ? "FP16 linear RGB" : "8-bit SDR fallback",
                 outputPrecision = "8-bit H.264 SDR",

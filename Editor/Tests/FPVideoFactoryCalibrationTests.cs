@@ -10,6 +10,45 @@ namespace FuzzPhyte.Utility.Editor.Tests
 
     public sealed class FPVideoFactoryCalibrationTests
     {
+        private static Color32[] CircularLensFixture(int side, float radius)
+        {
+            int width=side*2;var pixels=new Color32[width*side];
+            for(int y=0;y<side;y++)for(int x=0;x<width;x++)
+            {
+                double dx=(x%side+.5)/side-.5,dy=(y+.5)/side-.5;
+                byte value=dx*dx+dy*dy<radius*radius?(byte)200:(byte)0;
+                pixels[y*width+x]=new Color32(value,value,value,255);
+            }
+            return pixels;
+        }
+
+        [Test]
+        public void CircularBoundaryUsesObservedEdgeAndRejectsDarkImage()
+        {
+            var image=CircularLensFixture(512,.49f);
+            for(int track=0;track<2;track++)
+            {
+                var boundary=FPVideoOverlapAnalysis.DetectBoundary(image,1024,512,track);
+                Assert.That(boundary.Radius,Is.EqualTo(.49).Within(.006));
+                Assert.That(boundary.X,Is.EqualTo(.5).Within(.006));
+                Assert.That(boundary.Evidence,Is.GreaterThanOrEqualTo(40));
+            }
+            Assert.Throws<InvalidOperationException>(()=>FPVideoOverlapAnalysis.DetectBoundary(new Color32[1024*512],1024,512,0));
+            var clipped=CircularLensFixture(512,.525f);
+            Assert.That(FPVideoOverlapAnalysis.DetectBoundary(clipped,1024,512,0).Radius,Is.EqualTo(.525).Within(.006));
+        }
+
+        [Test]
+        public void FactoryOverlapEstimateRespondsToBoundarySafetyMargin()
+        {
+            var model=FPVideoFactoryCalibration.Parse(X6,4);var image=CircularLensFixture(512,.49f);
+            var wide=FPVideoOverlapAnalysis.Calculate(model,image,1024,512,0);
+            var safe=FPVideoOverlapAnalysis.Calculate(model,image,1024,512,.01);
+            Assert.That(wide.OverlapPercent,Is.GreaterThan(safe.OverlapPercent));
+            Assert.That(wide.MinimumFov[0],Is.GreaterThan(safe.MinimumFov[0]));
+            Assert.That(safe.EquatorialBands.Count,Is.GreaterThanOrEqualTo(2));
+            Assert.That(safe.Map.Length,Is.EqualTo(FPVideoOverlapAnalysis.MapWidth*FPVideoOverlapAnalysis.MapHeight));
+        }
         // Calibration only from the user's X6. No serial number, location or camera media is bundled.
         internal const string X6 = "2_2.455430_7197.990_7197.990_3857.430_3882.430_0.111_0.587_89.969_0.000000_0.000000_0.000000_1.25771189_-0.41751385_-2.32294750_24.16248894_0.00000000_0.00129065_0.00375834_0.00118109_-0.00433409_-0.00333254_-0.00348473_0.03142127_0.02579573_15488_7744_193_2.455430_7237.600_7237.600_11612.700_3876.060_-0.080_0.276_89.129_-0.000173_-0.000123_-0.032631_1.29791701_-1.30203509_4.20809793_5.29687166_0.00000000_-0.00019950_-0.00101663_0.00682494_0.00928172_-0.00057409_0.00078010_-0.01744008_-0.00634739_15488_7744_193_394240";
 
